@@ -54,7 +54,12 @@ public abstract class ScreenSpaceMixin {
 		if (CraftingSidebarType.isOurs(type)) {
 			return true;
 		}
-		// Fallback for when the page type could not be registered.
+		// The nominated-panel fallback exists only for when the page type could not be registered.
+		// With a real Crafting page available, honouring it as well would take over the Favourites
+		// page on the very sidebar the player put both pages on.
+		if (CraftingSidebarType.TYPE != null) {
+			return false;
+		}
 		return type == SidebarType.FAVORITES && emitreetabs$isNominatedPanel();
 	}
 
