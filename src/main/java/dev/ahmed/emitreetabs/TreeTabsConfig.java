@@ -33,11 +33,6 @@ public final class TreeTabsConfig {
 	/** Crafting mode gathers what to make from every tracked tree, not just the visible one. */
 	public static boolean aggregateCraftingFavorites = true;
 	/**
-	 * Keep the crafting list out of your real favourites. While crafting mode is on the favourites
-	 * sidebar shows only what the trees still need; the rest of the time it shows only favourites.
-	 */
-	public static boolean separateCraftingFavorites = false;
-	/**
 	 * Refuse to open more than this many tabs at once. Each open tab retains a whole material graph,
 	 * so this is the main lever on how much memory the mod holds.
 	 */
@@ -132,7 +127,6 @@ public final class TreeTabsConfig {
 			showProgress = bool(obj, "showProgress", showProgress);
 			barAtBottom = bool(obj, "barAtBottom", barAtBottom);
 			aggregateCraftingFavorites = bool(obj, "aggregateCraftingFavorites", aggregateCraftingFavorites);
-			separateCraftingFavorites = bool(obj, "separateCraftingFavorites", separateCraftingFavorites);
 			maxTabs = clamp(integer(obj, "maxTabs", maxTabs), 1, 256);
 			sharedCraftingInventory = bool(obj, "sharedCraftingInventory", sharedCraftingInventory);
 			progressIntervalMs = clamp(integer(obj, "progressIntervalMs", progressIntervalMs), 100, 60_000);
@@ -160,7 +154,6 @@ public final class TreeTabsConfig {
 		obj.addProperty("showProgress", showProgress);
 		obj.addProperty("barAtBottom", barAtBottom);
 		obj.addProperty("aggregateCraftingFavorites", aggregateCraftingFavorites);
-		obj.addProperty("separateCraftingFavorites", separateCraftingFavorites);
 		obj.addProperty("maxTabs", maxTabs);
 		obj.addProperty("sharedCraftingInventory", sharedCraftingInventory);
 		obj.addProperty("progressIntervalMs", progressIntervalMs);

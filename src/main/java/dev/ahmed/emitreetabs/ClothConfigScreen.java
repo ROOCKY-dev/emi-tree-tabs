@@ -87,11 +87,6 @@ public final class ClothConfigScreen {
 				.setTooltip(key("sharedCraftingInventory.tooltip"))
 				.setSaveConsumer(value -> TreeTabsConfig.sharedCraftingInventory = value)
 				.build());
-		crafting.addEntry(entries.startBooleanToggle(key("separateCraftingFavorites"), TreeTabsConfig.separateCraftingFavorites)
-				.setDefaultValue(false)
-				.setTooltip(key("separateCraftingFavorites.tooltip"))
-				.setSaveConsumer(value -> TreeTabsConfig.separateCraftingFavorites = value)
-				.build());
 
 		ConfigCategory sidebar = builder.getOrCreateCategory(key("category.sidebar"));
 		sidebar.addEntry(entries.startStringDropdownMenu(key("craftingPanelSide"), TreeTabsConfig.craftingPanelSide)

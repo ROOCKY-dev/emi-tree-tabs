@@ -103,8 +103,7 @@ up within a couple of seconds without restarting.
 | `groupCraftingList` | `true` | Split the crafting list into sections |
 | `showGroupSeparators` | `true` | Draw a rule between sections |
 | `collapsibleGroups` | `true` | Click a section title to fold it |
-| `craftingInFavorites` | `true` | Allow the favourites sidebar to carry the crafting list |
-| `separateCraftingFavorites` | `false` | Never mix the two in the favourites panel |
+| `craftingInFavorites` | `true` | Allow the favourites sidebar to also carry the crafting list. Ignored once a Crafting page is placed, since it would otherwise show twice |
 | `craftingPanelSide` | `NONE` | Fallback: take over one side's Favourites panel |
 
 ---

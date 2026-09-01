@@ -193,57 +193,38 @@ public final class CraftingFavorites {
 	}
 
 	/**
-	 * Identical to EMI's own compound list (favourites then crafting entries) unless
-	 * {@code separateCraftingFavorites} is on, in which case the two never appear together: crafting
-	 * mode shows only the crafting list, and the rest of the time only real favourites.
+	 * EMI's own compound list (favourites, then the crafting entries), with the crafting half
+	 * dropped once something else is showing it.
 	 */
 	private static final class SidebarView extends AbstractList<EmiFavorite> {
 
-		private boolean separated() {
+		/**
+		 * Whether the favourites panel should carry the crafting list as well.
+		 *
+		 * <p>Note what this deliberately cannot do: replace favourites. Favourites either has the
+		 * crafting list appended, exactly as stock EMI does, or it has only favourites. An earlier
+		 * option swapped one for the other while crafting mode was on, which read as favourites
+		 * vanishing and fought the dedicated Crafting panel; it is gone.
+		 */
+		private boolean carriesCraftingList() {
 			if (!TreeTabsConfig.enabled) {
-				return false;
-			}
-			// A dedicated crafting panel already shows this list; never show it twice.
-			if (!"NONE".equalsIgnoreCase(TreeTabsConfig.craftingPanelSide)) {
 				return true;
 			}
-			return TreeTabsConfig.separateCraftingFavorites && BoM.craftingMode;
+			if (!TreeTabsConfig.craftingInFavorites) {
+				return false;
+			}
+			// A panel of our own is already showing it; showing it twice is worse than not at all.
+			if (CraftingSidebarType.TYPE == null
+					&& !"NONE".equalsIgnoreCase(TreeTabsConfig.craftingPanelSide)) {
+				return false;
+			}
+			return !CraftingSidebarType.isPlacedInSidebar();
 		}
 
 		@Override
 		public EmiFavorite get(int index) {
-			if (dedicatedPanel()) {
-				return EmiFavorites.favorites.get(index);
-			}
-			return getInner(index);
-		}
-
-		/**
-		 * Whether something other than the favourites panel is already showing the crafting list.
-		 *
-		 * <p>Checked against EMI's live sidebar config rather than assumed, so placing a Crafting
-		 * page or subpanel anywhere automatically stops favourites from duplicating it — while
-		 * someone who has not placed one still sees it there rather than nowhere at all.
-		 */
-		private boolean dedicatedPanel() {
-			if (!TreeTabsConfig.enabled) {
-				return false;
-			}
-			if (!TreeTabsConfig.craftingInFavorites) {
-				return true;
-			}
-			if (!"NONE".equalsIgnoreCase(TreeTabsConfig.craftingPanelSide)) {
-				return true;
-			}
-			return CraftingSidebarType.isPlacedInSidebar();
-		}
-
-		private EmiFavorite getInner(int index) {
-			if (separated()) {
-				return EmiFavorites.syntheticFavorites.get(index);
-			}
 			List<EmiFavorite> favorites = EmiFavorites.favorites;
-			if (index >= favorites.size()) {
+			if (carriesCraftingList() && index >= favorites.size()) {
 				return EmiFavorites.syntheticFavorites.get(index - favorites.size());
 			}
 			return favorites.get(index);
@@ -251,13 +232,8 @@ public final class CraftingFavorites {
 
 		@Override
 		public int size() {
-			if (dedicatedPanel()) {
-				return EmiFavorites.favorites.size();
-			}
-			if (separated()) {
-				return EmiFavorites.syntheticFavorites.size();
-			}
-			return EmiFavorites.favorites.size() + EmiFavorites.syntheticFavorites.size();
+			int size = EmiFavorites.favorites.size();
+			return carriesCraftingList() ? size + EmiFavorites.syntheticFavorites.size() : size;
 		}
 	}
 }

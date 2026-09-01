@@ -38,8 +38,6 @@
 	"emi.tree_tabs.config.aggregateCraftingFavorites.tooltip": "Crafting mode pulls from all tracked trees, not just the visible one. Ctrl+click a tab to leave it out.",
 	"emi.tree_tabs.config.sharedCraftingInventory": "Share the inventory between trees",
 	"emi.tree_tabs.config.sharedCraftingInventory.tooltip": "Trees claim materials in tab order instead of each assuming the whole inventory. Off double-counts anything two trees both need.",
-	"emi.tree_tabs.config.separateCraftingFavorites": "Keep crafting list out of favourites",
-	"emi.tree_tabs.config.separateCraftingFavorites.tooltip": "The favourites sidebar shows only the crafting list while crafting mode is on, and only real favourites otherwise.",
 	"emi.tree_tabs.mode.craft": "Crafting this one",
 	"emi.tree_tabs.mode.view": "Just viewing",
 	"emi.tree_tabs.group.craft": "To craft",
