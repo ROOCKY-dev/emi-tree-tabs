@@ -46,11 +46,14 @@ jobs:
             exit 1
           fi
           test -f "forge/build/libs/emitreetabs-$VERSION.jar"
+          test -f "fabric/build/libs/emitreetabs-fabric-$VERSION.jar"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: forge/build/libs/emitreetabs-*.jar
+          files: |
+            forge/build/libs/emitreetabs-*.jar
+            fabric/build/libs/emitreetabs-fabric-*.jar
           generate_release_notes: true
           draft: true
