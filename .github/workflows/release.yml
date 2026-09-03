@@ -45,12 +45,12 @@ jobs:
             echo "::error::Tag $TAG does not match mod_version $VERSION in gradle.properties"
             exit 1
           fi
-          test -f "build/libs/emitreetabs-$VERSION.jar"
+          test -f "forge/build/libs/emitreetabs-$VERSION.jar"
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: build/libs/emitreetabs-*.jar
+          files: forge/build/libs/emitreetabs-*.jar
           generate_release_notes: true
           draft: true

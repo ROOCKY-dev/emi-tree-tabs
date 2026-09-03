@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"minVersion": "0.8.5",
+	"package": "dev.roocky.emitreetabs.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"BoMMixin",
+		"BoMScreenMixin",
+		"EmiFavoritesMixin",
+		"ScreenSpaceMixin",
+		"EmiScreenManagerMixin",
+		"EmiSidebarsMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

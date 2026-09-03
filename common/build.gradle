@@ -1,0 +1,24 @@
+architectury {
+	common('forge')
+	// No Architectury API at runtime, so its injected helper class is just dead weight.
+	injectInjectables = false
+}
+
+loom {
+	mixin {
+		// Loom otherwise names this emitreetabs-common-common-refmap.json, which does not match
+		// what the mixin config declares, leaving the refmap unfound at runtime.
+		defaultRefmapName = "emitreetabs-common.refmap.json"
+	}
+}
+
+dependencies {
+	// The common module compiles against Minecraft only. EMI's own dev.emi.emi.* classes are
+	// identical across loaders, so the Forge jar serves purely as a compile-time reference here.
+	modCompileOnly "dev.emi:emi-forge:${rootProject.emi_version}"
+
+	// Loom does not put Mixin on a common module's compile classpath, so it is declared here.
+	// compileOnly because Forge ships Mixin at runtime; the annotation processor writes the refmap.
+	compileOnly "org.spongepowered:mixin:${rootProject.mixin_version}"
+	annotationProcessor "org.spongepowered:mixin:${rootProject.mixin_version}:processor"
+}
