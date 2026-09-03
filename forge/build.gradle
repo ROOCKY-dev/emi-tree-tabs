@@ -59,6 +59,5 @@ tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
 tasks.named('remapJar') {
 	inputFile.set shadowJar.archiveFile
 	archiveClassifier = null
-	// Keep the released file name the single-project build produced.
-	archiveBaseName = mod_id
+	archiveBaseName = "${rootProject.mod_id}-forge"
 }

@@ -33,10 +33,10 @@ jobs:
       - name: Build
         run: ./gradlew build --no-daemon --stacktrace
 
-      # The tag is the source of truth for the version; if gradle.properties disagrees, the jar
-      # would be named something other than what the tag claims. Better to fail than to publish
-      # a mislabelled file.
-      - name: Check the tag matches mod_version
+      # The tag is the source of truth. If gradle.properties disagrees the jars would be named
+      # something other than what the tag claims, so fail rather than publish a mislabelled file.
+      - name: Resolve and check version
+        id: ver
         run: |
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           VERSION="$(grep -oP '^mod_version=\K.*' gradle.properties)"
@@ -45,15 +45,18 @@ jobs:
             echo "::error::Tag $TAG does not match mod_version $VERSION in gradle.properties"
             exit 1
           fi
-          test -f "forge/build/libs/emitreetabs-$VERSION.jar"
+          test -f "forge/build/libs/emitreetabs-forge-$VERSION.jar"
           test -f "fabric/build/libs/emitreetabs-fabric-$VERSION.jar"
+          echo "v=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # Exact filenames, not globs. A glob also matches the -sources and -dev-shadow jars, which
+      # leaves a release page where nobody can tell which file to download.
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: |
-            forge/build/libs/emitreetabs-*.jar
-            fabric/build/libs/emitreetabs-fabric-*.jar
+            forge/build/libs/emitreetabs-forge-${{ steps.ver.outputs.v }}.jar
+            fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
           generate_release_notes: true
           draft: true
