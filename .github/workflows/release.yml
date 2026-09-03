@@ -48,7 +48,7 @@ jobs:
           test -f "build/libs/emitreetabs-$VERSION.jar"
 
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: build/libs/emitreetabs-*.jar
