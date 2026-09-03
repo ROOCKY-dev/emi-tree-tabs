@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** �
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **2.0.1** (Minecraft 1.20.1, Forge).
+Current release: **2.1.0** (Minecraft 1.20.1, Forge and Fabric).
 
 ## Supported versions
 
@@ -12,24 +12,23 @@ The loader list is not a preference, it is dictated by what EMI itself publishes
 
 | Minecraft | Fabric | Forge | NeoForge |
 |---|---|---|---|
-| 1.20.1 | planned | **supported now** | EMI does not build for it |
+| 1.20.1 | **supported now** | **supported now** | EMI does not build for it |
 | 1.21.1 | planned | EMI stopped at 1.20.2 | planned |
 
 Forge is a dead end after 1.20.2 because EMI publishes no Forge builds past that, so moving to
 newer Minecraft means moving to NeoForge. 1.20.1 will keep being supported from its own branch
 after the port; it is not going to be abandoned the day 1.21.1 works.
 
-## 2.1
+## 2.1 — done
 
-- [ ] **Development infrastructure** — CI on every push and pull request, a build attached to each
-      release automatically, issue and pull request templates. *(in progress)*
+- [x] **Development infrastructure** — CI on every push and pull request, a build attached to each
+      release automatically, issue and pull request templates.
+- [x] **Multiloader restructure** — the Minecraft-and-EMI code is shared; only entrypoints differ.
+- [x] **Fabric support on 1.20.1.**
 - [ ] **Toggle crafting for every tab at once**, rather than `Ctrl+click`ing each one.
 
-## 3.0 — Multiple loaders and Minecraft 1.21.1
+## 3.0 — Minecraft 1.21.1
 
-- [ ] Split the project so the Minecraft-and-EMI code is shared and only the loader entrypoints
-      differ.
-- [ ] Fabric support on 1.20.1.
 - [ ] NeoForge support on 1.21.1.
 - [ ] Fabric support on 1.21.1.
 
