@@ -11,3 +11,4 @@ rootProject.name = 'emi-tree-tabs'
 
 include 'common'
 include 'forge'
+include 'fabric'

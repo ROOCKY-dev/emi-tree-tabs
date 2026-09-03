@@ -1,5 +1,5 @@
 architectury {
-	common('forge')
+	common('forge', 'fabric')
 	// No Architectury API at runtime, so its injected helper class is just dead weight.
 	injectInjectables = false
 }

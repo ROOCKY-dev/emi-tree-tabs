@@ -44,6 +44,7 @@ jobs:
           name: emitreetabs-${{ github.sha }}
           path: |
             forge/build/libs/*.jar
-            !forge/build/libs/*-sources.jar
-            !forge/build/libs/*-dev-shadow.jar
+            fabric/build/libs/*.jar
+            !**/*-sources.jar
+            !**/*-dev-shadow.jar
           if-no-files-found: error
