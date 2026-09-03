@@ -11,6 +11,18 @@ loom {
 	forge {
 		mixinConfig "${mod_id}-common.mixins.json"
 	}
+
+	runs {
+		client {
+			name = 'Forge Client'
+			// Deliberately small: these are throwaway test instances for verifying the mod loads
+			// and its mixins apply, not for playing a modpack.
+			vmArgs '-Xmx2G', '-Xms512M'
+			// Surface mixin problems loudly instead of letting a failed injection pass quietly.
+			property 'mixin.debug', 'true'
+			property 'mixin.checks', 'true'
+		}
+	}
 }
 
 configurations {
