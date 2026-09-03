@@ -63,6 +63,10 @@ All on EMI's recipe tree screen.
 | Close | Middle click, the `×`, or `Ctrl+W` |
 | Reopen closed tab | `Ctrl+Shift+T` |
 | Fork the current tree | `+` button, or `Ctrl+D` |
+| Craft every tab at once | The `≡` button, or `Ctrl+A` |
+| Open a tree already crafting | `Ctrl`+click a recipe's tree button |
+| Craft every tab at once | The `≡` button, or `Ctrl+A` |
+| Open a tree already crafting | `Ctrl`+click a recipe's tree button |
 | Scroll the strip | Mouse wheel over the bar |
 
 ---

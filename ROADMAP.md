@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** �
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **2.1.0** (Minecraft 1.20.1, Forge and Fabric).
+Current release: **2.2.0** (Minecraft 1.20.1, Forge and Fabric).
 
 ## Supported versions
 
@@ -25,7 +25,7 @@ after the port; it is not going to be abandoned the day 1.21.1 works.
       release automatically, issue and pull request templates.
 - [x] **Multiloader restructure** — the Minecraft-and-EMI code is shared; only entrypoints differ.
 - [x] **Fabric support on 1.20.1.**
-- [ ] **Toggle crafting for every tab at once**, rather than `Ctrl+click`ing each one.
+- [x] **Toggle crafting for every tab at once**, rather than `Ctrl+click`ing each one.
 
 ## 3.0 — Minecraft 1.21.1
 
