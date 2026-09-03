@@ -68,3 +68,8 @@ allprojects {
 		}
 	}
 }
+
+// The root project is only a container. Left enabled it emits an empty jar named exactly like the
+// real one, which is an easy thing to publish by mistake.
+tasks.named('jar') { enabled = false }
+tasks.named('sourcesJar') { enabled = false }
