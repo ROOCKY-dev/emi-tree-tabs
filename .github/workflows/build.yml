@@ -31,7 +31,7 @@ jobs:
       # Caching matters disproportionately here: an uncached ForgeGradle run downloads and
       # decompiles Minecraft, which takes minutes.
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build
         run: ./gradlew build --no-daemon --stacktrace
