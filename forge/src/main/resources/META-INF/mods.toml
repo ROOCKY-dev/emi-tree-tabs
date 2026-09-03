@@ -43,3 +43,6 @@ displayTest="IGNORE_ALL_VERSION"
     versionRange="[11,)"
     ordering="AFTER"
     side="CLIENT"
+
+[[mixins]]
+    config="${mod_id}-common.mixins.json"

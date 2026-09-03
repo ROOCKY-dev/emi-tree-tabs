@@ -1,5 +1,6 @@
-package dev.ahmed.emitreetabs;
+package dev.ahmed.emitreetabs.forge;
 
+import dev.ahmed.emitreetabs.TreeTabsConfig;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;

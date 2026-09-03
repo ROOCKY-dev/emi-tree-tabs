@@ -3,7 +3,7 @@
 	"minVersion": "0.8.5",
 	"package": "dev.ahmed.emitreetabs.mixin",
 	"compatibilityLevel": "JAVA_17",
-	"refmap": "emitreetabs.refmap.json",
+	"refmap": "emitreetabs-common.refmap.json",
 	"client": [
 		"BoMMixin",
 		"BoMScreenMixin",

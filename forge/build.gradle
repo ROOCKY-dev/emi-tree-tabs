@@ -1,0 +1,52 @@
+plugins {
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+architectury {
+	platformSetupLoomIde()
+	forge()
+}
+
+loom {
+	forge {
+		mixinConfig "${mod_id}-common.mixins.json"
+	}
+}
+
+configurations {
+	common {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+	compileClasspath.extendsFrom common
+	runtimeClasspath.extendsFrom common
+	developmentForge.extendsFrom common
+
+	shadowBundle {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+}
+
+dependencies {
+	forge "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+	modImplementation "dev.emi:emi-forge:${emi_version}"
+	// Optional: only drives the in-game config screen, never bundled.
+	modCompileOnly "me.shedaniel.cloth:cloth-config-forge:${cloth_version}"
+
+	common(project(path: ':common', configuration: 'namedElements')) { transitive false }
+	shadowBundle project(path: ':common', configuration: 'transformProductionForge')
+}
+
+tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+	configurations = [project.configurations.shadowBundle]
+	archiveClassifier = 'dev-shadow'
+}
+
+tasks.named('remapJar') {
+	inputFile.set shadowJar.archiveFile
+	archiveClassifier = null
+	// Keep the released file name the single-project build produced.
+	archiveBaseName = mod_id
+}

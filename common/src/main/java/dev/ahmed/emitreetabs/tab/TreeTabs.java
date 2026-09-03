@@ -36,7 +36,7 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.fml.loading.FMLPaths;
+import dev.ahmed.emitreetabs.platform.Platform;
 
 /**
  * The list of open trees and the single source of truth for which one EMI is currently showing.
@@ -503,7 +503,7 @@ public final class TreeTabs {
 	}
 
 	private static Path file() {
-		return FMLPaths.CONFIGDIR.get().resolve(EmiTreeTabs.MOD_ID + "-tabs.json");
+		return Platform.configDir().resolve(EmiTreeTabs.MOD_ID + "-tabs.json");
 	}
 
 	private static void readFile() {

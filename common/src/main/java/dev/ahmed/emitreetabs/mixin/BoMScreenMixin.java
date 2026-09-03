@@ -94,7 +94,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 		TabBar.ensureVisible(this, TreeTabs.activeIndex());
 	}
 
-	@Inject(method = "onClose", at = @At("HEAD"))
+	@Inject(method = "onClose()V", at = @At("HEAD"))
 	private void emitreetabs$onClose(CallbackInfo ci) {
 		TreeTabs.captureViewport();
 		TabBar.reset();
@@ -103,7 +103,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 
 	// ---------------------------------------------------------------- drawing
 
-	@Inject(method = "render", at = @At("TAIL"))
+	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", at = @At("TAIL"))
 	private void emitreetabs$render(GuiGraphics graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
 		TabBar.tickDrag(this);
 		TabBar.render(this, graphics, mouseX, mouseY, delta);
@@ -123,7 +123,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 
 	// ------------------------------------------------------------------ input
 
-	@Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "mouseClicked(DDI)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseClicked(double mouseX, double mouseY, int button,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (TabBar.mouseClicked(this, mouseX, mouseY, button)) {
@@ -131,7 +131,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 		}
 	}
 
-	@Inject(method = "mouseDragged", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "mouseDragged(DDIDD)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (TabBar.mouseDragged(this, mouseX, mouseY, button)) {
@@ -139,7 +139,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 		}
 	}
 
-	@Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "mouseScrolled(DDD)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseScrolled(double mouseX, double mouseY, double amount,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (TabBar.mouseScrolled(this, mouseX, mouseY, amount)) {
@@ -147,7 +147,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 		}
 	}
 
-	@Inject(method = "keyPressed", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "keyPressed(III)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$keyPressed(int keyCode, int scanCode, int modifiers,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (TabBar.keyPressed(this, keyCode, scanCode, modifiers)) {

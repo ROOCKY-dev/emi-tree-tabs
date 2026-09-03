@@ -1,7 +1,8 @@
-package dev.ahmed.emitreetabs;
+package dev.ahmed.emitreetabs.forge;
 
-import dev.ahmed.emitreetabs.tab.TreeTabs;
+import dev.ahmed.emitreetabs.EmiTreeTabs;
 import dev.ahmed.emitreetabs.TreeTabsConfig;
+import dev.ahmed.emitreetabs.tab.TreeTabs;
 import dev.ahmed.emitreetabs.ui.TabBar;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;

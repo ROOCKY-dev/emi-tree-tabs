@@ -10,8 +10,8 @@ import java.nio.file.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import dev.ahmed.emitreetabs.platform.Platform;
 
-import net.minecraftforge.fml.loading.FMLPaths;
 
 /**
  * A small hand rolled json config. Forge's config system is server aware and versioned, which is
@@ -74,7 +74,7 @@ public final class TreeTabsConfig {
 	private static long lastSeenModified;
 
 	private static Path file() {
-		return FMLPaths.CONFIGDIR.get().resolve(EmiTreeTabs.MOD_ID + ".json");
+		return Platform.configDir().resolve(EmiTreeTabs.MOD_ID + ".json");
 	}
 
 	/**
