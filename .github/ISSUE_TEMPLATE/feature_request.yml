@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest something the mod should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a look at [ROADMAP.md](../../blob/main/ROADMAP.md) first — the idea may already be
+        planned, in which case a comment on the existing item is more useful than a new issue.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        Describe the situation rather than the solution. Knowing what you are actually trying to
+        achieve often leads somewhere better than the first idea.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything you already tried
+      description: Existing config options, other mods, a different workflow.

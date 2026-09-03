@@ -1,0 +1,81 @@
+name: Bug report
+description: Something is broken or behaves wrongly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This mod hooks EMI's internals rather than a public API, so **the EMI version is usually the
+        first thing that matters**. Please fill in the versions even if the problem seems unrelated
+        to them.
+
+  - type: input
+    id: mod-version
+    attributes:
+      label: EMI Tree Tabs version
+      placeholder: "2.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: emi-version
+    attributes:
+      label: EMI version
+      description: Exactly as the file is named, e.g. emi-1.1.24+1.20.1+forge.jar
+      placeholder: "1.1.24+1.20.1+forge"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Mod loader
+      options: [Forge, NeoForge, Fabric]
+    validations:
+      required: true
+
+  - type: input
+    id: mc-version
+    attributes:
+      label: Minecraft version
+      placeholder: "1.20.1"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log or crash report
+      description: >
+        Attach `logs/latest.log`, or the crash report if the game crashed. Paste a link if it is
+        large. Lines beginning `[emitreetabs]` are the useful ones, but please do not send only
+        those — the surrounding context usually matters.
+    validations:
+      required: true
+
+  - type: input
+    id: other-addons
+    attributes:
+      label: Other EMI addons installed
+      description: >
+        EMI++ (emixx) in particular touches some of the same classes as this mod. List any EMI
+        addons or GUI mods you have.
+      placeholder: "emixx 1.5.1, emi_accelerator (disabled)"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that this is not already reported
+          required: true
+        - label: I tried it with only EMI and EMI Tree Tabs installed, or explained why I could not
+          required: false

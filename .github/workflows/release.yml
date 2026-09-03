@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build a release from'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew build --no-daemon --stacktrace
+
+      # The tag is the source of truth for the version; if gradle.properties disagrees, the jar
+      # would be named something other than what the tag claims. Better to fail than to publish
+      # a mislabelled file.
+      - name: Check the tag matches mod_version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="$(grep -oP '^mod_version=\K.*' gradle.properties)"
+          echo "tag=$TAG mod_version=$VERSION"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG does not match mod_version $VERSION in gradle.properties"
+            exit 1
+          fi
+          test -f "build/libs/emitreetabs-$VERSION.jar"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: build/libs/emitreetabs-*.jar
+          generate_release_notes: true
+          draft: true
