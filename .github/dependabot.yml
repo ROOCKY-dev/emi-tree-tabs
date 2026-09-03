@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Minecraft, Forge and EMI versions are chosen deliberately per branch and must not be bumped
+    # automatically; a version bump there is a port, not a dependency update.
+    ignore:
+      - dependency-name: "net.minecraftforge:forge"
+      - dependency-name: "dev.emi:*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
