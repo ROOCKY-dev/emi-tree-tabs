@@ -136,6 +136,14 @@ Needs a **JDK 17**.
 
 The jar lands in `build/libs/`. `./gradlew runClient` starts a dev client with EMI on the classpath.
 
+## Roadmap and contributing
+
+What is planned, and what is deliberately not, is in [ROADMAP.md](ROADMAP.md).
+
+Pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) covers the build, and the couple of
+things about this mod that are unusual enough to trip you up (it hooks EMI internals, and there are
+no automated tests, so everything has to be run in game).
+
 ## AI disclosure
 
 The code in this mod was written by an AI assistant working from my direction. See

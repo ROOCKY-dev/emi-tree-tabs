@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or help using the mod
+    url: https://modrinth.com/mod/emi-tree-tabs
+    about: >
+      For "how do I…" questions, please use the Modrinth or CurseForge comments. The issue tracker
+      is for defects and feature requests.
+  - name: EMI itself
+    url: https://github.com/emilyploszaj/emi/issues
+    about: If the problem happens without this mod installed, it belongs to EMI.
