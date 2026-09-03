@@ -109,6 +109,10 @@ public final class TreeTabs {
 		}
 		// Shift inverts whatever the configured default is, the way shift-clicking a link does.
 		boolean newTab = TreeTabsConfig.openInNewTab != EmiInput.isShiftDown();
+		// Ctrl opens the tree ready to build rather than to read. Without this you always land in
+		// viewing mode and have to flip it, which is one step too many when the reason you opened
+		// the tree was to make the thing.
+		boolean startCrafting = EmiInput.isControlDown();
 
 		if (activeTab() == null) {
 			TABS.add(new TreeTab(tree));
@@ -124,6 +128,13 @@ public final class TreeTabs {
 			tab.snapshot = null;
 			tab.viewportSet = false;
 			tab.labelVersion++;
+		}
+		if (startCrafting) {
+			TreeTab opened = activeTab();
+			if (opened != null) {
+				opened.craftingMode = true;
+				BoM.craftingMode = true;
+			}
 		}
 		markDirty();
 	}
@@ -259,6 +270,48 @@ public final class TreeTabs {
 			BoM.craftingMode = tab.craftingMode;
 		}
 		markDirty();
+	}
+
+	/**
+	 * Puts every tab into viewing or crafting at once.
+	 *
+	 * <p>Flipping a dozen trees one Ctrl+click at a time is the kind of chore that stops people
+	 * using crafting mode at all.
+	 *
+	 * @return the mode everything was switched to.
+	 */
+	public static boolean toggleAllCrafting() {
+		// If anything is still only being viewed, the useful action is to start crafting all of it;
+		// only when everything is already crafting does this mean "stop".
+		boolean anyViewing = false;
+		for (TreeTab tab : TABS) {
+			if (!tab.craftingMode) {
+				anyViewing = true;
+				break;
+			}
+		}
+		setAllCrafting(anyViewing);
+		return anyViewing;
+	}
+
+	public static void setAllCrafting(boolean crafting) {
+		for (TreeTab tab : TABS) {
+			tab.craftingMode = crafting;
+		}
+		TreeTab active = activeTab();
+		BoM.craftingMode = active != null && active.craftingMode;
+		markDirty();
+	}
+
+	/** @return how many tabs are currently being crafted rather than just viewed. */
+	public static int craftingCount() {
+		int n = 0;
+		for (TreeTab tab : TABS) {
+			if (tab.craftingMode) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	/**

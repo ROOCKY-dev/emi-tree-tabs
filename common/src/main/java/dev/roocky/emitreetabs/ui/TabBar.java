@@ -35,6 +35,7 @@ public final class TabBar {
 	private static final int ARROW_WIDTH = 9;
 	private static final int MAX_TAB_WIDTH = 124;
 	private static final int ADD_BUTTON_WIDTH = 18;
+	private static final int ALL_BUTTON_WIDTH = 18;
 	private static final int ICON_SIZE = 16;
 	/** Below this width there is no room for a label, so tabs become icon only. */
 	private static final int LABEL_THRESHOLD = 56;
@@ -86,7 +87,19 @@ public final class TabBar {
 
 	/** Room for tabs before any scroll arrows are taken into account. */
 	private static int baseWidth(Screen screen) {
-		return Math.max(MIN_TAB_WIDTH, screen.width - PAD * 2 - ADD_BUTTON_WIDTH);
+		return Math.max(MIN_TAB_WIDTH, screen.width - PAD * 2 - ADD_BUTTON_WIDTH - ALL_BUTTON_WIDTH);
+	}
+
+	private static int allButtonX(Screen screen) {
+		return screen.width - PAD - ADD_BUTTON_WIDTH - ALL_BUTTON_WIDTH;
+	}
+
+	private static boolean overAllButton(Screen screen, double mouseX, double mouseY) {
+		if (!isOver(screen, mouseX, mouseY) || TreeTabs.count() == 0) {
+			return false;
+		}
+		int x = allButtonX(screen);
+		return mouseX >= x && mouseX < x + ALL_BUTTON_WIDTH;
 	}
 
 	/** True once tabs cannot fit even at their narrowest, which is when scrolling kicks in. */
@@ -120,7 +133,7 @@ public final class TabBar {
 	/** @return the tab under the pointer, or -1. */
 	private static int tabAt(Screen screen, double mouseX, double mouseY) {
 		int left = stripLeft(screen);
-		if (!isOver(screen, mouseX, mouseY) || mouseX < left || mouseX > left + stripWidth(screen)) {
+		if (!isOver(screen, mouseX, mouseY) || mouseX < left || mouseX >= left + stripWidth(screen)) {
 			return -1;
 		}
 		int width = tabWidth(screen);
@@ -207,12 +220,21 @@ public final class TabBar {
 		}
 
 		drawArrows(screen, graphics, font, mouseX, mouseY, y);
+		drawAllButton(screen, graphics, font, mouseX, mouseY, y);
 		drawAddButton(screen, graphics, font, mouseX, mouseY, y);
 
 		if (renameBox != null) {
 			renameBox.render(graphics, mouseX, mouseY, delta);
 		} else if (hovered >= 0) {
 			drawTooltip(screen, graphics, font, hovered, mouseX, mouseY);
+		} else if (overAllButton(screen, mouseX, mouseY)) {
+			int crafting = TreeTabs.craftingCount();
+			graphics.renderComponentTooltip(font, List.of(
+					Component.translatable("emi.tree_tabs.all.title"),
+					Component.translatable("emi.tree_tabs.all.state", crafting, TreeTabs.count())
+							.withStyle(ChatFormatting.GRAY),
+					Component.translatable("emi.tree_tabs.all.hint").withStyle(ChatFormatting.DARK_GRAY)),
+					mouseX, mouseY);
 		} else if (overAddButton(screen, mouseX, mouseY)) {
 			graphics.renderComponentTooltip(font, List.of(
 					Component.translatable("emi.tree_tabs.fork"),
@@ -288,6 +310,28 @@ public final class TabBar {
 				canLeft ? (overLeft ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
 		graphics.drawString(font, "\u25b6", rightX + 1, y + 7,
 				canRight ? (overRight ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
+	}
+
+	/**
+	 * Switches every tab between viewing and crafting.
+	 *
+	 * <p>Shows how many are being crafted, because with a dozen tabs the state is otherwise only
+	 * legible by scanning every icon for its corner pip.
+	 */
+	private static void drawAllButton(Screen screen, GuiGraphics graphics, Font font,
+			int mouseX, int mouseY, int y) {
+		if (TreeTabs.count() == 0) {
+			return;
+		}
+		int x = allButtonX(screen);
+		boolean hovered = overAllButton(screen, mouseX, mouseY);
+		int crafting = TreeTabs.craftingCount();
+		graphics.fill(x, y + 1, x + ALL_BUTTON_WIDTH, y + HEIGHT - 1, hovered ? COLOR_TAB_HOVER : COLOR_TAB);
+		int colour = crafting == 0 ? COLOR_TEXT_DIM : COLOR_CRAFTING;
+		graphics.drawString(font, "\u2261", x + 3, y + 7, colour, false);
+		if (crafting > 0) {
+			graphics.fill(x + ALL_BUTTON_WIDTH - 5, y + 4, x + ALL_BUTTON_WIDTH - 2, y + 7, COLOR_CRAFTING);
+		}
 	}
 
 	private static void drawAddButton(Screen screen, GuiGraphics graphics, Font font,
@@ -384,6 +428,11 @@ public final class TabBar {
 				return true;
 			}
 		}
+		if (button == 0 && overAllButton(screen, mouseX, mouseY)) {
+			click();
+			TreeTabs.toggleAllCrafting();
+			return true;
+		}
 		if (button == 0 && overAddButton(screen, mouseX, mouseY)) {
 			click();
 			TreeTabs.duplicate(TreeTabs.activeIndex());
@@ -449,7 +498,10 @@ public final class TabBar {
 			return;
 		}
 		if (dragging) {
-			int target = (int) Math.floor((dragX - PAD + scroll) / tabWidth(screen));
+			// stripLeft, not PAD: they differ by ARROW_WIDTH exactly when the scroll arrows are
+			// showing, which is when you have enough tabs to want to reorder them. Using PAD here
+			// put every drop up to a third of a tab off.
+			int target = (int) Math.floor((dragX - stripLeft(screen) + scroll) / tabWidth(screen));
 			target = Math.max(0, Math.min(target, TreeTabs.count() - 1));
 			if (target != dragIndex) {
 				TreeTabs.move(dragIndex, target);
@@ -518,6 +570,14 @@ public final class TabBar {
 					click();
 					TreeTabs.reopenClosed();
 					ensureVisible(screen, TreeTabs.activeIndex());
+					return true;
+				}
+				return false;
+			}
+			case GLFW.GLFW_KEY_A -> {
+				if (TreeTabs.count() > 0) {
+					click();
+					TreeTabs.toggleAllCrafting();
 					return true;
 				}
 				return false;

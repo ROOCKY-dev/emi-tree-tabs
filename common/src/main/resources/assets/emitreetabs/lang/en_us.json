@@ -54,5 +54,8 @@
 	"emi.sidebar.type.tree_tabs_crafting": "Crafting",
 	"emi.sidebar.type.tree_tabs_crafting.description": "What your tracked recipe trees still need",
 	"emi.tree_tabs.config.craftingInFavorites": "Crafting list in favourites",
-	"emi.tree_tabs.config.craftingInFavorites.tooltip": "Off keeps the favourites sidebar strictly favourites. Ignored once a Crafting page is placed on a sidebar, since it would otherwise show twice."
+	"emi.tree_tabs.config.craftingInFavorites.tooltip": "Off keeps the favourites sidebar strictly favourites. Ignored once a Crafting page is placed on a sidebar, since it would otherwise show twice.",
+	"emi.tree_tabs.all.title": "Craft every tab",
+	"emi.tree_tabs.all.state": "%s of %s being crafted",
+	"emi.tree_tabs.all.hint": "Click or Ctrl+A. Ctrl+click a recipe's tree button to open it already crafting."
 }

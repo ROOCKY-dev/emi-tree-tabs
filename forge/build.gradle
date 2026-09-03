@@ -46,6 +46,8 @@ dependencies {
 	modImplementation "dev.emi:emi-forge:${emi_version}"
 	// Optional: only drives the in-game config screen, never bundled.
 	modCompileOnly "me.shedaniel.cloth:cloth-config-forge:${cloth_version}"
+	// ...but present in the dev client, otherwise the config screen can never be tested.
+	modLocalRuntime "me.shedaniel.cloth:cloth-config-forge:${cloth_version}"
 
 	common(project(path: ':common', configuration: 'namedElements')) { transitive false }
 	shadowBundle project(path: ':common', configuration: 'transformProductionForge')
