@@ -87,16 +87,24 @@ scrolling is actually possible.
       overload with a custom positioner: anchor to the hovered tab's centre, clamp horizontally, and
       never overlap the bar.
 
-### What the density ladder does not fix
+### What the density ladder gives you at each GUI scale
 
-Verified in game, and worth being straight about: at **GUI scale 4 on a 1920x1080 screen the game
-hands us a 480x270 screen**, which leaves 440 logical pixels for tabs. Ten tabs is 44 pixels each,
-and a readable label needs about 54. So at that scale, past roughly eight tabs, **names cannot come
-back no matter how the horizontal strip is sized** — there is no room, and any rule that claims
-otherwise is lying about the arithmetic.
+Measured, not guessed. Available width is the logical screen minus padding and the two buttons;
+per-tab width is that divided by the tab count. On a 1920x1080 screen:
 
-The ladder fixes the close button vanishing, which was a real defect. Names at high tab counts are
-not a sizing problem; they are a *direction* problem, and the fix for them is the next section.
+| GUI scale | Logical screen | 8 tabs | 10 tabs | 12 tabs | 20 tabs |
+|---|---|---|---|---|---|
+| 2 | 960 x 540 | 115px names | **92px names** | 76px names | 46px icons |
+| 3 | 640 x 360 | 75px names | **60px names** | 50px icons | 30px icons |
+| 4 | 480 x 270 | 55px names | 44px icons | 36px icons | 28px icons, scrolling |
+
+So names survive well past ten tabs at scale 2 and 3, and run out around eight at scale 4 — which is
+what Minecraft picks by default on a 1080p screen, and where the original complaint came from.
+
+Changing GUI scale is a real answer for a player, not a workaround, and the ladder makes the
+trade-off legible instead of silently discarding the close button. Vertical tabs remain worth
+building, but for the reason in the next section — room for names *and* group headers at any scale —
+not because horizontal sizing cannot cope.
 
 ### Vertical tabs
 
@@ -184,6 +192,27 @@ to open each tree and hunt through it.
 
 Feasible cheaply: `MaterialTree.resolutions` is a plain `Map<EmiIngredient, EmiRecipe>` that this mod
 already serialises per tab in `TabCodec`. Applying one across tabs is a loop and a recalculation.
+
+### Type a quantity, or the sum that produced it
+
+**The problem, as it happened:** wanting a specific number of one part rather than whatever the
+whole tree implies, and the number being arithmetic you did it in your head — *32 machines, 4 each,
+2 per that* — so setting it means leaving the tree for a calculator and coming back with 256.
+
+- [ ] **An input that accepts a formula, not just a number.** `32 * 4 * 2` should be as valid as
+      `256`. Support `+ - * /` and parentheses, evaluate on enter, show the result before committing
+      so a typo is visible rather than silently applied.
+- [ ] **Reachable from the thing being counted** — a modifier-click on the batch count, and later on
+      a node, rather than a separate screen.
+- [ ] **Scope needs deciding.** The wording asks for a quantity on *part* of a tree, not the whole
+      craft. Two readings, and they are not the same job:
+      - Setting `MaterialTree.batches` from a formula is nearly free — the field exists, this is an
+        input widget and a small expression parser.
+      - Pinning a target amount on a *sub-node* means overriding an amount EMI derives top-down from
+        the goal, which fights the solver rather than using it.
+      Ship the cheap one first and see whether it actually covers the case; it may well, since a
+      sub-craft quantity is usually reachable by setting the batch count of a tree opened on that
+      sub-item.
 
 ### Show where a shared material is actually going
 
