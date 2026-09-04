@@ -488,6 +488,17 @@ public final class TabBar {
 				}
 				return false;
 			}
+			case GLFW.GLFW_KEY_S -> {
+				// Accepts the offer made when a recipe choice was picked on this tree and other
+				// trees use the same ingredient. Shift as well as control, because it edits trees
+				// that are not on screen and should not be a one-key accident.
+				if (Screen.hasShiftDown() && TreeTabs.hasPendingSync()) {
+					click();
+					TreeTabs.applyPendingSync();
+					return true;
+				}
+				return false;
+			}
 			case GLFW.GLFW_KEY_A -> {
 				if (TreeTabs.count() > 0) {
 					click();

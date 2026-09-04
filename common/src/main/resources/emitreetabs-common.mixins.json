@@ -9,6 +9,7 @@
 		"EmiFavoritesMixin",
 		"ScreenSpaceMixin",
 		"EmiScreenManagerMixin",
+		"MaterialTreeMixin",
 		"EmiSidebarsMixin"
 	],
 	"injectors": {

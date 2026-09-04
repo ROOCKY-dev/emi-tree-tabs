@@ -48,6 +48,12 @@ public final class TreeTabsConfig {
 	public static int closedTabHistory = 16;
 	/** Master switch for the Ctrl+Tab / Ctrl+W / Ctrl+D / F2 shortcuts. */
 	public static boolean keyboardShortcuts = true;
+
+	/**
+	 * Whether picking a recipe for an ingredient offers to apply that choice to the other trees
+	 * using the same ingredient. The offer is a toast naming a key; nothing changes on its own.
+	 */
+	public static boolean offerResolutionSync = true;
 	/**
 	 * Which sidebar shows the crafting list instead of your favourites: NONE, LEFT, RIGHT, TOP or
 	 * BOTTOM. Set that sidebar to Favourites in EMI's own settings and this takes it over, giving
@@ -132,6 +138,7 @@ public final class TreeTabsConfig {
 			progressIntervalMs = clamp(integer(obj, "progressIntervalMs", progressIntervalMs), 100, 60_000);
 			closedTabHistory = clamp(integer(obj, "closedTabHistory", closedTabHistory), 0, 128);
 			keyboardShortcuts = bool(obj, "keyboardShortcuts", keyboardShortcuts);
+			offerResolutionSync = bool(obj, "offerResolutionSync", offerResolutionSync);
 			craftingPanelSide = string(obj, "craftingPanelSide", craftingPanelSide);
 			groupCraftingList = bool(obj, "groupCraftingList", groupCraftingList);
 			showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
@@ -159,6 +166,7 @@ public final class TreeTabsConfig {
 		obj.addProperty("progressIntervalMs", progressIntervalMs);
 		obj.addProperty("closedTabHistory", closedTabHistory);
 		obj.addProperty("keyboardShortcuts", keyboardShortcuts);
+		obj.addProperty("offerResolutionSync", offerResolutionSync);
 		obj.addProperty("craftingPanelSide", craftingPanelSide);
 		obj.addProperty("groupCraftingList", groupCraftingList);
 		obj.addProperty("showGroupSeparators", showGroupSeparators);
