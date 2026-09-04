@@ -108,7 +108,7 @@ where groups become legible.
       rename state) into **layout / renderer / input**. Not tidiness: every tab bar bug so far has
       been a geometry bug — the drag-drop origin measured from the wrong x, the inclusive right edge
       — and geometry is the one piece testable without launching Minecraft. It is also what makes
-      the live config preview (3.3) possible.
+      the live config preview (3.4) possible.
 
 ### Visual direction
 
@@ -146,7 +146,45 @@ So the primitive is not a folder. It is a group with an active/parked flag:
       Version the file and migrate on read — a mod that loses your tabs on upgrade is worse than one
       without groups.
 
-## 3.3 — A settings screen people can read
+## 3.3 — Working across trees
+
+Both of these came out of actually playing with the mod, and both are only possible *because* it
+holds several trees at once. Nothing else in the recipe-viewer space can do either.
+
+### Sync a sub-recipe across every tree
+
+**The problem, as it happened:** progression unlocked a cheaper way to make an intermediate part —
+a fan, say, which has a cheap recipe and an expensive one. Changing the default on one tree worked.
+The other eight machines still quietly used the expensive recipe, and the only way to find them was
+to open each tree and hunt through it.
+
+- [ ] **Shift-click a resolution to apply it to every tree that uses that ingredient.** Not the whole
+      tree — just that one sub-craft.
+- [ ] **Or find them:** search for a sub-recipe and highlight the trees using it, so you can decide
+      per tree rather than changing all of them blind.
+- [ ] A confirmation showing how many trees would change, since this edits trees you are not
+      looking at.
+
+Feasible cheaply: `MaterialTree.resolutions` is a plain `Map<EmiIngredient, EmiRecipe>` that this mod
+already serialises per tab in `TabCodec`. Applying one across tabs is a loop and a recalculation.
+
+### Show where a shared material is actually going
+
+**The problem, as it happened:** ten machines being built, several of them consuming copper in
+different forms — plates, pipes, melted copper. The crafting list correctly says *"you need 184
+copper"*, but not how much is for which, so there is no way to know whether spending copper on
+plates now starves the pipes later. Working it out means doing the arithmetic by hand.
+
+- [ ] **Hover a material in the crafting sidebar to break its total down by what needs it** — which
+      tree, how much, and for which sub-craft.
+- [ ] Show it in the same hover, not a separate screen: the question is asked mid-decision.
+
+Feasible cheaply too, and further along than it looks: `CraftingFavorites.aggregate` already builds
+`Map<EmiIngredient, Set<TreeTab>> costOwners` while summing the list, so it knows *which* tabs need
+each shared material. Widening that set into a per-tab quantity map gives the breakdown almost for
+free.
+
+## 3.4 — A settings screen people can read
 
 The goal: nobody should ever need to open `emitreetabs.json`.
 
@@ -169,7 +207,7 @@ The goal: nobody should ever need to open `emitreetabs.json`.
 - [ ] **Keep the JSON working.** YACL is the front end, not the store — pack authors ship configs as
       files and should keep being able to.
 
-## 3.4 — Public API
+## 3.5 — Public API
 
 Small, versioned, and checked at runtime. Needed by [Quartermaster](../quartermaster); see
 *Decisions taken*.
