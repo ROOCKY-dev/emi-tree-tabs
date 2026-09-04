@@ -12,7 +12,19 @@ loom {
 	}
 }
 
+// Plain JUnit tests for the parts that touch neither Minecraft nor EMI. TabLayout is the whole
+// reason this source set exists: every tab bar bug so far has been arithmetic, and arithmetic can
+// be tested in a second instead of by launching the game.
+test {
+	useJUnitPlatform()
+	testLogging { events "failed"; exceptionFormat "full" }
+}
+
 dependencies {
+	testImplementation platform("org.junit:junit-bom:5.10.2")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
 	// The common module compiles against Minecraft only. EMI's own dev.emi.emi.* classes are
 	// identical across loaders, so the Forge jar serves purely as a compile-time reference here.
 	modCompileOnly "dev.emi:emi-forge:${rootProject.emi_version}"

@@ -74,16 +74,29 @@ chosen by available width ÷ tab count:
 Below the floor the bar **scrolls** rather than shrinking further. Scroll arrows appear only when
 scrolling is actually possible.
 
-- [ ] **Implement the density ladder.** Fixes the vanished close button and the vanished names as a
-      side effect, because neither is allowed to be traded away any more.
-- [ ] **Spend the empty space.** At Comfortable density, grow tabs toward `MAX_TAB_WIDTH` until the
-      bar is used. Give the active tab a width bonus, as browsers do.
-- [ ] **Scrolling as a real interaction**, not something that only appears once things have gone
-      wrong.
+- [x] **Implement the density ladder.** Fixes the vanished close button as a side effect, because it
+      is no longer allowed to be traded away. Verified in game at GUI scale 4 from 1 to 20 tabs.
+- [x] **Spend the empty space** — tabs grow toward `MAX_TAB_WIDTH` until the bar is used.
+- [ ] **Give the active tab a width bonus**, as browsers do. Deferred: it makes tab positions
+      non-uniform, which every hit test, the drag drop and the scroll arithmetic currently assume.
+      Worth doing, but not worth bundling with the change that fixed the actual complaint.
+- [x] **Scrolling as a real interaction** — arrows appear exactly when tabs reach the floor, and
+      each one is dimmed when it cannot move. Verified in game at 20 tabs.
 - [ ] **Better tooltip placement** near screen edges. Use the public
       `GuiGraphics.renderTooltip(Font, List<FormattedCharSequence>, ClientTooltipPositioner, int, int)`
       overload with a custom positioner: anchor to the hovered tab's centre, clamp horizontally, and
       never overlap the bar.
+
+### What the density ladder does not fix
+
+Verified in game, and worth being straight about: at **GUI scale 4 on a 1920x1080 screen the game
+hands us a 480x270 screen**, which leaves 440 logical pixels for tabs. Ten tabs is 44 pixels each,
+and a readable label needs about 54. So at that scale, past roughly eight tabs, **names cannot come
+back no matter how the horizontal strip is sized** — there is no room, and any rule that claims
+otherwise is lying about the arithmetic.
+
+The ladder fixes the close button vanishing, which was a real defect. Names at high tab counts are
+not a sizing problem; they are a *direction* problem, and the fix for them is the next section.
 
 ### Vertical tabs
 
@@ -104,11 +117,15 @@ where groups become legible.
 
 ### Refactor first
 
-- [ ] **Split `TabBar.java`** (609 lines mixing geometry, rendering, hit-testing, drag state and
-      rename state) into **layout / renderer / input**. Not tidiness: every tab bar bug so far has
-      been a geometry bug — the drag-drop origin measured from the wrong x, the inclusive right edge
-      — and geometry is the one piece testable without launching Minecraft. It is also what makes
-      the live config preview (3.4) possible.
+- [x] **Split `TabBar.java`'s geometry out** into `TabLayout`, which imports nothing from Minecraft
+      or EMI and is covered by 27 tests.
+- [ ] **Split rendering from input.** They still share a class. Worth doing eventually, but the
+      geometry was where the value was and this half has not bought anything yet.
+
+Not tidiness: every tab bar bug so far has been a geometry bug — the drag-drop origin measured from
+the wrong x, the inclusive right edge — and geometry is the one piece testable without launching
+Minecraft. Both of those regressions now have tests. It is also what makes the live config preview
+(3.4) possible.
 
 ### Visual direction
 
