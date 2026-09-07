@@ -51,48 +51,53 @@ Get these right — the 2.0.1 upload got all three wrong:
 - **Changelog** — 2.0.1 still reads `## Initial release`. Paste the GitHub release notes.
 - **Java** is 17 on 1.20.1, and 21 after the 1.21.1 port.
 
-## 4. Automated — as of 2026-09-07
+## 4. Automated, in two tiers — as of 2026-09-07
 
-Tagging now publishes to **all three** places. `release.yml` builds both jars, opens a **draft**
-GitHub release, then uploads to Modrinth and CurseForge via
-[`mc-publish`](https://github.com/Kir-Antipov/mc-publish).
+**A `v*` tag does not reach players.** Development moves faster than anyone wants releases, so the
+stores are opt in and every ordinary tag stays internal.
+
+| You push | What happens |
+|---|---|
+| `v2.3.0` | Builds both jars, opens a **draft GitHub release**. Nothing else. |
+| `store-v2.3.0` | Builds that same tag and publishes it to **Modrinth and CurseForge**. |
 
 ```bash
-# 1. Write the notes players will read
-$EDITOR .github/release-notes.md
+# every version — cheap, private, no noise
+git tag -a v2.3.0 -m "EMI Tree Tabs 2.3.0" && git push origin v2.3.0
 
-# 2. Bump, commit, tag
-./gradlew build -Dorg.gradle.java.home=/usr/lib/jvm/java-17-openjdk
-git tag -a vX.Y.Z -m "EMI Tree Tabs X.Y.Z" && git push origin vX.Y.Z
+# only the ones players should actually get
+$EDITOR .github/release-notes.md
+git tag store-v2.3.0 && git push origin store-v2.3.0
 ```
 
-**A tag now ships to users.** The GitHub release is still a draft for you to review, but the store
-uploads are live the moment the workflow passes. To rehearse without publishing, run the workflow
-manually from the Actions tab with **dry_run** ticked.
+Rehearse from the **Actions tab → Publish to stores → Run workflow**, with `dry_run` ticked (it
+defaults to ticked). That validates the credentials, the jars and every field against both stores
+without publishing.
 
-### What it does and why
+### Why it is built this way
 
+- **Two tiers, because releasing is not the same as building.** Pushing every tag to the stores
+  would spam followers and bury the versions that matter.
 - **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
   only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
 - **`game-versions: 1.20.1` only**, not the jar's declared `[1.20.1,1.21)`. EMI publishes no Forge
   build past 1.20.2, so a wider range advertises installs that cannot work.
 - **EMI declared as a required dependency** on both stores.
-- **Release type `release`**, not beta — the 2.0.1 upload was marked beta by hand and launchers set
-  to "release only" skipped it.
+- **Release type `release`, not beta.** 2.0.1 was marked beta by hand, so launchers set to
+  "release only" skipped it.
 - **Changelog from `.github/release-notes.md`.** Generated commit lists make poor player-facing
-  notes, and the GitHub release is still a draft at that point so it cannot be read back.
+  notes, and the GitHub release is a draft at that point so it cannot be read back.
 
 ### Credentials
 
-Repository secrets `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN`. Local copies live in
+Repository secrets `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN`; local copies in
 `~/.config/ett-publish/*.token`, mode 600.
 
-The Modrinth token is scoped to **read projects, create/read/write versions** and nothing else — no
-account data, no delete, no payouts. The CurseForge upload token has no scope selector.
+The Modrinth token is scoped to **read projects** and **create / read / write versions**, nothing
+else — no account data, no deletes, no payouts. CurseForge's upload token has no scope selector.
 
-To rotate: revoke at
-[modrinth.com/settings/pats](https://modrinth.com/settings/pats) /
-CurseForge → account → API Tokens, then `gh secret set MODRINTH_TOKEN < newfile`.
+Rotate at [modrinth.com/settings/pats](https://modrinth.com/settings/pats) or CurseForge → account →
+API Tokens, then `gh secret set MODRINTH_TOKEN < newfile`.
 
 ## Appendix: doing it by hand
 

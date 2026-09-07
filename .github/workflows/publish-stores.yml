@@ -1,0 +1,125 @@
+name: Publish to stores
+
+# Deliberately NOT tied to `v*` tags.
+#
+# Development moves faster than players want releases. Every `v*` tag builds and stages a GitHub
+# release, which costs nothing and bothers nobody; pushing all of those to Modrinth and CurseForge
+# would spam followers and bury the versions that actually matter. So the stores are opt in: they
+# publish only when a `store-v*` tag says so.
+#
+#   git tag store-v2.2.0 && git push origin store-v2.2.0
+#
+# Rehearse first from the Actions tab with dry_run ticked; that validates the credentials, the
+# files and every field against both stores without publishing anything.
+
+on:
+  push:
+    tags: ['store-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, without the v (e.g. 2.2.0)'
+        required: true
+      dry_run:
+        description: 'Validate everything without publishing'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # A store-v* tag marks a release that already exists; the code to build is the v* tag.
+      - name: Work out which version to publish
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#store-v}"
+          fi
+          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Could not read a version from '${GITHUB_REF_NAME}${{ inputs.version }}'"
+            exit 1
+          fi
+          echo "v=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing $VERSION"
+
+      - name: Check out the matching release tag
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ steps.ver.outputs.v }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew build --no-daemon --stacktrace
+
+      # Same guard as the release workflow: if gradle.properties disagrees with the tag, the jars
+      # are named something other than what is being published.
+      - name: Check the build matches the tag
+        run: |
+          V="${{ steps.ver.outputs.v }}"
+          BUILT="$(grep -oP '^mod_version=\K.*' gradle.properties)"
+          if [ "$V" != "$BUILT" ]; then
+            echo "::error::Publishing $V but gradle.properties says $BUILT"
+            exit 1
+          fi
+          test -f "forge/build/libs/emitreetabs-forge-$V.jar"
+          test -f "fabric/build/libs/emitreetabs-fabric-$V.jar"
+
+      - name: Check release notes exist
+        run: |
+          if [ ! -s .github/release-notes.md ]; then
+            echo "::warning::.github/release-notes.md is empty; stores will get no changelog"
+          fi
+
+      # One version per loader, not one version carrying both jars. Modrinth's download button
+      # serves only the *primary* file, so a combined version hands Fabric users the Forge jar.
+      - name: Publish Forge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: si3AK8q5
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: '1677804'
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: forge/build/libs/emitreetabs-forge-${{ steps.ver.outputs.v }}.jar
+          name: EMI Tree Tabs ${{ steps.ver.outputs.v }} (Forge)
+          version: ${{ steps.ver.outputs.v }}+forge
+          version-type: release
+          loaders: forge
+          # 1.20.1 only, deliberately. The jar declares [1.20.1,1.21) but EMI publishes no Forge
+          # build past 1.20.2, so a wider range advertises installs that cannot work.
+          game-versions: '1.20.1'
+          java: '17'
+          dependencies: emi(required)
+          changelog-file: .github/release-notes.md
+          dry-run: ${{ inputs.dry_run || false }}
+
+      - name: Publish Fabric
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: si3AK8q5
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: '1677804'
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
+          name: EMI Tree Tabs ${{ steps.ver.outputs.v }} (Fabric)
+          version: ${{ steps.ver.outputs.v }}+fabric
+          version-type: release
+          loaders: fabric
+          game-versions: '1.20.1'
+          java: '17'
+          dependencies: emi(required)
+          changelog-file: .github/release-notes.md
+          dry-run: ${{ inputs.dry_run || false }}
