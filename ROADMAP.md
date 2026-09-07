@@ -53,7 +53,25 @@ after the port; it is not going to be abandoned the day 1.21.1 works.
 - [x] **Drag-to-reorder fixed** — the drop position was measured from the wrong origin, which only
       showed up once there were enough tabs for the scroll arrows to appear.
 
-## 3.1 — Interface work
+## The 3.x line — the interface overhaul
+
+Everything from here to 4.0 is one piece of work delivered over several versions. It ships to
+GitHub as it lands, and reaches players **once, as 4.0** — and only when the maintainer says so.
+
+**No 3.x version goes to Modrinth or CurseForge.** Store publishing is opt in by design (a
+`store-v*` tag, see [PUBLISHING.md](PUBLISHING.md)), which is exactly what makes a long overhaul
+possible without shipping half-finished interfaces to players.
+
+| Version | Carries |
+|---|---|
+| 3.1 | Tab bar sizing (**done**), tooltip placement, drawn icons |
+| 3.2 | **The vertical sidebar**, then tab groups and phases on top of it |
+| 3.3 | Working across trees — formula input, resolution sync, shared-material attribution |
+| 3.4 | The settings screen, on YACL |
+| 3.5 | The public API |
+| **4.0** | **The overhaul, released.** Store tag pushed only on the maintainer's confirmation. |
+
+### 3.1 — Tab bar sizing
 
 The bar works but does not feel finished. The complaints below are all one missing rule, not six
 separate bugs: the bar can only shrink. Four constants — `MIN_TAB_WIDTH`, `MAX_TAB_WIDTH`,
@@ -106,22 +124,48 @@ trade-off legible instead of silently discarding the close button. Vertical tabs
 building, but for the reason in the next section — room for names *and* group headers at any scale —
 not because horizontal sizing cannot cope.
 
-### Vertical tabs
+### Vertical tabs — a floating sidebar
 
-Wanted in their own right, not only as a narrow-screen fallback. There is a good precedent inside
-Minecraft modding: **AE2: Tabbed View Cells** places its tabs to the right of the terminal *or above
-it, depending on GUI scale and settings* — orientation as a function of available space.
+Not a narrow-screen fallback. This is the primary layout the overhaul is built around, and it is
+specified rather than sketched, because the shape carries the tab-group design too.
 
-- [ ] **Auto rule:** go vertical when the screen affords at least six 18px rows of tab column *and*
-      the horizontal strip would otherwise be at icon-only density or scrolling. Config offers
-      `Auto / Horizontal / Vertical`, defaulting to Auto.
-- [ ] **Left edge, not right.** The right side is EMI's own sidebar territory and we already added a
-      page there; the tree pans horizontally, so the left gutter is the free one.
-- [ ] Progress moves from a corner marker to a **left stripe** — a stripe reads down a column at a
-      glance, a corner dot does not.
+**The panel**
 
-Vertical buys the thing horizontal structurally cannot: full names at any tab count, plus the room
-where groups become legible.
+- Takes roughly **one fifth of the screen width**, leaving four fifths for the focused tree.
+- **Floats.** A clear **10–20px gap on every side** — it is not glued to the top, bottom or either
+  edge. That gap is the whole reason it reads as a panel over the tree rather than a chrome strip
+  bolted to the window.
+- Two small but visible buttons in the **bottom corners**: **settings**, and **toggle crafting for
+  every tree**.
+
+**A tab**
+
+- A rectangle carrying the **item icon** and the **batch count**.
+- **Hovering swaps the batch count for a crafting-mode toggle** for that tree — the number is only
+  information until you reach for it, at which point the same spot becomes the control.
+- **The name shows when there is room**, which at a fifth of the screen is most of the time. That is
+  the thing the horizontal strip structurally could not do.
+- Clicking focuses that tree. **State is carried by the tab's border colour**, not by a corner pip.
+
+**A group**
+
+- Same rectangle, but the **group header is textured differently**: where a tab has only a border,
+  the header **fills the sidebar width as its background**.
+- It shows the **number of trees** in place of a batch count, and **hovering it toggles crafting for
+  every tree in that group** — the same gesture as a tab, scoped to the group.
+- Every tab belonging to the group sits **inside a larger border** that starts at the header, so
+  membership is visible without reading anything.
+- **Collapsible**: clicking the header folds the whole group into it. Click only — never hover,
+  since hover is already the crafting toggle.
+
+Open questions to settle while building, not before:
+
+- [ ] Which side. The right is EMI's own sidebar territory and this mod already added a page there;
+      the tree pans horizontally, so the left gutter is likely the free one.
+- [ ] When it appears. Probably a config of `Auto / Horizontal / Vertical`, with Auto choosing
+      vertical whenever the screen can afford a fifth of its width and six rows of column.
+- [ ] What happens to the horizontal strip. It stays for small screens at minimum; whether it
+      remains the default anywhere is a decision for after the sidebar exists and can be compared.
 
 ### Refactor first
 
@@ -152,7 +196,9 @@ Minecraft. Both of those regressions now have tests. It is also what makes the l
       it should, because `≡` *is* the vertical-tabs icon in every browser shipping today. The fault
       is borrowing a glyph, not choosing the wrong one.
 
-## 3.2 — Tab groups, which are really phases
+## 3.2 — The sidebar, and groups on top of it
+
+### Tab groups, which are really phases
 
 Driven by a real workflow rather than tidiness: partway through a large build you realise you need
 one whole set of items *before* a later set of machinery. The request was "group tabs". The problem
@@ -265,7 +311,14 @@ Small, versioned, and checked at runtime. Needed by [Quartermaster](../quarterma
 - [ ] Version the API explicitly and degrade to nothing when a consumer's version does not match.
       `NoSuchMethodError` on a user's machine is the failure mode to design against.
 
-## 4.0 — Minecraft 1.21.1
+## 4.0 — Release the overhaul
+
+- [ ] Everything in 3.1 to 3.5 landed and used in a real world for more than a session.
+- [ ] **Maintainer confirms.** Only then does a `store-v4.0.0` tag go up; nothing before it reaches
+      Modrinth or CurseForge.
+- [ ] `publish_game_versions` checked before tagging — it is what the stores are told.
+
+## 5.0 — Minecraft 1.21.1
 
 - [ ] NeoForge support on 1.21.1.
 - [ ] Fabric support on 1.21.1.
