@@ -132,7 +132,7 @@ public final class TreeSidebar {
 		drawFooter(graphics, font, l, mouseX, mouseY);
 
 		if (hovered != null) {
-			tooltip(graphics, font, l, rows, hovered, mouseX, mouseY);
+			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
 		}
 	}
 
@@ -257,8 +257,8 @@ public final class TreeSidebar {
 				lit ? 0xFF0C0C10 : hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);
 	}
 
-	private static void tooltip(GuiGraphics g, Font font, SidebarLayout l, SidebarRows.Result rows,
-			Slot s, int mouseX, int mouseY) {
+	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
+			SidebarRows.Result rows, Slot s, int mouseX, int mouseY) {
 		List<Component> lines = new ArrayList<>();
 		if (s.row().kind() == RowKind.GROUP) {
 			TabGroup group = TreeTabs.group(s.row().groupIndex());
@@ -293,7 +293,12 @@ public final class TreeSidebar {
 						.withStyle(ChatFormatting.GOLD));
 			}
 		}
-		g.renderComponentTooltip(font, lines, mouseX, mouseY);
+		// Anchored beside the panel, never over it: the sidebar occupies a whole screen edge, so a
+		// cursor-relative tooltip would sit on top of the rows it is describing.
+		TabTooltip.render(g, font, lines, screen.width, screen.height,
+				new TabTooltip.Rect(l.panel.x(), l.panel.y(), l.panel.width(), l.panel.height()),
+				l.onLeft ? l.panel.x() + l.panel.width() + 60 : l.panel.x() - 60,
+				mouseX, mouseY);
 	}
 
 	// ----------------------------------------------------------------- input

@@ -100,10 +100,10 @@ scrolling is actually possible.
       Worth doing, but not worth bundling with the change that fixed the actual complaint.
 - [x] **Scrolling as a real interaction** — arrows appear exactly when tabs reach the floor, and
       each one is dimmed when it cannot move. Verified in game at 20 tabs.
-- [ ] **Better tooltip placement** near screen edges. Use the public
-      `GuiGraphics.renderTooltip(Font, List<FormattedCharSequence>, ClientTooltipPositioner, int, int)`
-      overload with a custom positioner: anchor to the hovered tab's centre, clamp horizontally, and
-      never overlap the bar.
+- [x] **Tooltip placement** — a `ClientTooltipPositioner` that anchors to the *control* rather than
+      the cursor, pushes clear of the whole strip or panel, and clamps last. The default positioner
+      is fine mid-screen and wrong at the edges, which is exactly where tabs live: at the top it puts
+      the tooltip over the bar it describes, and the sidebar occupies a whole edge.
 
 ### What the density ladder gives you at each GUI scale
 

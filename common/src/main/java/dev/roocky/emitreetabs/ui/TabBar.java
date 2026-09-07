@@ -135,20 +135,24 @@ public final class TabBar {
 		if (renameBox != null) {
 			renameBox.render(graphics, mouseX, mouseY, delta);
 		} else if (hovered >= 0) {
-			drawTooltip(graphics, font, hovered, mouseX, mouseY);
+			drawTooltip(screen, l, graphics, font, hovered, mouseX, mouseY);
 		} else if (l.overAllButton(mouseX, mouseY)) {
 			int crafting = TreeTabs.craftingCount();
-			graphics.renderComponentTooltip(font, List.of(
+			TabTooltip.render(graphics, font, List.of(
 					Component.translatable("emi.tree_tabs.all.title"),
 					Component.translatable("emi.tree_tabs.all.state", crafting, TreeTabs.count())
 							.withStyle(ChatFormatting.GRAY),
 					Component.translatable("emi.tree_tabs.all.hint").withStyle(ChatFormatting.DARK_GRAY)),
-					mouseX, mouseY);
+					screen.width, screen.height,
+					new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+					l.allButtonX() + TabLayout.ALL_BUTTON_WIDTH / 2, mouseX, mouseY);
 		} else if (l.overAddButton(mouseX, mouseY) && TreeTabs.activeTab() != null) {
-			graphics.renderComponentTooltip(font, List.of(
+			TabTooltip.render(graphics, font, List.of(
 					Component.translatable("emi.tree_tabs.fork"),
 					Component.translatable("emi.tree_tabs.fork.desc").withStyle(ChatFormatting.GRAY)),
-					mouseX, mouseY);
+					screen.width, screen.height,
+					new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+					l.addButtonX() + TabLayout.ADD_BUTTON_WIDTH / 2, mouseX, mouseY);
 		}
 	}
 
@@ -265,7 +269,8 @@ public final class TabBar {
 				hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);
 	}
 
-	private static void drawTooltip(GuiGraphics graphics, Font font, int index, int mouseX, int mouseY) {
+	private static void drawTooltip(Screen screen, TabLayout l, GuiGraphics graphics, Font font,
+			int index, int mouseX, int mouseY) {
 		TreeTab tab = TreeTabs.tab(index);
 		if (tab == null) {
 			return;
@@ -286,7 +291,11 @@ public final class TabBar {
 		lines.add(Component.translatable("emi.tree_tabs.hint.rename").withStyle(ChatFormatting.DARK_GRAY));
 		lines.add(Component.translatable("emi.tree_tabs.hint.close").withStyle(ChatFormatting.DARK_GRAY));
 		lines.add(Component.translatable("emi.tree_tabs.hint.crafting").withStyle(ChatFormatting.DARK_GRAY));
-		graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+		// Anchored to the tab and pushed clear of the whole strip: at the top of the screen the
+		// default positioner puts this straight over the bar it describes.
+		TabTooltip.render(graphics, font, lines, screen.width, screen.height,
+				new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+				l.tabX(index, scroll) + l.tabWidth / 2, mouseX, mouseY);
 	}
 
 	private static int accentColor(TreeTab tab) {
