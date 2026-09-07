@@ -251,11 +251,17 @@ whole tree implies, and the number being arithmetic you did it in your head — 
 - [x] **An expression evaluator** — `32 * 4 * 2` is as valid as `256`. Four operators, brackets,
       `x` as well as `*`, every refusal carrying a readable reason, overflow refused rather than
       wrapped. 20 tests.
-- [ ] **Show the result before committing**, so a typo is visible rather than silently applied.
-- [ ] **Reachable from the thing being counted** — a modifier-click on the batch count, and later on
-      a node, rather than a separate screen.
-- [ ] **Scope needs deciding.** The wording asks for a quantity on *part* of a tree, not the whole
-      craft. Two readings, and they are not the same job:
+- [x] **Shows the result while you type**, green when it parses and the reason in red when it does
+      not, suppressed for a plain number. Enter on an invalid expression refuses and leaves the text
+      editable rather than closing.
+- [x] **Reachable from the thing being counted** — control-click a tab's marker, which is the square
+      already showing the batch count. Plain click still toggles crafting; the modifier acts on what
+      the square displays.
+- [ ] The same, on a *node* rather than a whole tree.
+- [x] **Scope decided: the cheap reading first.** `MaterialTree.batches` is what the input sets, and
+      a sub-craft quantity is usually reachable by opening a tree on that sub-item and setting its
+      batches. Whether pinning an amount on a node is still wanted is a question for after this has
+      been used. The two readings, kept because the second may yet be needed:
       - Setting `MaterialTree.batches` from a formula is nearly free — the field exists, this is an
         input widget and a small expression parser.
       - Pinning a target amount on a *sub-node* means overriding an amount EMI derives top-down from
@@ -271,9 +277,10 @@ different forms — plates, pipes, melted copper. The crafting list correctly sa
 copper"*, but not how much is for which, so there is no way to know whether spending copper on
 plates now starves the pipes later. Working it out means doing the arithmetic by hand.
 
-- [ ] **Hover a material in the crafting sidebar to break its total down by what needs it** — which
-      tree, how much, and for which sub-craft.
-- [ ] Show it in the same hover, not a separate screen: the question is asked mid-decision.
+- [x] **Hover a material to see what wants it** — which tree and how much, sorted by demand. Hidden
+      when only one tree wants it, since that is not a split, and capped at six lines.
+- [ ] Break it down by *sub-craft* as well as by tree.
+- [x] Shown on the material's own tooltip, not a separate screen.
 
 Feasible cheaply too, and further along than it looks: `CraftingFavorites.aggregate` already builds
 `Map<EmiIngredient, Set<TreeTab>> costOwners` while summing the list, so it knows *which* tabs need
