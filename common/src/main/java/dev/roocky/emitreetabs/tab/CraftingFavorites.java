@@ -75,9 +75,10 @@ public final class CraftingFavorites {
 		// [batches, amount, total] per recipe, and [needed, total] per leftover material.
 		Map<EmiRecipe, long[]> recipeTotals = new LinkedHashMap<>();
 		Map<EmiIngredient, long[]> costTotals = new LinkedHashMap<>();
-		// Which tabs each material is for, so a material wanted by two trees can be told from one
-		// wanted by a single tree. Free here because we are already walking every tree.
-		Map<EmiIngredient, Set<TreeTab>> costOwners = new LinkedHashMap<>();
+		// Which tabs each material is for, and how much each of them wants. Free here because we are
+		// already walking every tree, and it is the only place the split is knowable: once the totals
+		// are summed the question "how much of this copper is for plates" cannot be answered.
+		Map<EmiIngredient, Map<TreeTab, long[]>> costOwners = new LinkedHashMap<>();
 		MaterialTree restore = BoM.tree;
 		boolean anything = false;
 
@@ -110,7 +111,11 @@ public final class CraftingFavorites {
 						long[] totals = costTotals.computeIfAbsent(entry.getStack(), key -> new long[2]);
 						totals[0] += entry.amount;
 						totals[1] += entry.total;
-						costOwners.computeIfAbsent(entry.getStack(), key -> new LinkedHashSet<>()).add(tab);
+						long[] mine = costOwners
+								.computeIfAbsent(entry.getStack(), key -> new LinkedHashMap<>())
+								.computeIfAbsent(tab, key -> new long[2]);
+						mine[0] += entry.amount;
+						mine[1] += entry.total;
 					}
 				}
 			}
@@ -122,6 +127,9 @@ public final class CraftingFavorites {
 			BoM.craftingMode = activeTab != null && activeTab.craftingMode;
 		}
 
+		// Published before the early return, so a run that produced nothing also clears the old split
+		// rather than leaving a stale one to be read against the next tree.
+		ATTRIBUTION = costOwners;
 		EmiFavorites.syntheticFavorites.clear();
 		if (!anything) {
 			return true;
@@ -147,7 +155,8 @@ public final class CraftingFavorites {
 					new EmiFavorite.Synthetic(entry.getKey(), totals[0], totals[1]);
 			EmiFavorites.syntheticFavorites.add(synthetic);
 
-			Set<TreeTab> owners = costOwners.get(entry.getKey());
+			Set<TreeTab> owners = costOwners.containsKey(entry.getKey())
+					? costOwners.get(entry.getKey()).keySet() : null;
 			if (owners == null || owners.size() != 1) {
 				shared.entries.add(synthetic);
 			} else {
@@ -169,6 +178,32 @@ public final class CraftingFavorites {
 	 * <p>Chanced remainders are deliberately ignored — a maybe-drop is not something to promise the
 	 * next tree it already has.
 	 */
+	/**
+	 * How much of a shared material each tree wants, most demanding first.
+	 *
+	 * <p>The crafting list can say "184 copper" but not what it is for, so deciding whether to spend
+	 * it on plates now or save it for pipes means doing the arithmetic by hand. This is the split,
+	 * kept from the one moment it is knowable: after the totals are summed it is gone.
+	 */
+	public static List<Attribution> attribution(EmiIngredient stack) {
+		Map<TreeTab, long[]> owners = ATTRIBUTION.get(stack);
+		if (owners == null || owners.isEmpty()) {
+			return List.of();
+		}
+		List<Attribution> out = new ArrayList<>();
+		for (Map.Entry<TreeTab, long[]> e : owners.entrySet()) {
+			out.add(new Attribution(e.getKey(), e.getValue()[0], e.getValue()[1]));
+		}
+		out.sort((a, b) -> Long.compare(b.needed(), a.needed()));
+		return out;
+	}
+
+	/** One tree's share of a shared material. */
+	public record Attribution(TreeTab tab, long needed, long total) {
+	}
+
+	private static Map<EmiIngredient, Map<TreeTab, long[]>> ATTRIBUTION = new LinkedHashMap<>();
+
 	private static EmiPlayerInventory leftovers(MaterialTree tree) {
 		// The list constructor also folds in the cursor stack, so clear it and fill the map
 		// directly. EMI does the same thing when it needs an inventory it fully controls.

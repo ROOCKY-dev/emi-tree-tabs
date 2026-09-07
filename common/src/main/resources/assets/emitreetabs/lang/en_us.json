@@ -65,5 +65,8 @@
   "emi.tree_tabs.group.only": "Work on this phase only",
   "emi.tree_tabs.group.size": "%s trees",
   "emi.tree_tabs.batch.title": "How many?",
-  "emi.tree_tabs.batch.hint": "or type 32 * 4 * 2"
+  "emi.tree_tabs.batch.hint": "or type 32 * 4 * 2",
+  "emi.tree_tabs.attribution.title": "Wanted by",
+  "emi.tree_tabs.attribution.line": "  %s for %s",
+  "emi.tree_tabs.attribution.more": "  and %s more"
 }
