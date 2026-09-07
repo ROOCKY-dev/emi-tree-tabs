@@ -160,12 +160,15 @@ specified rather than sketched, because the shape carries the tab-group design t
 
 Open questions to settle while building, not before:
 
-- [ ] Which side. The right is EMI's own sidebar territory and this mod already added a page there;
-      the tree pans horizontally, so the left gutter is likely the free one.
-- [ ] When it appears. Probably a config of `Auto / Horizontal / Vertical`, with Auto choosing
-      vertical whenever the screen can afford a fifth of its width and six rows of column.
-- [ ] What happens to the horizontal strip. It stays for small screens at minimum; whether it
-      remains the default anywhere is a decision for after the sidebar exists and can be compared.
+- [x] **Which side** — left. The right is EMI's own sidebar territory and this mod already added a
+      page there; the tree pans horizontally, so the left gutter is the free one.
+- [x] **When it appears** — `tabOrientation` config of `auto / horizontal / vertical`. Auto takes
+      the sidebar whenever the screen can host it, and falls back to the strip when it cannot. Even
+      an explicit `vertical` falls back, because a screen too small to draw it is still too small.
+- [x] **What happens to the strip** — it stays, as the fallback, behind a `TabUi` dispatcher so the
+      mixin never asks which layout is live. Whether the sidebar becomes the default everywhere is
+      still open, and is now answerable by comparing them in game.
+- [ ] **Drag to reorder in the sidebar.** The strip has it; the sidebar does not yet.
 
 ### Refactor first
 
@@ -206,16 +209,16 @@ is that a big build has **phases**, and the crafting list insists on totalling a
 
 So the primitive is not a folder. It is a group with an active/parked flag:
 
-- [ ] A group is a name, a colour, a collapsed flag and a **parked** flag.
-- [ ] **Parking excludes a group's trees from the aggregated crafting list** while keeping the tabs.
+- [x] A group is a name, a colour, a collapsed flag and a **parked** flag.
+- [x] **Parking excludes a group's trees from the aggregated crafting list** while keeping the tabs,
+      and without touching their own crafting flags, so unparking restores what you had.
       That is the whole point — you stop being told to gather machinery parts while you are still
       making planks.
-- [ ] One action: **park everything except this group.** That is the workflow in a single click.
-- [ ] Horizontal mode shows a coloured group chip before each run of tabs; vertical mode shows real
-      headers.
-- [ ] **Persistence format change.** `TabCodec` gains a groups array and each tab carries a group id.
-      Version the file and migrate on read — a mod that loses your tabs on upgrade is worse than one
-      without groups.
+- [x] One action: **park everything except this group** — shift right click on a header.
+- [x] Vertical mode shows real headers, coloured per group.
+- [ ] Horizontal mode still shows no group chips; the strip is group-blind for now.
+- [x] **Persistence format change** — file version 2, groups array, group id per tab. Version 1
+      files still load and simply have no groups.
 
 ## 3.3 — Working across trees
 
@@ -245,9 +248,10 @@ already serialises per tab in `TabCodec`. Applying one across tabs is a loop and
 whole tree implies, and the number being arithmetic you did it in your head — *32 machines, 4 each,
 2 per that* — so setting it means leaving the tree for a calculator and coming back with 256.
 
-- [ ] **An input that accepts a formula, not just a number.** `32 * 4 * 2` should be as valid as
-      `256`. Support `+ - * /` and parentheses, evaluate on enter, show the result before committing
-      so a typo is visible rather than silently applied.
+- [x] **An expression evaluator** — `32 * 4 * 2` is as valid as `256`. Four operators, brackets,
+      `x` as well as `*`, every refusal carrying a readable reason, overflow refused rather than
+      wrapped. 20 tests.
+- [ ] **Show the result before committing**, so a typo is visible rather than silently applied.
 - [ ] **Reachable from the thing being counted** — a modifier-click on the batch count, and later on
       a node, rather than a separate screen.
 - [ ] **Scope needs deciding.** The wording asks for a quantity on *part* of a tree, not the whole
