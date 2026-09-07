@@ -20,6 +20,7 @@ import com.google.gson.JsonObject;
 
 import dev.roocky.emitreetabs.EmiTreeTabs;
 import dev.roocky.emitreetabs.TreeTabsConfig;
+import dev.roocky.emitreetabs.ui.SidebarRows;
 import dev.roocky.emitreetabs.ui.TreeScreenHooks;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.bom.BoM;
@@ -50,6 +51,8 @@ public final class TreeTabs {
 
 	private static final List<TreeTab> TABS = new ArrayList<>();
 	private static final Deque<JsonObject> CLOSED = new ArrayDeque<>();
+	private static final List<TabGroup> GROUPS = new ArrayList<>();
+	private static int nextGroupId = 1;
 
 	private static int active = -1;
 	/** Tabs read off disk that could not be rebuilt yet because recipes were not loaded. */
@@ -580,6 +583,23 @@ public final class TreeTabs {
 			}
 			pending = loaded;
 			pendingActive = root.has("active") ? root.get("active").getAsInt() : 0;
+
+			// Version 1 files have no groups at all, which is a valid state rather than an error:
+			// every tab simply loads ungrouped. Nothing here should ever refuse to load a file.
+			GROUPS.clear();
+			nextGroupId = 1;
+			if (root.has("groups") && root.get("groups").isJsonArray()) {
+				for (JsonElement element : root.getAsJsonArray("groups")) {
+					if (!element.isJsonObject()) {
+						continue;
+					}
+					TabGroup group = TabGroup.load(element.getAsJsonObject());
+					if (group != null) {
+						GROUPS.add(group);
+						nextGroupId = Math.max(nextGroupId, group.id + 1);
+					}
+				}
+			}
 		} catch (Exception e) {
 			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}", path, e);
 		}
@@ -591,6 +611,149 @@ public final class TreeTabs {
 	 * <p>Switching tabs used to write the whole json file synchronously on every click. Now the
 	 * write is deferred to {@link #flush()}, which the tree screen calls when it closes.
 	 */
+	// ----------------------------------------------------------------- groups
+
+	public static List<TabGroup> groups() {
+		return Collections.unmodifiableList(GROUPS);
+	}
+
+	public static TabGroup group(int id) {
+		for (TabGroup g : GROUPS) {
+			if (g.id == id) {
+				return g;
+			}
+		}
+		return null;
+	}
+
+	public static TabGroup createGroup(String name) {
+		TabGroup group = new TabGroup(nextGroupId++, name == null || name.isBlank()
+				? Component.translatable("emi.tree_tabs.group.default", GROUPS.size() + 1).getString()
+				: name, TabGroup.colourFor(GROUPS.size()));
+		GROUPS.add(group);
+		markDirty();
+		return group;
+	}
+
+	/**
+	 * Removes a group. Its tabs are kept and become ungrouped — closing tabs because their phase
+	 * was deleted would lose work the player never asked to lose.
+	 */
+	public static void removeGroup(int id) {
+		if (GROUPS.removeIf(g -> g.id == id)) {
+			for (TreeTab tab : TABS) {
+				if (tab.groupId == id) {
+					tab.groupId = -1;
+				}
+			}
+			markDirty();
+		}
+	}
+
+	public static void assignToGroup(int tabIndex, int groupId) {
+		TreeTab tab = tab(tabIndex);
+		if (tab == null || tab.groupId == groupId) {
+			return;
+		}
+		tab.groupId = groupId >= 0 && group(groupId) != null ? groupId : -1;
+		markDirty();
+	}
+
+	public static void setCollapsed(int groupId, boolean collapsed) {
+		TabGroup g = group(groupId);
+		if (g != null && g.collapsed != collapsed) {
+			g.collapsed = collapsed;
+			markDirty();
+		}
+	}
+
+	/**
+	 * Sets a group aside, or brings it back.
+	 *
+	 * <p>Parking does not touch the tabs' own crafting flags, so unparking restores exactly the
+	 * state you had rather than a guess at it.
+	 */
+	public static void setParked(int groupId, boolean parked) {
+		TabGroup g = group(groupId);
+		if (g != null && g.parked != parked) {
+			g.parked = parked;
+			markDirty();
+		}
+	}
+
+	/** The one-click version of the workflow: work on this phase, set every other one aside. */
+	public static void parkAllExcept(int groupId) {
+		boolean changed = false;
+		for (TabGroup g : GROUPS) {
+			boolean want = g.id != groupId;
+			if (g.parked != want) {
+				g.parked = want;
+				changed = true;
+			}
+		}
+		if (changed) {
+			markDirty();
+		}
+	}
+
+	/** True when this tab's group is parked, and so it should not feed the crafting list. */
+	public static boolean isParked(TreeTab tab) {
+		if (tab == null || tab.groupId < 0) {
+			return false;
+		}
+		TabGroup g = group(tab.groupId);
+		return g != null && g.parked;
+	}
+
+	/** Sets crafting mode for every tab in one group, leaving the rest alone. */
+	public static void setGroupCrafting(int groupId, boolean crafting) {
+		boolean changed = false;
+		for (TreeTab tab : TABS) {
+			if (tab.groupId == groupId && tab.craftingMode != crafting) {
+				tab.craftingMode = crafting;
+				changed = true;
+			}
+		}
+		if (changed) {
+			TreeTab active = activeTab();
+			BoM.craftingMode = active != null && active.craftingMode;
+			markDirty();
+		}
+	}
+
+	public static int groupCraftingCount(int groupId) {
+		int n = 0;
+		for (TreeTab tab : TABS) {
+			if (tab.groupId == groupId && tab.craftingMode) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	public static int groupSize(int groupId) {
+		int n = 0;
+		for (TreeTab tab : TABS) {
+			if (tab.groupId == groupId) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** The sidebar's rows, and the mapping back from a row to the tab it stands for. */
+	public static SidebarRows.Result sidebarRows() {
+		List<SidebarRows.GroupRef> gs = new ArrayList<>();
+		for (TabGroup g : GROUPS) {
+			gs.add(new SidebarRows.GroupRef(g.id, g.collapsed));
+		}
+		List<SidebarRows.TabRef> ts = new ArrayList<>();
+		for (int i = 0; i < TABS.size(); i++) {
+			ts.add(new SidebarRows.TabRef(i, TABS.get(i).groupId));
+		}
+		return SidebarRows.build(gs, ts);
+	}
+
 	public static void markDirty() {
 		structureVersion++;
 		dirty = true;
@@ -647,9 +810,17 @@ public final class TreeTabs {
 			array.add(saved);
 		}
 		JsonObject root = new JsonObject();
-		root.addProperty("version", 1);
+		// 2 added groups. A version 1 file still loads; it simply has none.
+		root.addProperty("version", 2);
 		root.addProperty("active", pending != null ? pendingActive : Math.max(0, active));
 		root.add("tabs", array);
+		if (!GROUPS.isEmpty()) {
+			JsonArray groups = new JsonArray();
+			for (TabGroup g : GROUPS) {
+				groups.add(g.save());
+			}
+			root.add("groups", groups);
+		}
 
 		Path path = file();
 		try {

@@ -60,7 +60,10 @@ public final class CraftingFavorites {
 		// crafting list even while you are looking at a different tab.
 		List<TreeTab> included = new ArrayList<>();
 		for (TreeTab tab : TreeTabs.tabs()) {
-			if (tab.craftingMode && tab.tree != null && tab.tree.goal != null) {
+			// A parked group is set aside: its trees stay open and keep their own crafting flags,
+			// but they stop asking for materials. That is the entire point of parking a phase.
+			if (tab.craftingMode && !TreeTabs.isParked(tab)
+					&& tab.tree != null && tab.tree.goal != null) {
 				included.add(tab);
 			}
 		}
