@@ -25,6 +25,12 @@ public final class TabUi {
 	}
 
 	public static void render(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+		renderTabs(screen, graphics, mouseX, mouseY, delta);
+		// Drawn last so it sits over both layouts.
+		BatchInput.render(screen, graphics, mouseX, mouseY, delta);
+	}
+
+	private static void renderTabs(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		if (vertical(screen)) {
 			TreeSidebar.render(screen, graphics, mouseX, mouseY, delta);
 		} else {
@@ -35,12 +41,18 @@ public final class TabUi {
 
 	/** Whether the pointer is over the tabs, and so the tree beneath should ignore it. */
 	public static boolean isOver(Screen screen, double mouseX, double mouseY) {
+		if (BatchInput.isOver(mouseX, mouseY)) {
+			return true;
+		}
 		return vertical(screen)
 				? TreeSidebar.isOver(screen, mouseX, mouseY)
 				: TabBar.isOver(screen, mouseX, mouseY);
 	}
 
 	public static boolean mouseClicked(Screen screen, double mouseX, double mouseY, int button) {
+		if (BatchInput.mouseClicked(screen, mouseX, mouseY, button)) {
+			return true;
+		}
 		return vertical(screen)
 				? TreeSidebar.mouseClicked(screen, mouseX, mouseY, button)
 				: TabBar.mouseClicked(screen, mouseX, mouseY, button);
@@ -64,6 +76,9 @@ public final class TabUi {
 	 * way in both — and the rename box lives there too.
 	 */
 	public static boolean keyPressed(Screen screen, int keyCode, int scanCode, int modifiers) {
+		if (BatchInput.keyPressed(screen, keyCode, scanCode, modifiers)) {
+			return true;
+		}
 		return TabBar.keyPressed(screen, keyCode, scanCode, modifiers);
 	}
 
@@ -77,6 +92,7 @@ public final class TabUi {
 
 	/** Called whenever the tree screen is rebuilt, or the world goes away. */
 	public static void reset() {
+		BatchInput.close(null);
 		TabBar.reset();
 		TreeSidebar.reset();
 	}

@@ -361,7 +361,19 @@ public final class TreeSidebar {
 		}
 		if (button == 0 && l.overMarker(s, mouseX, mouseY)) {
 			click();
-			TreeTabs.toggleCrafting(tabIndex);
+			// The marker shows the batch count, so control-clicking it edits that number, while a
+			// plain click toggles crafting. One square, and the modifier acts on what it displays.
+			if (Screen.hasControlDown()) {
+				Rect m = s.marker();
+				BatchInput.open(screen, tabIndex, m.x() + m.width() + 4, m.y());
+			} else {
+				TreeTabs.toggleCrafting(tabIndex);
+			}
+			return true;
+		}
+		if (button == 1) {
+			click();
+			TreeTabs.select(tabIndex);
 			return true;
 		}
 		if (button == 2) {

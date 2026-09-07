@@ -754,6 +754,28 @@ public final class TreeTabs {
 		return SidebarRows.build(gs, ts);
 	}
 
+	/**
+	 * Sets how many times a tree is being made, and recosts it.
+	 *
+	 * <p>Clamped rather than trusted: {@link Formula} already refuses absurd values, but this is the
+	 * only path that writes the field and a batch count of zero or a billion makes costing the tree
+	 * either pointless or endless.
+	 */
+	public static void setBatches(int index, long batches) {
+		TreeTab tab = tab(index);
+		if (tab == null || tab.tree == null) {
+			return;
+		}
+		long clamped = Math.max(1, Math.min(batches, Formula.MAX));
+		if (tab.tree.batches == clamped) {
+			return;
+		}
+		tab.tree.batches = clamped;
+		tab.tree.recalculate();
+		tab.labelVersion++;
+		markDirty();
+	}
+
 	public static void markDirty() {
 		structureVersion++;
 		dirty = true;
