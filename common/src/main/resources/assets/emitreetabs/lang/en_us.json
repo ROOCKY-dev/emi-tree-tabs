@@ -68,5 +68,8 @@
   "emi.tree_tabs.batch.hint": "or type 32 * 4 * 2",
   "emi.tree_tabs.attribution.title": "Wanted by",
   "emi.tree_tabs.attribution.line": "  %s for %s",
-  "emi.tree_tabs.attribution.more": "  and %s more"
-}
+  "emi.tree_tabs.attribution.more": "  and %s more",
+  "emi.tree_tabs.sync.title": "Recipe applied everywhere",
+  "emi.tree_tabs.sync.body": "Updated %s other tree(s) using it",
+  "emi.tree_tabs.sync.offer.title": "%s other tree(s) use this",
+  "emi.tree_tabs.sync.offer.body": "Ctrl+Shift+S to use the same recipe there"}

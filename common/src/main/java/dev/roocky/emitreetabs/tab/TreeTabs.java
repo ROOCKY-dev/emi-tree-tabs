@@ -10,7 +10,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -24,6 +26,9 @@ import dev.roocky.emitreetabs.ui.SidebarRows;
 import dev.roocky.emitreetabs.ui.TreeScreenHooks;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.bom.BoM;
+import dev.emi.emi.api.recipe.EmiRecipe;
+import dev.emi.emi.api.stack.EmiIngredient;
+import dev.emi.emi.bom.MaterialNode;
 import dev.emi.emi.bom.MaterialTree;
 import dev.emi.emi.bom.ProgressState;
 import dev.emi.emi.runtime.EmiFavorites;
@@ -35,6 +40,7 @@ import dev.emi.emi.screen.EmiScreenManager;
 import dev.emi.emi.input.EmiInput;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import dev.roocky.emitreetabs.platform.Platform;
@@ -611,6 +617,175 @@ public final class TreeTabs {
 	 * <p>Switching tabs used to write the whole json file synchronously on every click. Now the
 	 * write is deferred to {@link #flush()}, which the tree screen calls when it closes.
 	 */
+	/**
+	 * Applies one ingredient's chosen recipe to every other tree that uses that ingredient.
+	 *
+	 * <p>The problem this solves: progression unlocks a cheaper way to make some intermediate part,
+	 * you change it on the tree in front of you, and the other eight machines quietly carry on using
+	 * the expensive recipe. There is no way to find them short of opening each tree and hunting.
+	 *
+	 * <p>Only the one sub-craft is copied, never the whole tree, and only into trees that actually
+	 * contain the ingredient — writing a resolution into a tree that never reads it would be dead
+	 * weight in the save file.
+	 *
+	 * @return how many other trees changed.
+	 */
+	public static int syncResolution(MaterialTree origin, EmiIngredient ingredient, EmiRecipe recipe) {
+		if (ingredient == null) {
+			return 0;
+		}
+		int changed = 0;
+		for (TreeTab tab : TABS) {
+			MaterialTree tree = tab.tree;
+			if (tree == null || tree == origin) {
+				continue;
+			}
+			// Already resolved the same way, so there is nothing to report or recalculate.
+			EmiRecipe current = tree.resolutions.get(ingredient);
+			if (current == recipe || (current != null && current.equals(recipe))) {
+				continue;
+			}
+			if (!uses(tree, ingredient)) {
+				continue;
+			}
+			tree.addResolution(ingredient, recipe);
+			tree.recalculate();
+			tab.labelVersion++;
+			changed++;
+		}
+		if (changed > 0) {
+			markDirty();
+		}
+		return changed;
+	}
+
+	/** Whether this tree has a node for the given ingredient anywhere under its goal. */
+	private static boolean uses(MaterialTree tree, EmiIngredient ingredient) {
+		if (tree.goal == null) {
+			return false;
+		}
+		// Iterative, with a visited set: a malformed tree must not be able to hang the client.
+		Deque<MaterialNode> queue = new ArrayDeque<>();
+		Set<MaterialNode> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+		queue.add(tree.goal);
+		seen.add(tree.goal);
+		while (!queue.isEmpty()) {
+			MaterialNode node = queue.poll();
+			if (ingredient.equals(node.ingredient)) {
+				return true;
+			}
+			if (node.children != null) {
+				for (MaterialNode child : node.children) {
+					if (child != null && seen.add(child)) {
+						queue.add(child);
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	// The last recipe choice made, and how many other trees would take it. Held so the player can
+	// accept the offer on a key of ours, rather than through a modifier EMI's own slot swallows.
+	private static EmiIngredient pendingIngredient;
+	private static EmiRecipe pendingRecipe;
+	private static int pendingCount;
+
+	/**
+	 * Records a recipe choice and, if other open trees use the same ingredient differently, offers
+	 * to apply it there too.
+	 *
+	 * <p>Deliberately does not change anything. Silently rewriting trees the player is not looking
+	 * at is exactly the kind of surprise that makes a mod untrustworthy, and EMI's own
+	 * {@code Ctrl}+click already means "default for all trees" — which, unlike this, does not reach
+	 * trees that already exist.
+	 */
+	public static void noteResolution(MaterialTree origin, EmiIngredient ingredient, EmiRecipe recipe) {
+		clearPendingSync();
+		if (ingredient == null || recipe == null) {
+			// A null recipe is EMI clearing a resolution; there is nothing to propagate.
+			return;
+		}
+		TreeTab active = activeTab();
+		if (active == null || active.tree != origin) {
+			return;
+		}
+		int candidates = 0;
+		for (TreeTab tab : TABS) {
+			MaterialTree tree = tab.tree;
+			if (tree == null || tree == origin) {
+				continue;
+			}
+			EmiRecipe current = tree.resolutions.get(ingredient);
+			if (current != null && current.equals(recipe)) {
+				continue;
+			}
+			if (uses(tree, ingredient)) {
+				candidates++;
+			}
+		}
+		if (candidates == 0) {
+			return;
+		}
+		pendingIngredient = ingredient;
+		pendingRecipe = recipe;
+		pendingCount = candidates;
+		offerResolutionSync(candidates);
+	}
+
+	public static boolean hasPendingSync() {
+		return pendingIngredient != null && pendingRecipe != null && pendingCount > 0;
+	}
+
+	public static void clearPendingSync() {
+		pendingIngredient = null;
+		pendingRecipe = null;
+		pendingCount = 0;
+	}
+
+	/** Applies the offer the player just accepted. @return how many trees changed. */
+	public static int applyPendingSync() {
+		if (!hasPendingSync()) {
+			return 0;
+		}
+		TreeTab active = activeTab();
+		MaterialTree origin = active == null ? null : active.tree;
+		int changed = syncResolution(origin, pendingIngredient, pendingRecipe);
+		clearPendingSync();
+		if (changed > 0) {
+			reportResolutionSync(changed);
+		}
+		return changed;
+	}
+
+	private static void offerResolutionSync(int candidates) {
+		Minecraft client = Minecraft.getInstance();
+		if (client == null) {
+			return;
+		}
+		client.getToasts().addToast(new SystemToast(
+				SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+				Component.translatable("emi.tree_tabs.sync.offer.title", candidates),
+				Component.translatable("emi.tree_tabs.sync.offer.body")));
+	}
+
+	/**
+	 * Confirms the change reached trees the player was not looking at.
+	 *
+	 * <p>Silence would be worse than a toast here: the whole point is that it changed trees off
+	 * screen, so without this the action is indistinguishable from an ordinary recipe pick.
+	 */
+	public static void reportResolutionSync(int changed) {
+		Minecraft client = Minecraft.getInstance();
+		if (client == null) {
+			return;
+		}
+		client.getToasts().addToast(new SystemToast(
+				SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+				Component.translatable("emi.tree_tabs.sync.title"),
+				Component.translatable("emi.tree_tabs.sync.body", changed)));
+	}
+
 	// ----------------------------------------------------------------- groups
 
 	public static List<TabGroup> groups() {
