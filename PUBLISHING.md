@@ -82,8 +82,18 @@ without publishing.
   would spam followers and bury the versions that matter.
 - **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
   only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
-- **`game-versions: 1.20.1` only**, not the jar's declared `[1.20.1,1.21)`. EMI publishes no Forge
-  build past 1.20.2, so a wider range advertises installs that cannot work.
+- **Nothing about loaders or Minecraft versions is written in the workflow.** Both are read out of
+  the tag being published, so a port needs no workflow edit:
+  - **loaders** — the modules in `settings.gradle` besides `common`. Today `forge` + `fabric`; after
+    the 1.21.1 port that branch will say `neoforge` + `fabric` and publishing follows automatically.
+  - **Minecraft versions** — `publish_game_versions` in `gradle.properties`. Comma separated, so a
+    build that genuinely covers several (`1.21.1,1.21.2`) says so in one place.
+
+  It is a separate property rather than `minecraft_version_range`, because the range says
+  `[1.20.1,1.21)` and auto-detecting from it claims 1.20.1 through 1.20.6 — which is what Modrinth
+  guessed, and it is wrong. EMI publishes no Forge build past 1.20.2, so those extra versions
+  advertise installs that cannot work. Widen the list only when a build has actually been run on
+  each version in it.
 - **EMI declared as a required dependency** on both stores.
 - **Release type `release`, not beta.** 2.0.1 was marked beta by hand, so launchers set to
   "release only" skipped it.
