@@ -95,9 +95,54 @@ jobs:
             : > release-notes.md
           fi
 
+      # What the rehearsal actually checks. Everything mc-publish would need, verified directly:
+      # the credentials work, the project is reachable, and the exact files exist.
+      - name: Rehearse (dry run only)
+        if: ${{ inputs.dry_run }}
+        env:
+          MR: ${{ secrets.MODRINTH_TOKEN }}
+          CF: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          V="${{ steps.ver.outputs.v }}"
+          UA="roocky-dev/ett-publish (roocky@roocky.dev)"
+          fail=0
+
+          mr=$(curl -s -o /tmp/mr.json -w '%{http_code}' -A "$UA" -H "Authorization: $MR" \
+                https://api.modrinth.com/v2/project/si3AK8q5)
+          if [ "$mr" = 200 ]; then
+            echo "Modrinth: token OK, project reachable"
+            python3 - <<'EOF'
+          import json
+          d = json.load(open('/tmp/mr.json'))
+          print('  project:', d.get('title'), '| status:', d.get('status'))
+          print('  versions already on Modrinth:', len(d.get('versions', [])))
+          EOF
+          else
+            echo "::error::Modrinth returned HTTP $mr"; fail=1
+          fi
+
+          cf=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Api-Token: $CF" \
+                https://minecraft.curseforge.com/api/game/versions)
+          [ "$cf" = 200 ] && echo "CurseForge: token OK" \
+                          || { echo "::error::CurseForge returned HTTP $cf"; fail=1; }
+
+          for f in "forge/build/libs/emitreetabs-forge-$V.jar" \
+                   "fabric/build/libs/emitreetabs-fabric-$V.jar"; do
+            [ -f "$f" ] && echo "file OK: $f ($(stat -c%s "$f") bytes)" \
+                        || { echo "::error::missing $f"; fail=1; }
+          done
+
+          echo "changelog: $(wc -c < release-notes.md) bytes"
+          echo "would publish: $V+forge (forge) and $V+fabric (fabric), 1.20.1, release"
+          exit $fail
+
       # One version per loader, not one version carrying both jars. Modrinth's download button
       # serves only the *primary* file, so a combined version hands Fabric users the Forge jar.
+      # mc-publish's own dry-run cannot be trusted: it logged `dry-run: true` and uploaded to both
+      # stores anyway, creating duplicate versions. The rehearsal therefore never reaches the action
+      # at all - these steps are skipped outright.
       - name: Publish Forge
+        if: ${{ !inputs.dry_run }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: si3AK8q5
@@ -115,9 +160,9 @@ jobs:
           java: '17'
           dependencies: emi(required)
           changelog-file: release-notes.md
-          dry-run: ${{ inputs.dry_run || false }}
 
       - name: Publish Fabric
+        if: ${{ !inputs.dry_run }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: si3AK8q5
@@ -133,4 +178,3 @@ jobs:
           java: '17'
           dependencies: emi(required)
           changelog-file: release-notes.md
-          dry-run: ${{ inputs.dry_run || false }}
