@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.roocky.emitreetabs.tab.TreeTabs;
-import dev.roocky.emitreetabs.ui.TabBar;
+import dev.roocky.emitreetabs.ui.TabUi;
 import dev.roocky.emitreetabs.ui.TreeScreenHooks;
 import dev.emi.emi.screen.BoMScreen;
 import net.minecraft.client.gui.GuiGraphics;
@@ -81,7 +81,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 
 	@Inject(method = "init()V", at = @At("HEAD"))
 	private void emitreetabs$initHead(CallbackInfo ci) {
-		TabBar.reset();
+		TabUi.reset();
 		// Catches the case where the deferred restore has not run yet.
 		TreeTabs.tryRestore();
 		// EMI may have set a tree without going through setGoal; make sure a tab owns it.
@@ -91,13 +91,13 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	@Inject(method = "init()V", at = @At("TAIL"))
 	private void emitreetabs$initTail(CallbackInfo ci) {
 		TreeTabs.applyViewport();
-		TabBar.ensureVisible(this, TreeTabs.activeIndex());
+		TabUi.ensureVisible(this, TreeTabs.activeIndex());
 	}
 
 	@Inject(method = "onClose()V", at = @At("HEAD"))
 	private void emitreetabs$onClose(CallbackInfo ci) {
 		TreeTabs.captureViewport();
-		TabBar.reset();
+		TabUi.reset();
 		TreeTabs.flush();
 	}
 
@@ -105,8 +105,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 
 	@Inject(method = "render(Lnet/minecraft/client/gui/GuiGraphics;IIF)V", at = @At("TAIL"))
 	private void emitreetabs$render(GuiGraphics graphics, int mouseX, int mouseY, float delta, CallbackInfo ci) {
-		TabBar.tickDrag(this);
-		TabBar.render(this, graphics, mouseX, mouseY, delta);
+		TabUi.render(this, graphics, mouseX, mouseY, delta);
 	}
 
 	/**
@@ -116,7 +115,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	 */
 	@Inject(method = "getHoveredStack", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
 	private void emitreetabs$suppressHoverUnderBar(int mouseX, int mouseY, CallbackInfoReturnable<Object> cir) {
-		if (TabBar.isOver(this, mouseX, mouseY)) {
+		if (TabUi.isOver(this, mouseX, mouseY)) {
 			cir.setReturnValue(null);
 		}
 	}
@@ -126,7 +125,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	@Inject(method = "mouseClicked(DDI)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseClicked(double mouseX, double mouseY, int button,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (TabBar.mouseClicked(this, mouseX, mouseY, button)) {
+		if (TabUi.mouseClicked(this, mouseX, mouseY, button)) {
 			cir.setReturnValue(true);
 		}
 	}
@@ -134,7 +133,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	@Inject(method = "mouseDragged(DDIDD)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (TabBar.mouseDragged(this, mouseX, mouseY, button)) {
+		if (TabUi.mouseDragged(this, mouseX, mouseY, button)) {
 			cir.setReturnValue(true);
 		}
 	}
@@ -142,7 +141,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	@Inject(method = "mouseScrolled(DDD)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$mouseScrolled(double mouseX, double mouseY, double amount,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (TabBar.mouseScrolled(this, mouseX, mouseY, amount)) {
+		if (TabUi.mouseScrolled(this, mouseX, mouseY, amount)) {
 			cir.setReturnValue(true);
 		}
 	}
@@ -150,7 +149,7 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 	@Inject(method = "keyPressed(III)Z", at = @At("HEAD"), cancellable = true)
 	private void emitreetabs$keyPressed(int keyCode, int scanCode, int modifiers,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (TabBar.keyPressed(this, keyCode, scanCode, modifiers)) {
+		if (TabUi.keyPressed(this, keyCode, scanCode, modifiers)) {
 			cir.setReturnValue(true);
 		}
 	}

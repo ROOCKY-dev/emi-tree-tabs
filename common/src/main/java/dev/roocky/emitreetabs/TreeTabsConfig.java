@@ -30,6 +30,16 @@ public final class TreeTabsConfig {
 	public static boolean showProgress = true;
 	/** Draw the bar along the bottom of the tree screen instead of the top. */
 	public static boolean barAtBottom = false;
+
+	/**
+	 * Where the tabs live: {@code auto}, {@code horizontal} or {@code vertical}.
+	 *
+	 * <p>Auto picks the sidebar whenever the screen can afford a fifth of its width and a few rows,
+	 * and falls back to the strip when it cannot. A screen that cannot host the sidebar is not a
+	 * rare case — GUI scale 4 on a small window is common — so the fallback has to be real rather
+	 * than theoretical.
+	 */
+	public static String tabOrientation = "auto";
 	/** Crafting mode gathers what to make from every tracked tree, not just the visible one. */
 	public static boolean aggregateCraftingFavorites = true;
 	/**
@@ -132,6 +142,7 @@ public final class TreeTabsConfig {
 			progressIntervalMs = clamp(integer(obj, "progressIntervalMs", progressIntervalMs), 100, 60_000);
 			closedTabHistory = clamp(integer(obj, "closedTabHistory", closedTabHistory), 0, 128);
 			keyboardShortcuts = bool(obj, "keyboardShortcuts", keyboardShortcuts);
+			tabOrientation = string(obj, "tabOrientation", tabOrientation);
 			craftingPanelSide = string(obj, "craftingPanelSide", craftingPanelSide);
 			groupCraftingList = bool(obj, "groupCraftingList", groupCraftingList);
 			showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
@@ -159,6 +170,7 @@ public final class TreeTabsConfig {
 		obj.addProperty("progressIntervalMs", progressIntervalMs);
 		obj.addProperty("closedTabHistory", closedTabHistory);
 		obj.addProperty("keyboardShortcuts", keyboardShortcuts);
+		obj.addProperty("tabOrientation", tabOrientation);
 		obj.addProperty("craftingPanelSide", craftingPanelSide);
 		obj.addProperty("groupCraftingList", groupCraftingList);
 		obj.addProperty("showGroupSeparators", showGroupSeparators);

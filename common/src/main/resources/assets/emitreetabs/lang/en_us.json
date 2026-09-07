@@ -62,5 +62,6 @@
   "emi.tree_tabs.group.parked": "Set aside — not asking for materials",
   "emi.tree_tabs.group.park": "Set this phase aside",
   "emi.tree_tabs.group.unpark": "Bring this phase back",
-  "emi.tree_tabs.group.only": "Work on this phase only"
+  "emi.tree_tabs.group.only": "Work on this phase only",
+  "emi.tree_tabs.group.size": "%s trees"
 }

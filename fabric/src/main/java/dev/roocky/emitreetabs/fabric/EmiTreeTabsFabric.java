@@ -3,7 +3,7 @@ package dev.roocky.emitreetabs.fabric;
 import dev.roocky.emitreetabs.EmiTreeTabs;
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.TreeTabs;
-import dev.roocky.emitreetabs.ui.TabBar;
+import dev.roocky.emitreetabs.ui.TabUi;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -34,7 +34,7 @@ public class EmiTreeTabsFabric implements ClientModInitializer {
 		// Leaving a world must drop every live MaterialTree: they hold EmiRecipe objects belonging
 		// to the world that just went away.
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
-			TabBar.reset();
+			TabUi.reset();
 			TreeTabs.releaseTrees();
 		});
 	}

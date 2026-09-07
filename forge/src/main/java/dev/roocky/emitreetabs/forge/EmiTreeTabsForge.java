@@ -1,6 +1,7 @@
 package dev.roocky.emitreetabs.forge;
 
 import dev.roocky.emitreetabs.EmiTreeTabs;
+import dev.roocky.emitreetabs.ui.ConfigScreenHook;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.fml.ModList;
@@ -37,6 +38,9 @@ public class EmiTreeTabsForge {
 			ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
 					() -> new ConfigScreenHandler.ConfigScreenFactory(
 							(client, parent) -> ClothConfigScreen.create(parent)));
+			// Also reachable from the sidebar's own settings button, without going out to the
+			// Mods list first.
+			ConfigScreenHook.set(ClothConfigScreen::create);
 		} catch (Throwable t) {
 			// A config button is not worth taking the game down for.
 			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not register the config screen", t);
