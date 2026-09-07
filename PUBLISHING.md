@@ -51,7 +51,52 @@ Get these right — the 2.0.1 upload got all three wrong:
 - **Changelog** — 2.0.1 still reads `## Initial release`. Paste the GitHub release notes.
 - **Java** is 17 on 1.20.1, and 21 after the 1.21.1 port.
 
-## 4. Automating both
+## 4. Automated — as of 2026-09-07
+
+Tagging now publishes to **all three** places. `release.yml` builds both jars, opens a **draft**
+GitHub release, then uploads to Modrinth and CurseForge via
+[`mc-publish`](https://github.com/Kir-Antipov/mc-publish).
+
+```bash
+# 1. Write the notes players will read
+$EDITOR .github/release-notes.md
+
+# 2. Bump, commit, tag
+./gradlew build -Dorg.gradle.java.home=/usr/lib/jvm/java-17-openjdk
+git tag -a vX.Y.Z -m "EMI Tree Tabs X.Y.Z" && git push origin vX.Y.Z
+```
+
+**A tag now ships to users.** The GitHub release is still a draft for you to review, but the store
+uploads are live the moment the workflow passes. To rehearse without publishing, run the workflow
+manually from the Actions tab with **dry_run** ticked.
+
+### What it does and why
+
+- **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
+  only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
+- **`game-versions: 1.20.1` only**, not the jar's declared `[1.20.1,1.21)`. EMI publishes no Forge
+  build past 1.20.2, so a wider range advertises installs that cannot work.
+- **EMI declared as a required dependency** on both stores.
+- **Release type `release`**, not beta — the 2.0.1 upload was marked beta by hand and launchers set
+  to "release only" skipped it.
+- **Changelog from `.github/release-notes.md`.** Generated commit lists make poor player-facing
+  notes, and the GitHub release is still a draft at that point so it cannot be read back.
+
+### Credentials
+
+Repository secrets `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN`. Local copies live in
+`~/.config/ett-publish/*.token`, mode 600.
+
+The Modrinth token is scoped to **read projects, create/read/write versions** and nothing else — no
+account data, no delete, no payouts. The CurseForge upload token has no scope selector.
+
+To rotate: revoke at
+[modrinth.com/settings/pats](https://modrinth.com/settings/pats) /
+CurseForge → account → API Tokens, then `gh secret set MODRINTH_TOKEN < newfile`.
+
+## Appendix: doing it by hand
+
+
 
 Neither platform needs the browser. Both have upload APIs, and
 [`Kir-Antipov/mc-publish`](https://github.com/Kir-Antipov/mc-publish) drives both from the existing

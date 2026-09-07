@@ -8,6 +8,10 @@ on:
       tag:
         description: 'Existing tag to build a release from'
         required: true
+      dry_run:
+        description: 'Build and validate the store uploads without publishing them'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -60,3 +64,52 @@ jobs:
             fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
           generate_release_notes: true
           draft: true
+
+      # Release notes for the stores. Kept in a file rather than generated, because the GitHub
+      # release above is a draft at this point and cannot be read back, and auto-generated commit
+      # lists make poor changelogs for players.
+      - name: Check release notes exist
+        run: |
+          if [ ! -s .github/release-notes.md ]; then
+            echo "::warning::.github/release-notes.md is empty; stores will get no changelog"
+          fi
+
+      # One version per loader, not one version carrying both jars. Modrinth's download button
+      # serves only the *primary* file, so a combined version hands Fabric users the Forge jar.
+      - name: Publish Forge to Modrinth and CurseForge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: si3AK8q5
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: '1677804'
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: forge/build/libs/emitreetabs-forge-${{ steps.ver.outputs.v }}.jar
+          name: EMI Tree Tabs ${{ steps.ver.outputs.v }} (Forge)
+          version: ${{ steps.ver.outputs.v }}+forge
+          version-type: release
+          loaders: forge
+          # 1.20.1 only, deliberately. The jar declares [1.20.1,1.21) but EMI publishes no Forge
+          # build past 1.20.2, so a wider range advertises installs that cannot work.
+          game-versions: '1.20.1'
+          java: '17'
+          dependencies: emi(required)
+          changelog-file: .github/release-notes.md
+          dry-run: ${{ inputs.dry_run || false }}
+
+      - name: Publish Fabric to Modrinth and CurseForge
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: si3AK8q5
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          curseforge-id: '1677804'
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
+          name: EMI Tree Tabs ${{ steps.ver.outputs.v }} (Fabric)
+          version: ${{ steps.ver.outputs.v }}+fabric
+          version-type: release
+          loaders: fabric
+          game-versions: '1.20.1'
+          java: '17'
+          dependencies: emi(required)
+          changelog-file: .github/release-notes.md
+          dry-run: ${{ inputs.dry_run || false }}
