@@ -65,8 +65,10 @@ stores are opt in and every ordinary tag stays internal.
 # every version — cheap, private, no noise
 git tag -a v2.3.0 -m "EMI Tree Tabs 2.3.0" && git push origin v2.3.0
 
+# write the notes on the GitHub release, then publish it
+gh release edit v2.3.0 --notes-file notes.md --draft=false
+
 # only the ones players should actually get
-$EDITOR .github/release-notes.md
 git tag store-v2.3.0 && git push origin store-v2.3.0
 ```
 
@@ -85,8 +87,9 @@ without publishing.
 - **EMI declared as a required dependency** on both stores.
 - **Release type `release`, not beta.** 2.0.1 was marked beta by hand, so launchers set to
   "release only" skipped it.
-- **Changelog from `.github/release-notes.md`.** Generated commit lists make poor player-facing
-  notes, and the GitHub release is a draft at that point so it cannot be read back.
+- **Changelog read back from the GitHub release** for that tag. One source of truth, already
+  reviewed by the time you decide to push to stores. A file in the repo cannot serve, because the
+  publish job checks out the *release tag* — anything added to `main` afterwards is not there.
 
 ### Credentials
 

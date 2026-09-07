@@ -78,10 +78,21 @@ jobs:
           test -f "forge/build/libs/emitreetabs-forge-$V.jar"
           test -f "fabric/build/libs/emitreetabs-fabric-$V.jar"
 
-      - name: Check release notes exist
+      # The GitHub release for this tag already carries notes written for players, and they have
+      # been reviewed by the time anyone decides to push to the stores. Reading them back here
+      # keeps one source of truth. A file in the repo cannot serve: this job checks out the
+      # release tag, so anything added to main afterwards is simply not present.
+      - name: Take the changelog from the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ ! -s .github/release-notes.md ]; then
-            echo "::warning::.github/release-notes.md is empty; stores will get no changelog"
+          V="${{ steps.ver.outputs.v }}"
+          if gh release view "v$V" --json body -q .body > release-notes.md 2>/dev/null \
+             && [ -s release-notes.md ]; then
+            echo "Changelog: $(wc -l < release-notes.md) lines from release v$V"
+          else
+            echo "::warning::No notes on release v$V; publishing without a changelog"
+            : > release-notes.md
           fi
 
       # One version per loader, not one version carrying both jars. Modrinth's download button
@@ -103,7 +114,7 @@ jobs:
           game-versions: '1.20.1'
           java: '17'
           dependencies: emi(required)
-          changelog-file: .github/release-notes.md
+          changelog-file: release-notes.md
           dry-run: ${{ inputs.dry_run || false }}
 
       - name: Publish Fabric
@@ -121,5 +132,5 @@ jobs:
           game-versions: '1.20.1'
           java: '17'
           dependencies: emi(required)
-          changelog-file: .github/release-notes.md
+          changelog-file: release-notes.md
           dry-run: ${{ inputs.dry_run || false }}
