@@ -30,17 +30,22 @@ import net.minecraft.sounds.SoundEvents;
  */
 public final class TreeSidebar {
 
-	private static final int COLOR_PANEL = 0xF012121A;
-	private static final int COLOR_PANEL_HI = 0xFF34343F;
-	private static final int COLOR_PANEL_LO = 0xFF05050A;
-	private static final int COLOR_ROW = 0xFF1B1B20;
-	private static final int COLOR_ROW_HOVER = 0xFF262630;
-	private static final int COLOR_ROW_ACTIVE = 0xFF313142;
-	private static final int COLOR_GROUP = 0xFF23232E;
-	private static final int COLOR_GROUP_HOVER = 0xFF2C2C3A;
-	private static final int COLOR_BORDER = 0xFF33333F;
+	// Same palette as the strip, and for the same reason: the panel and a row were 1.09:1 apart,
+	// which is a surface you can only find by moving the mouse. Deepening the panel and lifting the
+	// rows puts it at 1.81:1, with label text still 8.87:1 on a row.
+	private static final int COLOR_PANEL = 0xF00B0B12;
+	private static final int COLOR_PANEL_HI = 0xFF40404E;
+	private static final int COLOR_PANEL_LO = 0xFF04040A;
+	private static final int COLOR_ROW = 0xFF3B3B45;
+	private static final int COLOR_ROW_HOVER = 0xFF4E4E5C;
+	private static final int COLOR_ROW_ACTIVE = 0xFF5E5E78;
+	private static final int COLOR_GROUP = 0xFF2A2A38;
+	private static final int COLOR_GROUP_HOVER = 0xFF373748;
+	private static final int COLOR_BORDER = 0xFF4A4A56;
+	/** Outlines the small controls drawn on a row, so it has to out-read the row rather than the panel. */
+	private static final int COLOR_OUTLINE = 0xFF6A6A7C;
 	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_TEXT_DIM = 0xFF9A9AA2;
+	private static final int COLOR_TEXT_DIM = 0xFFB4B4BE;
 	private static final int COLOR_ACCENT = 0xFF5A8CFF;
 	private static final int COLOR_CRAFTING = 0xFF48C8E0;
 	private static final int COLOR_MARKER_BG = 0xFF15151C;
@@ -230,7 +235,7 @@ public final class TreeSidebar {
 		boolean lit = crafting || hovered;
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
 				lit ? COLOR_CRAFTING : COLOR_MARKER_BG);
-		outline(g, r, lit ? 0xFF7FE0F0 : 0xFF2E2E3A);
+		outline(g, r, lit ? 0xFF7FE0F0 : COLOR_OUTLINE);
 		String label = hovered ? "✦" : count;
 		int w = font.width(label);
 		g.drawString(font, label, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
@@ -251,7 +256,7 @@ public final class TreeSidebar {
 			boolean hovered, boolean lit) {
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
 				lit ? COLOR_CRAFTING : hovered ? COLOR_ROW_HOVER : COLOR_ROW);
-		outline(g, r, 0xFF2E2E3A);
+		outline(g, r, COLOR_OUTLINE);
 		int w = font.width(glyph);
 		g.drawString(font, glyph, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
 				lit ? 0xFF0C0C10 : hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);

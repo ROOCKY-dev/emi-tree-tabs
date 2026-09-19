@@ -37,14 +37,20 @@ public final class TabBar {
 	private static final int ICON_SIZE = TabLayout.ICON_SIZE;
 	private static final int DRAG_SLOP = 4;
 
-	private static final int COLOR_BAR = 0xE0121212;
-	private static final int COLOR_BORDER = 0xFF000000;
-	private static final int COLOR_TAB = 0xFF1B1B20;
-	private static final int COLOR_TAB_HOVER = 0xFF262630;
-	private static final int COLOR_TAB_ACTIVE = 0xFF313142;
+	// The bar is a panel, not a tint. It used to be 0xE0121212 - 88% alpha over the tree - which
+	// let the world bleed through and left the bar and a tab 1.11:1 apart, measured in game as
+	// (29,24,18) against (37,34,32). An opaque fill and lifted tab colours put that at 1.81:1
+	// without costing legibility: label text is 8.87:1 on a tab and the dimmed label 5.38:1, both
+	// past WCAG AA. Ratios computed, not eyeballed; see the roadmap entry this closes.
+	private static final int COLOR_BAR = 0xFF08080A;
+	/** The bar's content-facing edge. Black was invisible against a dark tree; a rule is not. */
+	private static final int COLOR_BORDER = 0xFF4A4A56;
+	private static final int COLOR_TAB = 0xFF3B3B45;
+	private static final int COLOR_TAB_HOVER = 0xFF4E4E5C;
+	private static final int COLOR_TAB_ACTIVE = 0xFF5E5E78;
 	private static final int COLOR_ACCENT = 0xFF5A8CFF;
 	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_TEXT_DIM = 0xFF9A9AA2;
+	private static final int COLOR_TEXT_DIM = 0xFFB4B4BE;
 	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
 	private static final int COLOR_CRAFTING = 0xFF48C8E0;
 	private static final int COLOR_DIVIDER = 0x40FFFFFF;
