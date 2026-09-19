@@ -908,6 +908,44 @@ public final class TreeTabs {
 	 * Removes a group. Its tabs are kept and become ungrouped — closing tabs because their phase
 	 * was deleted would lose work the player never asked to lose.
 	 */
+	/**
+	 * Makes a phase out of one tree.
+	 *
+	 * <p>The only way a group gets created, and it is deliberately not "make an empty group": an
+	 * empty phase shows as a header with nothing under it, which looks broken rather than new.
+	 * Starting it with the tree you were looking at means the thing you just made is visible.
+	 *
+	 * @return the new group, or null when there is no tab to put in it
+	 */
+	public static TabGroup groupTab(int tabIndex) {
+		TreeTab tab = tab(tabIndex);
+		if (tab == null) {
+			return null;
+		}
+		TabGroup group = createGroup(null);
+		tab.groupId = group.id;
+		markDirty();
+		return group;
+	}
+
+	public static void renameGroup(int id, String name) {
+		TabGroup group = group(id);
+		if (group == null) {
+			return;
+		}
+		group.name = name == null || name.isBlank()
+				? Component.translatable("emi.tree_tabs.group.default", GROUPS.indexOf(group) + 1)
+						.getString()
+				: name.trim();
+		markDirty();
+	}
+
+	/**
+	 * Drops a phase, leaving its trees loose rather than closing them.
+	 *
+	 * <p>Closing them would be the destructive reading of "delete the group", and the group is a
+	 * label on trees rather than a container for them.
+	 */
 	public static void removeGroup(int id) {
 		if (GROUPS.removeIf(g -> g.id == id)) {
 			for (TreeTab tab : TABS) {

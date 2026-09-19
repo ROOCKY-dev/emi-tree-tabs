@@ -284,6 +284,17 @@ public final class SidebarLayout {
 				panel.y() + panel.height() - PAD - BUTTON, BUTTON, BUTTON);
 	}
 
+	/**
+	 * Makes a new phase out of the active tree.
+	 *
+	 * <p>Beside settings rather than in the free corner: the two corners are "change how this
+	 * behaves" and "act on every tree", and making a phase is neither — it acts on one tree.
+	 */
+	public Rect newGroupButton() {
+		return new Rect(panel.x() + PAD + BUTTON + 4, panel.y() + panel.height() - PAD - BUTTON,
+				BUTTON, BUTTON);
+	}
+
 	/** How wide a label may be on this row, or 0 when this panel is too narrow for labels. */
 	public int labelBudget(Slot slot) {
 		if (!showNames || slot == null) {

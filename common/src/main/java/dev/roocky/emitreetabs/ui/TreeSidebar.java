@@ -130,6 +130,8 @@ public final class TreeSidebar {
 
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
+		} else {
+			footerTooltip(screen, graphics, font, l, mouseX, mouseY);
 		}
 	}
 
@@ -176,6 +178,36 @@ public final class TreeSidebar {
 			}
 		}
 		return Integer.MAX_VALUE;
+	}
+
+	/**
+	 * What the corner buttons do.
+	 *
+	 * <p>Worth the lines: a button with a drawn icon and no tooltip is a button you have to click
+	 * to find out about, and one of these creates something.
+	 */
+	private static void footerTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
+			int mouseX, int mouseY) {
+		List<Component> lines = new ArrayList<>();
+		if (TreeTabs.count() > 0 && l.newGroupButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable("emi.tree_tabs.group.new"));
+			lines.add(Component.translatable("emi.tree_tabs.group.new.desc")
+					.withStyle(ChatFormatting.GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.group.new.hint")
+					.withStyle(ChatFormatting.DARK_GRAY));
+		} else if (l.craftAllButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable("emi.tree_tabs.all.title"));
+			lines.add(Component.translatable("emi.tree_tabs.all.state",
+					TreeTabs.craftingCount(), TreeTabs.count()).withStyle(ChatFormatting.GRAY));
+		} else if (ConfigScreenHook.available() && l.settingsButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable("emi.tree_tabs.config.title"));
+		} else {
+			return;
+		}
+		TabTooltip.render(g, font, lines, screen.width, screen.height,
+				new TabTooltip.Rect(l.panel.x(), l.panel.y(), l.panel.width(), l.panel.height()),
+				l.onLeft ? l.panel.x() + l.panel.width() + 60 : l.panel.x() - 60,
+				mouseX, mouseY);
 	}
 
 	private static void panel(GuiGraphics g, Rect r) {
@@ -259,7 +291,7 @@ public final class TreeSidebar {
 				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 
 		int budget = l.labelBudget(s);
-		if (budget > 6) {
+		if (budget > 6 && !GroupName.editing(group.id)) {
 			g.drawString(font, trim(font, group.name, budget),
 					c.x() + SidebarLayout.COLLAPSE + 4, b.y() + (b.height() - 8) / 2,
 					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
@@ -304,6 +336,10 @@ public final class TreeSidebar {
 			Rect settings = l.settingsButton();
 			button(g, settings, Icons.SETTINGS, settings.contains(mouseX, mouseY), false);
 		}
+		if (TreeTabs.count() > 0) {
+			Rect group = l.newGroupButton();
+			button(g, group, Icons.NEW_GROUP, group.contains(mouseX, mouseY), false);
+		}
 		button(g, all, Icons.CRAFT_ALL, all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
 	}
 
@@ -335,6 +371,10 @@ public final class TreeSidebar {
 					? "emi.tree_tabs.group.unpark" : "emi.tree_tabs.group.park")
 					.withStyle(ChatFormatting.DARK_GRAY));
 			lines.add(Component.translatable("emi.tree_tabs.group.only")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.group.rename.hint")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.group.delete")
 					.withStyle(ChatFormatting.DARK_GRAY));
 		} else {
 			TreeTab tab = TreeTabs.tab(rows.tabAt(s.index()));
@@ -388,6 +428,11 @@ public final class TreeSidebar {
 			ConfigScreenHook.open(screen);
 			return true;
 		}
+		if (button == 0 && TreeTabs.count() > 0 && l.newGroupButton().contains(mouseX, mouseY)) {
+			click();
+			newGroup(screen);
+			return true;
+		}
 
 		Slot s = l.slotAt(mouseX, mouseY);
 		if (s == null) {
@@ -404,6 +449,15 @@ public final class TreeSidebar {
 			if (button == 0 && l.overMarker(s, mouseX, mouseY)) {
 				click();
 				TreeTabs.setGroupCrafting(id, TreeTabs.groupCraftingCount(id) < TreeTabs.groupSize(id));
+				return true;
+			}
+			// Middle click drops the phase, matching middle click closing a tab. Its trees stay
+			// open and simply become ungrouped - a phase is a label on trees, not a box holding
+			// them, so deleting it must not take them with it.
+			if (button == 2) {
+				click();
+				GroupName.close(screen);
+				TreeTabs.removeGroup(id);
 				return true;
 			}
 			if (button == 1) {
@@ -518,6 +572,41 @@ public final class TreeSidebar {
 		dragging = false;
 	}
 
+	/**
+	 * Makes a phase out of the active tree and opens its name for typing.
+	 *
+	 * <p>Named at the moment it is created, because a phase called "Phase 2" is a phase nobody
+	 * renames, and the whole point of grouping is that the name says which part of the build it is.
+	 */
+	public static void newGroup(Screen screen) {
+		TabGroup group = TreeTabs.groupTab(TreeTabs.activeIndex());
+		if (group == null || !active(screen)) {
+			return;
+		}
+		SidebarRows.Result rows = TreeTabs.sidebarRows();
+		SidebarLayout l = layout(screen, rows);
+		for (Slot s : l.slots()) {
+			if (s.row().kind() == RowKind.GROUP && s.row().groupIndex() == group.id) {
+				GroupName.open(screen, group.id, s.bounds());
+				return;
+			}
+		}
+	}
+
+	/** F2 renames whichever phase the pointer is over, matching F2 on a tab. */
+	public static boolean renameHovered(Screen screen, double mouseX, double mouseY) {
+		if (!active(screen)) {
+			return false;
+		}
+		SidebarLayout l = layout(screen, TreeTabs.sidebarRows());
+		Slot s = l.slotAt(mouseX, mouseY);
+		if (s == null || s.row().kind() != RowKind.GROUP) {
+			return false;
+		}
+		GroupName.open(screen, s.row().groupIndex(), s.bounds());
+		return true;
+	}
+
 	public static boolean mouseScrolled(Screen screen, double mouseX, double mouseY, double amount) {
 		if (!active(screen)) {
 			return false;
@@ -561,6 +650,7 @@ public final class TreeSidebar {
 	}
 
 	public static void reset() {
+		GroupName.reset();
 		scroll = 0;
 		dragTab = -1;
 		dragging = false;

@@ -26,7 +26,8 @@ public final class TabUi {
 
 	public static void render(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		renderTabs(screen, graphics, mouseX, mouseY, delta);
-		// Drawn last so it sits over both layouts.
+		// Drawn last so they sit over both layouts.
+		GroupName.render(graphics, mouseX, mouseY, delta);
 		BatchInput.render(screen, graphics, mouseX, mouseY, delta);
 	}
 
@@ -52,6 +53,9 @@ public final class TabUi {
 
 	public static boolean mouseClicked(Screen screen, double mouseX, double mouseY, int button) {
 		if (BatchInput.mouseClicked(screen, mouseX, mouseY, button)) {
+			return true;
+		}
+		if (GroupName.mouseClicked(screen, mouseX, mouseY, button)) {
 			return true;
 		}
 		return vertical(screen)
@@ -88,8 +92,13 @@ public final class TabUi {
 		if (BatchInput.keyPressed(screen, keyCode, scanCode, modifiers)) {
 			return true;
 		}
+		// Before the shortcuts below: while a name is being typed, every key belongs to the box.
+		if (GroupName.keyPressed(screen, keyCode, scanCode, modifiers)) {
+			return true;
+		}
 		return TabBar.keyPressed(screen, keyCode, scanCode, modifiers);
 	}
+
 
 	public static void ensureVisible(Screen screen, int index) {
 		if (vertical(screen)) {
@@ -101,6 +110,7 @@ public final class TabUi {
 
 	/** Called whenever the tree screen is rebuilt, or the world goes away. */
 	public static void reset() {
+		GroupName.reset();
 		BatchInput.close(null);
 		TabBar.reset();
 		TreeSidebar.reset();

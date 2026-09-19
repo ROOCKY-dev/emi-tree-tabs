@@ -26,7 +26,7 @@ public final class Icons {
 	private static final ResourceLocation SHEET =
 			new ResourceLocation("emitreetabs", "textures/gui/icons.png");
 	private static final int SHEET_WIDTH = 64;
-	private static final int SHEET_HEIGHT = 32;
+	private static final int SHEET_HEIGHT = 64;
 
 	/** A rectangle on the sheet. Sizes differ because the controls they fill do. */
 	public record Sprite(int u, int v, int width, int height) {
@@ -37,6 +37,8 @@ public final class Icons {
 	/** Forks the active tree into a new tab. */
 	public static final Sprite NEW_TAB = new Sprite(12, 0, 12, 12);
 	public static final Sprite SETTINGS = new Sprite(24, 0, 12, 12);
+	/** A header bar with two indented members: what a phase looks like in the sidebar. */
+	public static final Sprite NEW_GROUP = new Sprite(0, 44, 12, 12);
 	/** The same check alone: crafting for the one tree whose marker this is. */
 	public static final Sprite CRAFT_ONE = new Sprite(36, 0, 10, 10);
 	public static final Sprite CLOSE = new Sprite(48, 0, 8, 8);

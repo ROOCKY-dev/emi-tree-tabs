@@ -508,6 +508,10 @@ public final class TabBar {
 			return false;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F2 && TreeTabs.activeTab() != null) {
+			// Over a phase header, F2 renames the phase; anywhere else it renames the active tab.
+			if (TabUi.vertical(screen) && TreeSidebar.renameHovered(screen, mouseX(), mouseY())) {
+				return true;
+			}
 			startRename(screen, TreeTabs.activeIndex());
 			return true;
 		}
@@ -515,6 +519,15 @@ public final class TabBar {
 			return false;
 		}
 		switch (keyCode) {
+			case GLFW.GLFW_KEY_G -> {
+				// Ctrl+G makes a phase out of the active tree. A keybind as well as the sidebar
+				// button, because the strip has no footer to put a button in.
+				if (TreeTabs.activeTab() != null) {
+					click();
+					TreeSidebar.newGroup(screen);
+				}
+				return true;
+			}
 			case GLFW.GLFW_KEY_TAB -> {
 				TreeTabs.selectRelative(Screen.hasShiftDown() ? -1 : 1);
 				ensureVisible(screen, TreeTabs.activeIndex());
@@ -584,6 +597,19 @@ public final class TabBar {
 	}
 
 	// ---------------------------------------------------------------- rename
+
+	/** Where the pointer is, in GUI pixels, for the gestures that care which row it is over. */
+	private static double mouseX() {
+		Minecraft client = Minecraft.getInstance();
+		return client.mouseHandler.xpos() * client.getWindow().getGuiScaledWidth()
+				/ client.getWindow().getScreenWidth();
+	}
+
+	private static double mouseY() {
+		Minecraft client = Minecraft.getInstance();
+		return client.mouseHandler.ypos() * client.getWindow().getGuiScaledHeight()
+				/ client.getWindow().getScreenHeight();
+	}
 
 	private static void startRename(Screen screen, int index) {
 		TreeTab tab = TreeTabs.tab(index);

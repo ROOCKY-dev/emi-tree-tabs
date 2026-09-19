@@ -121,6 +121,25 @@ SPRITES = {
 ..###..
 ...#...
 """),
+    # A phase: a header bar filling the width, with two indented members under it. That is
+    # exactly how a group draws in the sidebar - the header fills the panel as its own
+    # background, members are inset - so the icon is a small picture of the thing it makes.
+    # A plus was tried and dropped: at 12px it merged into the member rows, and "new" is what
+    # the tooltip is for.
+    "new_group": (12, 12, """
+............
+............
+############
+############
+............
+...#########
+...#########
+............
+...#########
+...#########
+............
+............
+"""),
     # Three sliders, for the sidebar's settings corner. A gear was drawn first and rejected: at
     # 12px its teeth and bore collapse into something that reads as a face, not a cog.
     "settings": (12, 12, """
@@ -148,12 +167,13 @@ PLACEMENT = {
     "craft_one": (36, 0),
     "close": (48, 0),
     "park": (56, 0),
+    "new_group": (0, 44),
     "arrow_left": (0, 16),
     "arrow_right": (6, 16),
     "caret_right": (12, 16),
     "caret_down": (17, 16),
 }
-SHEET_W, SHEET_H = 64, 32
+SHEET_W, SHEET_H = 64, 64
 
 
 def rows(art, w, h):
