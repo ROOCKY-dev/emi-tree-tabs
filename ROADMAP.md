@@ -221,6 +221,11 @@ is that a big build has **phases**, and the crafting list insists on totalling a
 
 So the primitive is not a folder. It is a group with an active/parked flag:
 
+- [x] **A way to make one.** Not on the original list, and that was the hole: everything below was
+      built, tested and reachable only for groups no player could create — `createGroup` was never
+      called from anywhere. A footer button and `Ctrl+G` make a phase out of the active tree and
+      open its name for typing; `F2` renames later, middle click drops it and leaves its trees
+      open.
 - [x] A group is a name, a colour, a collapsed flag and a **parked** flag.
 - [x] **Parking excludes a group's trees from the aggregated crafting list** while keeping the tabs,
       and without touching their own crafting flags, so unparking restores what you had.
@@ -244,28 +249,33 @@ So the primitive is not a folder. It is a group with an active/parked flag:
 Both of these came out of actually playing with the mod, and both are only possible *because* it
 holds several trees at once. Nothing else in the recipe-viewer space can do either.
 
-### Sync a sub-recipe across every tree
+### Make the trees agree about a sub-recipe
 
 **The problem, as it happened:** progression unlocked a cheaper way to make an intermediate part —
 a fan, say, which has a cheap recipe and an expensive one. Changing the default on one tree worked.
 The other eight machines still quietly used the expensive recipe, and the only way to find them was
 to open each tree and hunt through it.
 
-- [x] **Apply a resolution to every tree that uses that ingredient.** Not the whole tree — just
-      that one sub-craft. **Not on shift-click, and it cannot be:** EMI's output slot accepts an
-      unmodified click and `Ctrl`+click and swallows every other modifier, so shift- and alt-click
-      never reach `addResolution` at all. There is no gesture left on EMI's own control. So the
-      choice is noticed, the trees that differ are counted, and `Ctrl+Shift+S` — a key this mod
-      owns — applies it. Nothing changes by itself; silently rewriting trees the player cannot see
-      would be the wrong behaviour anyway.
-- [x] **Or find them:** candidate trees are outlined in both layouts while the offer is live, and
-      **Shift+click a highlighted tab applies the choice to that tree alone**, leaving the offer up
-      for the rest. That is the "decide per tree rather than changing all of them blind" half.
-- [x] A confirmation showing how many trees would change, since this edits trees you are not
-      looking at — a toast before, and a second one reporting what actually changed.
+**Built once, rejected in testing, and rebuilt on a different premise.** The first version watched
+`MaterialTree.addResolution` through a mixin and offered a keybind on a toast at the moment you
+picked a recipe. Two complaints, which are one fault seen twice: *it triggers without me
+triggering it*, and *it isn't clear how to use it*. Both follow from treating disagreement as an
+**event to catch** — the offer lived as long as a toast, and if you missed it the feature was gone.
 
-Feasible cheaply: `MaterialTree.resolutions` is a plain `Map<EmiIngredient, EmiRecipe>` that this mod
-already serialises per tab in `TabCodec`. Applying one across tabs is a loop and a recalculation.
+Disagreement is not an event. It is a property of the open trees, true until someone fixes it. So:
+
+- [x] **Nothing happens on its own.** The mixin, the toasts, the keybind, the tab outlines and the
+      `offerResolutionSync` option are all gone — 258 lines, and one less EMI internal to ride on.
+- [x] **`RecipeChoices.scan()`** — a pure read returning every ingredient the open trees make in
+      more than one way. Computed when asked, never on a timer, never from an injection.
+- [x] **A button that appears only when there is something to look at**, says what it is for, and
+      opens a screen. `Ctrl+R` where there is no footer — the strip, or a panel too narrow.
+- [x] **The screen shows the decision, not a count**: each contested ingredient, each way of making
+      it, the inputs that tell those ways apart, and which trees use each. Every button says how
+      many trees it would change before you press it.
+- [x] **"Gathered, not crafted" is a real option.** A tree that mines redstone and a tree that
+      breaks a redstone block disagree, and that is the commonest case; the first cut skipped the
+      null side and could not see it at all.
 
 ### Type a quantity, or the sum that produced it
 
