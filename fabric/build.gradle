@@ -44,6 +44,14 @@ dependencies {
 	// ...but present in the dev client, otherwise the config screen can never be tested.
 	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-fabric"
 
+	// YACL jar-in-jars its json parsers, and Forge's JarJar unpacks them for a real install - the
+	// published artifact's META-INF/jarjar/metadata.json lists them, so players are unaffected.
+	// Loom's dev classpath does not run JarJar, so without these the dev client dies at startup
+	// with NoClassDefFoundError: org/quiltmc/parsers/json/gson/GsonWriter and YACL never loads.
+	// Runtime-only and dev-only: nothing here reaches a published jar.
+	localRuntime "org.quiltmc.parsers:gson:${rootProject.quilt_parsers_version}"
+	localRuntime "org.quiltmc.parsers:json:${rootProject.quilt_parsers_version}"
+
 	common(project(path: ':common', configuration: 'namedElements')) { transitive false }
 	shadowBundle project(path: ':common', configuration: 'transformProductionFabric')
 }
