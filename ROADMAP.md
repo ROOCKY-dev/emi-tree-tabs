@@ -100,10 +100,10 @@ scrolling is actually possible.
       Worth doing, but not worth bundling with the change that fixed the actual complaint.
 - [x] **Scrolling as a real interaction** — arrows appear exactly when tabs reach the floor, and
       each one is dimmed when it cannot move. Verified in game at 20 tabs.
-- [ ] **Better tooltip placement** near screen edges. Use the public
-      `GuiGraphics.renderTooltip(Font, List<FormattedCharSequence>, ClientTooltipPositioner, int, int)`
-      overload with a custom positioner: anchor to the hovered tab's centre, clamp horizontally, and
-      never overlap the bar.
+- [x] **Tooltip placement** — a `ClientTooltipPositioner` that anchors to the *control* rather than
+      the cursor, pushes clear of the whole strip or panel, and clamps last. The default positioner
+      is fine mid-screen and wrong at the edges, which is exactly where tabs live: at the top it puts
+      the tooltip over the bar it describes, and the sidebar occupies a whole edge.
 
 ### What the density ladder gives you at each GUI scale
 
@@ -160,12 +160,16 @@ specified rather than sketched, because the shape carries the tab-group design t
 
 Open questions to settle while building, not before:
 
-- [ ] Which side. The right is EMI's own sidebar territory and this mod already added a page there;
-      the tree pans horizontally, so the left gutter is likely the free one.
-- [ ] When it appears. Probably a config of `Auto / Horizontal / Vertical`, with Auto choosing
-      vertical whenever the screen can afford a fifth of its width and six rows of column.
-- [ ] What happens to the horizontal strip. It stays for small screens at minimum; whether it
-      remains the default anywhere is a decision for after the sidebar exists and can be compared.
+- [x] **Which side** — left. The right is EMI's own sidebar territory and this mod already added a
+      page there; the tree pans horizontally, so the left gutter is the free one.
+- [x] **When it appears** — `tabOrientation` config of `auto / horizontal / vertical`. Auto takes
+      the sidebar whenever the screen can host it, and falls back to the strip when it cannot. Even
+      an explicit `vertical` falls back, because a screen too small to draw it is still too small.
+- [x] **What happens to the strip** — it stays, as the fallback, behind a `TabUi` dispatcher so the
+      mixin never asks which layout is live. Whether the sidebar becomes the default everywhere is
+      still open, and is now answerable by comparing them in game.
+- [x] **Drag to reorder in the sidebar** — and to move a tree between phases, which the strip's
+      flat drop cannot express. `SidebarDrag`, 11 tests.
 
 ### Refactor first
 
@@ -188,13 +192,25 @@ Minecraft. Both of those regressions now have tests. It is also what makes the l
   scheme), separated by a 2px gap, sitting on the dim overlay rather than carved out of one
   continuous strip. The active tab is brighter and drops its bottom bevel so it reads as joined to
   the content.
-- [ ] **Draw proper icons** instead of borrowing font glyphs. Author in SVG, export to 16×16 PNG at
-      1× and 2×. Five sprites: craft-all (a 2×2 crafting grid with a check — Minecraft's own
-      vocabulary for "make things"), new tab, scroll arrows (reuse vanilla's 6×9 triangles), park,
-      close.
-- [ ] **Replace the toggle-all icon.** The three-bar glyph reads as "switch to vertical tabs" — and
-      it should, because `≡` *is* the vertical-tabs icon in every browser shipping today. The fault
-      is borrowing a glyph, not choosing the wrong one.
+- [x] **Draw proper icons** instead of borrowing font glyphs. Ten sprites on one 64×32 sheet,
+      authored in `art/icons/*.svg` and packed by `art/make_icons.py`: craft-all (a 2×2 crafting
+      grid with a check — Minecraft's own vocabulary for "make things"), the same check alone for a
+      row's marker, new tab, close, park, both scroll arrows, both fold carets, settings. White
+      alpha masks, tinted at draw time, which is what keeps the dimmed / hovered / active /
+      crafting / close-hover states down to one sprite each.
+      Two deviations from the spec above, written up in `art/README.md` so they are not re-tried:
+      sprites are the size of the control they fill rather than a uniform 16×16 (the close badge is
+      9px, the fold caret 10, an arrow 9), and there is no 2× sheet because nearest-neighbour
+      filtering makes a 32px sprite in a 16px box drop every other pixel at GUI scale 1. The scroll
+      arrows are drawn here rather than borrowed from vanilla's 6×9 triangles, so the sheet stays
+      self-contained across the 1.21 port. A gear was drawn for settings and rejected — at 12px it
+      reads as a face — and replaced with three sliders.
+- [x] **Replace the toggle-all icon.** The three-bar glyph read as "switch to vertical tabs" — and
+      it should, because `≡` *is* the vertical-tabs icon in every browser shipping today, which got
+      worse once this mod grew a real vertical layout. It is now the craft-all sprite.
+- [x] **Park became visible.** Not on the list, but it fell out of drawing the sprite: a parked
+      group showed only as dimmed text, which reads as "disabled" rather than "set aside", and not
+      at all when the name was too long to draw. It now carries two bars beside its marker.
 
 ## 3.2 — The sidebar, and groups on top of it
 
@@ -206,38 +222,61 @@ is that a big build has **phases**, and the crafting list insists on totalling a
 
 So the primitive is not a folder. It is a group with an active/parked flag:
 
-- [ ] A group is a name, a colour, a collapsed flag and a **parked** flag.
-- [ ] **Parking excludes a group's trees from the aggregated crafting list** while keeping the tabs.
+- [x] **A way to make one.** Not on the original list, and that was the hole: everything below was
+      built, tested and reachable only for groups no player could create — `createGroup` was never
+      called from anywhere. A footer button and `Ctrl+G` make a phase out of the active tree and
+      open its name for typing; `F2` renames later, middle click drops it and leaves its trees
+      open.
+- [x] A group is a name, a colour, a collapsed flag and a **parked** flag.
+- [x] **Parking excludes a group's trees from the aggregated crafting list** while keeping the tabs,
+      and without touching their own crafting flags, so unparking restores what you had.
       That is the whole point — you stop being told to gather machinery parts while you are still
       making planks.
-- [ ] One action: **park everything except this group.** That is the workflow in a single click.
-- [ ] Horizontal mode shows a coloured group chip before each run of tabs; vertical mode shows real
-      headers.
-- [ ] **Persistence format change.** `TabCodec` gains a groups array and each tab carries a group id.
-      Version the file and migrate on read — a mod that loses your tabs on upgrade is worse than one
-      without groups.
+- [x] One action: **park everything except this group** — shift right click on a header.
+- [x] Vertical mode shows real headers, coloured per group.
+- [x] Horizontal mode is no longer group-blind — but not with chips. A chip means a run of
+      adjacent tabs, and the strip has none: it draws tabs in master order while the sidebar
+      derives its order from group membership. Making the strip group-ordered would put
+      non-uniform elements in the row, which every hit test, the drag drop and the scroll
+      arithmetic assume away — **the same structural problem that deferred the active-tab width
+      bonus, and the same job.** So a strip tab carries 2px of its group's colour down its leading
+      edge (membership, not adjacency), the group's name on its tooltip, and the sidebar's parked
+      dimming.
+- [x] **Persistence format change** — file version 2, groups array, group id per tab. Version 1
+      files still load and simply have no groups.
 
 ## 3.3 — Working across trees
 
 Both of these came out of actually playing with the mod, and both are only possible *because* it
 holds several trees at once. Nothing else in the recipe-viewer space can do either.
 
-### Sync a sub-recipe across every tree
+### Make the trees agree about a sub-recipe
 
 **The problem, as it happened:** progression unlocked a cheaper way to make an intermediate part —
 a fan, say, which has a cheap recipe and an expensive one. Changing the default on one tree worked.
 The other eight machines still quietly used the expensive recipe, and the only way to find them was
 to open each tree and hunt through it.
 
-- [ ] **Shift-click a resolution to apply it to every tree that uses that ingredient.** Not the whole
-      tree — just that one sub-craft.
-- [ ] **Or find them:** search for a sub-recipe and highlight the trees using it, so you can decide
-      per tree rather than changing all of them blind.
-- [ ] A confirmation showing how many trees would change, since this edits trees you are not
-      looking at.
+**Built once, rejected in testing, and rebuilt on a different premise.** The first version watched
+`MaterialTree.addResolution` through a mixin and offered a keybind on a toast at the moment you
+picked a recipe. Two complaints, which are one fault seen twice: *it triggers without me
+triggering it*, and *it isn't clear how to use it*. Both follow from treating disagreement as an
+**event to catch** — the offer lived as long as a toast, and if you missed it the feature was gone.
 
-Feasible cheaply: `MaterialTree.resolutions` is a plain `Map<EmiIngredient, EmiRecipe>` that this mod
-already serialises per tab in `TabCodec`. Applying one across tabs is a loop and a recalculation.
+Disagreement is not an event. It is a property of the open trees, true until someone fixes it. So:
+
+- [x] **Nothing happens on its own.** The mixin, the toasts, the keybind, the tab outlines and the
+      `offerResolutionSync` option are all gone — 258 lines, and one less EMI internal to ride on.
+- [x] **`RecipeChoices.scan()`** — a pure read returning every ingredient the open trees make in
+      more than one way. Computed when asked, never on a timer, never from an injection.
+- [x] **A button that appears only when there is something to look at**, says what it is for, and
+      opens a screen. `Ctrl+R` where there is no footer — the strip, or a panel too narrow.
+- [x] **The screen shows the decision, not a count**: each contested ingredient, each way of making
+      it, the inputs that tell those ways apart, and which trees use each. Every button says how
+      many trees it would change before you press it.
+- [x] **"Gathered, not crafted" is a real option.** A tree that mines redstone and a tree that
+      breaks a redstone block disagree, and that is the commonest case; the first cut skipped the
+      null side and could not see it at all.
 
 ### Type a quantity, or the sum that produced it
 
@@ -245,13 +284,23 @@ already serialises per tab in `TabCodec`. Applying one across tabs is a loop and
 whole tree implies, and the number being arithmetic you did it in your head — *32 machines, 4 each,
 2 per that* — so setting it means leaving the tree for a calculator and coming back with 256.
 
-- [ ] **An input that accepts a formula, not just a number.** `32 * 4 * 2` should be as valid as
-      `256`. Support `+ - * /` and parentheses, evaluate on enter, show the result before committing
-      so a typo is visible rather than silently applied.
-- [ ] **Reachable from the thing being counted** — a modifier-click on the batch count, and later on
-      a node, rather than a separate screen.
-- [ ] **Scope needs deciding.** The wording asks for a quantity on *part* of a tree, not the whole
-      craft. Two readings, and they are not the same job:
+- [x] **An expression evaluator** — `32 * 4 * 2` is as valid as `256`. Four operators, brackets,
+      `x` as well as `*`, every refusal carrying a readable reason, overflow refused rather than
+      wrapped. 20 tests.
+- [x] **Shows the result while you type**, green when it parses and the reason in red when it does
+      not, suppressed for a plain number. Enter on an invalid expression refuses and leaves the text
+      editable rather than closing.
+- [x] **Reachable from the thing being counted** — control-click a tab's marker, which is the square
+      already showing the batch count. Plain click still toggles crafting; the modifier acts on what
+      the square displays.
+- [ ] The same, on a *node* rather than a whole tree. **Still deliberately not built**, on the
+      reasoning below: it fights the solver rather than using it, and the question of whether it is
+      wanted was explicitly deferred until the cheap reading has been used. It has not been used
+      yet, so the answer is still unknown and building it now would be guessing.
+- [x] **Scope decided: the cheap reading first.** `MaterialTree.batches` is what the input sets, and
+      a sub-craft quantity is usually reachable by opening a tree on that sub-item and setting its
+      batches. Whether pinning an amount on a node is still wanted is a question for after this has
+      been used. The two readings, kept because the second may yet be needed:
       - Setting `MaterialTree.batches` from a formula is nearly free — the field exists, this is an
         input widget and a small expression parser.
       - Pinning a target amount on a *sub-node* means overriding an amount EMI derives top-down from
@@ -267,9 +316,20 @@ different forms — plates, pipes, melted copper. The crafting list correctly sa
 copper"*, but not how much is for which, so there is no way to know whether spending copper on
 plates now starves the pipes later. Working it out means doing the arithmetic by hand.
 
-- [ ] **Hover a material in the crafting sidebar to break its total down by what needs it** — which
-      tree, how much, and for which sub-craft.
-- [ ] Show it in the same hover, not a separate screen: the question is asked mid-decision.
+- [x] **Hover a material to see what wants it** — which tree and how much, sorted by demand. Hidden
+      when only one tree wants it, since that is not a split, and capped at six lines.
+- [x] Break it down by *sub-craft* as well as by tree. On **Shift**, because both splits at once
+      is how a tooltip becomes the problem rather than the answer. With one tree it shows flat;
+      with several, each tree's line carries its own sub-crafts, since "60 for plates" summed
+      across two machines does not tell you which machine to stop building.
+      **The numbers are captured, not calculated.** Walking the tree and adding up leaves gives
+      wrong answers: `TreeCost.calculateCost` spends remainders as it descends, so what a leaf
+      costs depends on the order the walk reached it. A second walk cannot reproduce that without
+      reimplementing the solver, and a tooltip whose whole purpose is arithmetic must not show
+      arithmetic of its own. So `TreeCostMixin` rides along with EMI's own walk and takes the
+      figures it records. Two more private-method mixins, both `require = 0`: if EMI renames
+      either, the split quietly does not appear rather than the mod refusing to load.
+- [x] Shown on the material's own tooltip, not a separate screen.
 
 Feasible cheaply too, and further along than it looks: `CraftingFavorites.aggregate` already builds
 `Map<EmiIngredient, Set<TreeTab>> costOwners` while summing the list, so it knows *which* tabs need
@@ -280,43 +340,102 @@ free.
 
 The goal: nobody should ever need to open `emitreetabs.json`.
 
-- [ ] **Move from Cloth Config to YACL.** Cloth is stale by its own developer's account. YACL is
-      actively developed (~119.9M downloads), supports **Forge 1.20.1 and NeoForge 1.20.4+** — exactly
-      our matrix — and offers tabs, collapsible groups, several controls per data type, and **rich
-      descriptions with image previews**. Note YACL will not support Forge past 1.20.1, which happens
-      to be where we stop anyway.
-- [ ] **Name the tabs by intent, not by code:** *Tabs & layout*, *Crafting list*, *Behaviour & keys*.
-- [ ] **Give every option a picture.** Nobody reads "fold shared materials by default"; everybody
-      understands a still of it folded. Largest usability gain available, and mostly a screenshotting
-      job.
-- [ ] **A live tab bar at the top of the layout tab** — five sample tabs that redraw as you change
-      density and orientation. Needs the layout engine from 3.1 to exist first, which is why this
-      milestone comes after it.
-- [ ] **No bare numbers.** Sliders labelled at both ends (*Narrow ←→ Wide*), never a raw integer
-      without a range.
-- [ ] **Show every default with a one-click reset**, and collapse anything that touches the
-      persistence format into an *Advanced* group.
-- [ ] **Keep the JSON working.** YACL is the front end, not the store — pack authors ship configs as
-      files and should keep being able to.
+- [x] **Move from Cloth Config to YACL** — `3.6.6+1.20.1`, the last release for this Minecraft
+      version. The screen lives in `common` because `dev.isxander.yacl3.*` is identical on both
+      loaders, which means **Fabric has a settings screen for the first time**: the Cloth one was
+      written in the Forge module and never ported. Cloth is gone rather than kept as a fallback —
+      two screens is two things to keep in step, and the json is the documented fallback.
+- [x] **Name the tabs by intent, not by code:** *Tabs & layout*, *Crafting list*, *Behaviour & keys*.
+- [x] **Give every option a picture** — the five crafting-list options where a picture says more
+      than the sentence does. Real stills of the real interface, captured at GUI scale 2 so they
+      stay crisp when YACL scales them up. The rest are behaviour you cannot photograph, and a
+      decorative screenshot beside them would be worse than none.
+- [x] **A live tab bar at the top of the layout tab** — five sample tabs, drawn by the real
+      `TabLayout` and `SidebarLayout` arithmetic and the real palette, so it cannot drift from what
+      it previews. It reads the **pending** values rather than the saved ones, so it answers "what
+      would this do" rather than "what did this do", and it reports which density the current width
+      lands in. YACL has no arbitrary widget slot, so it is attached as the description of the two
+      layout options — which is where it is looked at anyway.
+- [x] **No bare numbers.** Every slider formats its own value: *32 tabs*, *Remember 16*, *Off —
+      closing is final*, *Every 0.5s — responsive*.
+- [x] **Show every default with a one-click reset** — YACL's own, from the default in each
+      binding — **and collapse anything that touches the persistence format into an *Advanced*
+      group**, one per category, closed, with a line saying a wrong answer there costs you tabs
+      rather than looks.
+- [x] **Keep the JSON working.** The screen writes through `TreeTabsConfig.save()`; nothing else
+      changed about the file, and hand edits are still picked up within a couple of seconds.
 
 ## 3.5 — Public API
 
 Small, versioned, and checked at runtime. Needed by [Quartermaster](../quartermaster); see
 *Decisions taken*.
 
-- [ ] Register a **stock source** that feeds the crafting list's arithmetic, rendered distinctly from
-      the player's own inventory, off by default.
-- [ ] Register a **locate provider** for an item, surfaced from a shortfall in the crafting list.
-- [ ] A **listener** for crafting-list changes.
-- [ ] Version the API explicitly and degrade to nothing when a consumer's version does not match.
-      `NoSuchMethodError` on a user's machine is the failure mode to design against.
+Written up for consumers in [API.md](API.md). Five files in `dev.roocky.emitreetabs.api`;
+everything else is internal.
+
+- [x] Register a **stock source** that feeds the crafting list's arithmetic, rendered distinctly
+      from the player's own inventory (`Counted from: In chests`), off by default behind
+      `useExternalStock`. Takes plain `ItemStack`s rather than EMI types — a container holds stacks,
+      and a consumer should not have to learn EMI's stack model to say what is in a box; matching
+      against tags stays Tree Tabs' job, because Tree Tabs is the one already carrying EMI.
+- [x] Register a **locate provider** for an item, surfaced from a shortfall in the crafting list —
+      asked about a material the list says you are short of, at the moment the cursor is on it.
+- [x] A **listener** for crafting-list changes, fired after the pass publishes rather than during
+      it, so a listener sees the finished list.
+- [x] Version the API explicitly and degrade to nothing when a consumer's version does not match.
+      One entry method with a frozen signature, `TreeTabsApi.registry(int)`, returning null rather
+      than a registry that would break halfway through; everything else hangs off an interface, so
+      adding to it never breaks an older consumer. 5 tests cover the gate, which is the one part
+      whose failure mode is a crash on a user's machine in a build that compiled cleanly.
+- [x] **Consumers are not trusted.** Every call out is wrapped: one that throws is logged once,
+      naming the mod, and its integration is dropped for the session rather than taking the
+      crafting list, the sidebar and the tree screen down with it.
 
 ## 4.0 — Release the overhaul
 
-- [ ] Everything in 3.1 to 3.5 landed and used in a real world for more than a session.
+**The code for 3.1 to 3.5 is in.** What is left is not code.
+
+- [x] Everything in 3.1 to 3.5 **landed**, with three things deliberately not built and one blocked:
+      - the **active tab width bonus** (3.1) and **group chips on the strip** (3.2) are one job —
+        both need non-uniform tab widths, which every hit test, the drag drop and the scroll
+        arithmetic assume away. Deferred together, on purpose.
+      - **splitting rendering from input** (3.1) — the geometry was where the value was; this half
+        has not bought anything yet.
+      - **a formula on a node** (3.3) — the reasoning says it fights the solver, and the decision
+        was explicitly deferred until the tree-level version has been used. It has not been.
+      - **a picture per option** (3.4) — blocked on a game session, not on code. The plumbing is
+        there; the pictures are stills of the real interface and there is no way to take one
+        without playing.
+- [x] **Seen running.** A dev client session on 2026-09-19 exercised the whole 3.x line. Eight
+      defects were found that no amount of compiling would have shown — listed below — and all
+      eight are fixed and re-verified.
+- [ ] **Used in a real world for more than a session.** Driven, not played. A session that proves
+      each feature works once is not the same as a build that survives an evening of real use, and
+      it is the second that 4.0 is waiting on. **This is the gate.**
 - [ ] **Maintainer confirms.** Only then does a `store-v4.0.0` tag go up; nothing before it reaches
       Modrinth or CurseForge.
 - [ ] `publish_game_versions` checked before tagging — it is what the stores are told.
+
+### What the first session found
+
+Every item on the checklist this section used to carry was checked. The icons, the contrast in
+both layouts, the header hit area, the choice frames, the batch formula, tab persistence, the
+settings screen and its pictures, and the sync end to end all work. Eight things did not:
+
+| Found | Why compiling could not have caught it |
+|---|---|
+| YACL would not load in the dev client | Its json parsers are jar-in-jar; Forge unpacks them for players, Loom does not for a dev run. `forgeRuntimeLibrary`, dev-only. |
+| **The attribution tooltip had never worked at all** | EMI's `Synthetic.getTooltip` returns early for `state == -1`, which is exactly the raw-material entries. `@At("TAIL")` hooks only the last return. |
+| The sub-craft numbers were roughly tripled | EMI walks each tree three times per update; the capture summed all three. |
+| "Goes into" could draw with nothing under it | The per-tree lists were filtered after the heading was committed. |
+| A single-destination tree said the same thing twice | Its own line already carried that number. |
+| Applying the sync to one tree cancelled it for the others | Our own `addResolution` re-entered the notice path, which clears the offer. |
+| The live preview drew its bar on the wrong edge | `TreeSidebar`'s last argument is "on the left", `TabLayout`'s is "at the bottom"; the `!` was copied with the line. |
+| Picking "Floating sidebar" previewed a strip | The preview asked whether a sidebar fits *its own 74px box*, which it never does. |
+
+The pattern worth keeping: **five of the eight were in code that had a ticked box.** Compiling
+proves a sprite is in the jar, not that it lands on the right pixel; it proves an injection
+compiles, not that the method returns where you think it does.
 
 ## 5.0 — Minecraft 1.21.1
 
@@ -368,18 +487,26 @@ and it is the same module boundary the public API already requires.
 
 ## Found in testing, to fix
 
-- [ ] **Section headers are only clickable on their first slot.** The title text runs across the
-      whole row, but only the leftmost ~18px responds, so clicking the words does nothing and the
-      feature looks broken. The row is 18px tall by necessity — `ScreenSpace.getY` is `ty + row * 18`
-      and hover maps back through separate inverse arithmetic — but the *hit area* can span the full
-      row even when the drawn slot does not. Fix the inverse mapping, not the layout.
-- [ ] **The tab bar's contrast is too low.** Measured: bar background `(29,24,18)` against tab
-      `(37,34,32)`. Vanilla's own panels are `(198,198,198)` on a 60%-black overlay. Give the bar a
-      real panel fill and a 1px border rather than a tint.
-- [ ] **A tag and a plain item read as duplicates.** A furnace wants `#stone_tool_materials` while a
-      piston wants Cobblestone, so they correctly stay in separate sections — but to a reader they
-      look like the same grey block listed twice. Worth making the distinction visible rather than
-      leaving people to hover and work it out.
+All three are fixed in code and **none has been seen in game yet** — they are colour and hit-area
+changes, so the build passing says nothing about whether they look right.
+
+- [x] **Section headers are only clickable on their first slot.** The title text runs across the
+      whole row, but only the leftmost ~18px responded, so clicking the words did nothing and the
+      feature looked broken. The row is 18px tall by necessity — `ScreenSpace.getY` is
+      `ty + row * 18` and hover maps back through separate inverse arithmetic — so the fix was the
+      inverse mapping, not the layout: the pad slots the title is drawn over now carry the header
+      they belong to, and the click handler accepts either.
+- [x] **The tab bar's contrast is too low.** Measured: bar background `(29,24,18)` against tab
+      `(37,34,32)` — 1.11:1. The cause was the bar being 88% alpha over the tree, so the world bled
+      through and diluted the difference. An opaque panel fill, lifted tab colours and a visible
+      border rule give 1.81:1, with label text at 8.87:1 and the dimmed label at 5.38:1, both past
+      WCAG AA. **The sidebar had the same bug at 1.09:1** — same constants, and it is what `auto`
+      picks on any screen wide enough — so it got the same palette.
+- [x] **A tag and a plain item read as duplicates.** A furnace wants `#stone_tool_materials` while a
+      piston wants Cobblestone, so they correctly stay in separate sections — but a tag is drawn by
+      cycling through its members, so most of the time both are the same grey block and the list
+      reads as one thing listed twice. An entry that accepts any of several items now gets a 1px
+      frame, drawn in the slot's own padding so it never covers the icon. `markChoiceEntries`.
 
 ## Known limitations that are unlikely to change
 

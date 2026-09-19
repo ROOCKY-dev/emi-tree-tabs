@@ -3,7 +3,7 @@ package dev.roocky.emitreetabs.forge;
 import dev.roocky.emitreetabs.EmiTreeTabs;
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.TreeTabs;
-import dev.roocky.emitreetabs.ui.TabBar;
+import dev.roocky.emitreetabs.ui.TabUi;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.event.TickEvent;
@@ -46,7 +46,7 @@ public final class ClientEvents {
 	 */
 	@SubscribeEvent
 	public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
-		TabBar.reset();
+		TabUi.reset();
 		TreeTabs.releaseTrees();
 	}
 }

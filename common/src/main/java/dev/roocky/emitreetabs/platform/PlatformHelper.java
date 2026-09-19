@@ -14,6 +14,6 @@ public interface PlatformHelper {
 	/** The instance's config directory, where this mod's json files live. */
 	Path configDir();
 
-	/** Whether another mod is present, used for the optional Cloth Config screen. */
+	/** Whether another mod is present, used for the optional YACL settings screen. */
 	boolean isModLoaded(String modId);
 }

@@ -32,7 +32,10 @@ allprojects {
 
 	repositories {
 		maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }  // EMI
-		maven { name = 'Shedaniel';      url = 'https://maven.shedaniel.me/' }                 // Cloth Config
+		maven { name = 'Xander';         url = 'https://maven.isxander.dev/releases' }         // YACL
+		// YACL's json parsers, which it ships jar-in-jar. Needed only to run the dev client;
+		// see the localRuntime note in forge/build.gradle.
+		maven { name = 'QuiltMC';        url = 'https://maven.quiltmc.org/repository/release/' }
 		maven { name = 'Sponge';         url = 'https://repo.spongepowered.org/repository/maven-public/' }
 		mavenCentral()
 	}

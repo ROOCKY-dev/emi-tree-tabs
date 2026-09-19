@@ -30,6 +30,16 @@ public final class TreeTabsConfig {
 	public static boolean showProgress = true;
 	/** Draw the bar along the bottom of the tree screen instead of the top. */
 	public static boolean barAtBottom = false;
+
+	/**
+	 * Where the tabs live: {@code auto}, {@code horizontal} or {@code vertical}.
+	 *
+	 * <p>Auto picks the sidebar whenever the screen can afford a fifth of its width and a few rows,
+	 * and falls back to the strip when it cannot. A screen that cannot host the sidebar is not a
+	 * rare case — GUI scale 4 on a small window is common — so the fallback has to be real rather
+	 * than theoretical.
+	 */
+	public static String tabOrientation = "auto";
 	/** Crafting mode gathers what to make from every tracked tree, not just the visible one. */
 	public static boolean aggregateCraftingFavorites = true;
 	/**
@@ -48,6 +58,7 @@ public final class TreeTabsConfig {
 	public static int closedTabHistory = 16;
 	/** Master switch for the Ctrl+Tab / Ctrl+W / Ctrl+D / F2 shortcuts. */
 	public static boolean keyboardShortcuts = true;
+
 	/**
 	 * Which sidebar shows the crafting list instead of your favourites: NONE, LEFT, RIGHT, TOP or
 	 * BOTTOM. Set that sidebar to Favourites in EMI's own settings and this takes it over, giving
@@ -60,6 +71,20 @@ public final class TreeTabsConfig {
 	public static boolean showGroupSeparators = true;
 	/** Let group headers be clicked to fold their section away. */
 	public static boolean collapsibleGroups = true;
+	/**
+	 * Frame a crafting-list entry that is a tag or any other choice of items, so it cannot be
+	 * mistaken for the plain item a different tree happens to want.
+	 */
+	public static boolean markChoiceEntries = true;
+	/**
+	 * Count materials another mod says you have elsewhere — in chests, drawers, a backpack —
+	 * towards the crafting list.
+	 *
+	 * <p>Off by design, not by caution. Turning it on changes what the list asks you to gather on
+	 * the strength of another mod's idea of what you own, and doing that without being asked is how
+	 * a tool stops being trustworthy. Nothing happens either way until such a mod is installed.
+	 */
+	public static boolean useExternalStock = false;
 	/**
 	 * Whether the favourites sidebar may also carry the crafting list. Turn off to keep favourites
 	 * strictly favourites. Ignored anyway once a Crafting page is placed on a sidebar, since the
@@ -132,10 +157,12 @@ public final class TreeTabsConfig {
 			progressIntervalMs = clamp(integer(obj, "progressIntervalMs", progressIntervalMs), 100, 60_000);
 			closedTabHistory = clamp(integer(obj, "closedTabHistory", closedTabHistory), 0, 128);
 			keyboardShortcuts = bool(obj, "keyboardShortcuts", keyboardShortcuts);
-			craftingPanelSide = string(obj, "craftingPanelSide", craftingPanelSide);
+			tabOrientation = string(obj, "tabOrientation", tabOrientation);			craftingPanelSide = string(obj, "craftingPanelSide", craftingPanelSide);
 			groupCraftingList = bool(obj, "groupCraftingList", groupCraftingList);
 			showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
 			collapsibleGroups = bool(obj, "collapsibleGroups", collapsibleGroups);
+			markChoiceEntries = bool(obj, "markChoiceEntries", markChoiceEntries);
+			useExternalStock = bool(obj, "useExternalStock", useExternalStock);
 			craftingInFavorites = bool(obj, "craftingInFavorites", craftingInFavorites);
 		} catch (Exception e) {
 			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}, using defaults", path, e);
@@ -159,10 +186,12 @@ public final class TreeTabsConfig {
 		obj.addProperty("progressIntervalMs", progressIntervalMs);
 		obj.addProperty("closedTabHistory", closedTabHistory);
 		obj.addProperty("keyboardShortcuts", keyboardShortcuts);
-		obj.addProperty("craftingPanelSide", craftingPanelSide);
+		obj.addProperty("tabOrientation", tabOrientation);		obj.addProperty("craftingPanelSide", craftingPanelSide);
 		obj.addProperty("groupCraftingList", groupCraftingList);
 		obj.addProperty("showGroupSeparators", showGroupSeparators);
 		obj.addProperty("collapsibleGroups", collapsibleGroups);
+		obj.addProperty("markChoiceEntries", markChoiceEntries);
+		obj.addProperty("useExternalStock", useExternalStock);
 		obj.addProperty("craftingInFavorites", craftingInFavorites);
 		Path path = file();
 		try {

@@ -9,7 +9,9 @@
 		"EmiFavoritesMixin",
 		"ScreenSpaceMixin",
 		"EmiScreenManagerMixin",
-		"EmiSidebarsMixin"
+		"TreeCostMixin",
+		"EmiSidebarsMixin",
+		"SyntheticTooltipMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

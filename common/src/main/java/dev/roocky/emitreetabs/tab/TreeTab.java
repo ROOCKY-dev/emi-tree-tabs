@@ -39,6 +39,14 @@ public class TreeTab {
 	 */
 	public boolean craftingMode;
 
+	/**
+	 * Which group this tab belongs to, or -1 for none.
+	 *
+	 * <p>An id rather than a reference, so a tab surviving a group's deletion is a lookup that
+	 * misses rather than a dangling pointer. A tab whose group is gone is simply shown loose.
+	 */
+	public int groupId = -1;
+
 	public TreeTab(MaterialTree tree) {
 		this.tree = tree;
 	}

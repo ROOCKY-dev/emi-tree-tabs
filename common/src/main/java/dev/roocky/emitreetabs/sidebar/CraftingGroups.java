@@ -85,10 +85,12 @@ public final class CraftingGroups {
 			emitter.endRow();
 			// The header paints the divider along its own top edge, so a section costs one row
 			// rather than two.
-			emitter.add(new GroupHeader(group.id, group.label, group.entries.size(),
-					emitter.rowSpan(pitch), first));
+			GroupHeader header = new GroupHeader(group.id, group.label, group.entries.size(),
+					emitter.rowSpan(pitch), first);
+			emitter.add(header);
 			first = false;
-			emitter.endRow();
+			// The title is drawn across all of these, so they answer for it when clicked.
+			emitter.endRow(new SidebarEntry.HeaderPad(header));
 			if (!TreeTabsConfig.collapsibleGroups || !isCollapsed(group.id)) {
 				for (EmiIngredient entry : group.entries) {
 					emitter.add(entry);
@@ -127,8 +129,13 @@ public final class CraftingGroups {
 
 		/** Pads out to the end of the current row. No-op when already at a boundary. */
 		void endRow() {
+			endRow(SidebarEntry.Blank.INSTANCE);
+		}
+
+		/** The same, with a filler that is not simply blank. */
+		void endRow(EmiIngredient filler) {
 			while (column != 0) {
-				add(SidebarEntry.Blank.INSTANCE);
+				add(filler);
 			}
 		}
 

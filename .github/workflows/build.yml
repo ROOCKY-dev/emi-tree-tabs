@@ -2,7 +2,10 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    # dev as well as main: dev is where the interface overhaul is being assembled, and a branch
+    # carrying weeks of unreleased work is exactly the one that should not be building only on a
+    # developer's machine.
+    branches: [main, dev]
   pull_request:
   workflow_dispatch:
 

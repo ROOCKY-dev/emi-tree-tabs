@@ -6,6 +6,7 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
+import dev.roocky.emitreetabs.tab.TabGroup;
 import dev.roocky.emitreetabs.tab.TreeTab;
 import dev.roocky.emitreetabs.tab.TreeTabs;
 import dev.roocky.emitreetabs.ui.TabLayout.Density;
@@ -37,17 +38,8 @@ public final class TabBar {
 	private static final int ICON_SIZE = TabLayout.ICON_SIZE;
 	private static final int DRAG_SLOP = 4;
 
-	private static final int COLOR_BAR = 0xE0121212;
-	private static final int COLOR_BORDER = 0xFF000000;
-	private static final int COLOR_TAB = 0xFF1B1B20;
-	private static final int COLOR_TAB_HOVER = 0xFF262630;
-	private static final int COLOR_TAB_ACTIVE = 0xFF313142;
-	private static final int COLOR_ACCENT = 0xFF5A8CFF;
-	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_TEXT_DIM = 0xFF9A9AA2;
+	/** Only the strip has a close button, so this is the one colour that stays local. */
 	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
-	private static final int COLOR_CRAFTING = 0xFF48C8E0;
-	private static final int COLOR_DIVIDER = 0x40FFFFFF;
 
 	private static double scroll;
 	private static int dragIndex = -1;
@@ -107,9 +99,9 @@ public final class TabBar {
 		// Only the tabs actually on screen need their progress costed.
 		TreeTabs.pollProgress(l.firstVisible(scroll), l.lastVisible(scroll));
 
-		graphics.fill(0, y, screen.width, y + HEIGHT, COLOR_BAR);
+		graphics.fill(0, y, screen.width, y + HEIGHT, TabPalette.BAR);
 		int borderY = l.barAtBottom ? y : y + HEIGHT - 1;
-		graphics.fill(0, borderY, screen.width, borderY + 1, COLOR_BORDER);
+		graphics.fill(0, borderY, screen.width, borderY + 1, TabPalette.BORDER);
 
 		graphics.enableScissor(l.stripLeft, y, l.stripLeft + l.stripWidth, y + HEIGHT);
 		for (int i = 0; i < l.count; i++) {
@@ -128,27 +120,31 @@ public final class TabBar {
 			drawTab(l, graphics, font, dragIndex, (int) (dragX - l.tabWidth / 2.0), true, -1, -1);
 		}
 
-		drawArrows(l, graphics, font, mouseX, mouseY);
-		drawAllButton(l, graphics, font, mouseX, mouseY);
-		drawAddButton(l, graphics, font, mouseX, mouseY);
+		drawArrows(l, graphics, mouseX, mouseY);
+		drawAllButton(l, graphics, mouseX, mouseY);
+		drawAddButton(l, graphics, mouseX, mouseY);
 
 		if (renameBox != null) {
 			renameBox.render(graphics, mouseX, mouseY, delta);
 		} else if (hovered >= 0) {
-			drawTooltip(graphics, font, hovered, mouseX, mouseY);
+			drawTooltip(screen, l, graphics, font, hovered, mouseX, mouseY);
 		} else if (l.overAllButton(mouseX, mouseY)) {
 			int crafting = TreeTabs.craftingCount();
-			graphics.renderComponentTooltip(font, List.of(
+			TabTooltip.render(graphics, font, List.of(
 					Component.translatable("emi.tree_tabs.all.title"),
 					Component.translatable("emi.tree_tabs.all.state", crafting, TreeTabs.count())
 							.withStyle(ChatFormatting.GRAY),
 					Component.translatable("emi.tree_tabs.all.hint").withStyle(ChatFormatting.DARK_GRAY)),
-					mouseX, mouseY);
+					screen.width, screen.height,
+					new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+					l.allButtonX() + TabLayout.ALL_BUTTON_WIDTH / 2, mouseX, mouseY);
 		} else if (l.overAddButton(mouseX, mouseY) && TreeTabs.activeTab() != null) {
-			graphics.renderComponentTooltip(font, List.of(
+			TabTooltip.render(graphics, font, List.of(
 					Component.translatable("emi.tree_tabs.fork"),
 					Component.translatable("emi.tree_tabs.fork.desc").withStyle(ChatFormatting.GRAY)),
-					mouseX, mouseY);
+					screen.width, screen.height,
+					new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+					l.addButtonX() + TabLayout.ADD_BUTTON_WIDTH / 2, mouseX, mouseY);
 		}
 	}
 
@@ -161,8 +157,16 @@ public final class TabBar {
 		int y = l.barY;
 		int width = l.tabWidth;
 		boolean isActive = index == TreeTabs.activeIndex();
-		int background = isActive ? COLOR_TAB_ACTIVE : hovered ? COLOR_TAB_HOVER : COLOR_TAB;
+		int background = isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB;
 		graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, background);
+
+		// The group's colour down the tab's leading edge. The strip does not reorder tabs into
+		// their groups the way the sidebar does, so this is the only thing that can say a tab
+		// belongs to a phase; it claims membership, not adjacency, which is all that is true.
+		TabGroup group = tab.groupId >= 0 ? TreeTabs.group(tab.groupId) : null;
+		if (group != null) {
+			graphics.fill(x, y + 1, x + 2, y + HEIGHT - 1, group.colour);
+		}
 
 		int accent = accentColor(tab);
 		if (isActive) {
@@ -172,7 +176,7 @@ public final class TabBar {
 			int accentY = l.barAtBottom ? y + 1 : y + HEIGHT - 3;
 			graphics.fill(x, accentY, x + width - 1, accentY + 1, accent);
 			// Hairline between inactive neighbours; the active tab reads on its own.
-			graphics.fill(x + width - 1, y + 4, x + width, y + HEIGHT - 4, COLOR_DIVIDER);
+			graphics.fill(x + width - 1, y + 4, x + width, y + HEIGHT - 4, TabPalette.DIVIDER);
 		}
 
 		// At icon density the tab is barely wider than the icon, so centre it rather than letting
@@ -186,15 +190,21 @@ public final class TabBar {
 				graphics.fill(iconX - 1 + ICON_SIZE - 4, y + 2 + ICON_SIZE - 4,
 						iconX - 1 + ICON_SIZE + 1, y + 2 + ICON_SIZE + 1, 0xFF000000);
 				graphics.fill(iconX - 1 + ICON_SIZE - 3, y + 2 + ICON_SIZE - 3,
-						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, COLOR_CRAFTING);
+						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, TabPalette.CRAFTING);
 			}
+		}
+
+		// A parked tree has stopped asking for materials. The sidebar dims it; so should this, or
+		// the same tab reads as two different states depending on which layout is up.
+		if (TreeTabs.isParked(tab)) {
+			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.PARKED);
 		}
 
 		boolean closeShown = l.closeVisible(hovered, isActive);
 		int budget = l.labelBudget(closeShown);
 		if (budget > 4) {
 			graphics.drawString(font, tab.trimmedLabel(font, budget), x + 4 + ICON_SIZE + 3, y + 7,
-					isActive ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
 		}
 
 		if (closeShown) {
@@ -203,29 +213,27 @@ public final class TabBar {
 			int rx = r.x() + (x - l.tabX(index, scroll));
 			boolean closeHovered = mouseX >= rx && mouseX < rx + r.width()
 					&& mouseY >= r.y() && mouseY < r.y() + r.height();
-			int colour = closeHovered ? COLOR_CLOSE_HOVER : COLOR_TEXT_DIM;
+			int colour = closeHovered ? COLOR_CLOSE_HOVER : TabPalette.TEXT_DIM;
 			if (l.density == Density.ICON) {
 				// A badge, not an inline button: the rest of the tab has to stay selectable.
 				graphics.fill(rx, r.y(), rx + r.width(), r.y() + r.height(), 0xC0101014);
-				graphics.drawString(font, "×", rx + 2, r.y() + 1, colour, false);
-			} else {
-				graphics.drawString(font, "×", rx + 2, r.y() + 2, colour, false);
 			}
+			Icons.centred(graphics, Icons.CLOSE, rx, r.y(), r.width(), r.height(), colour);
 		}
 	}
 
 	/** Scroll affordances, so a long strip does not look like it simply ends. */
-	private static void drawArrows(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawArrows(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (!l.scrolling) {
 			return;
 		}
 		int y = l.barY;
 		boolean canLeft = scroll > 0.5;
 		boolean canRight = scroll < l.maxScroll - 0.5;
-		graphics.drawString(font, "◀", l.leftArrowX() + 1, y + 7,
-				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
-		graphics.drawString(font, "▶", l.rightArrowX() + 1, y + 7,
-				canRight ? (l.overRightArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
+		Icons.centred(graphics, Icons.ARROW_LEFT, l.leftArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
+				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
+		Icons.centred(graphics, Icons.ARROW_RIGHT, l.rightArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
+				canRight ? (l.overRightArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
 	}
 
 	/**
@@ -234,7 +242,7 @@ public final class TabBar {
 	 * <p>Shows how many are being crafted, because with a dozen tabs the state is otherwise only
 	 * legible by scanning every icon for its corner pip.
 	 */
-	private static void drawAllButton(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawAllButton(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (l.count == 0) {
 			return;
 		}
@@ -243,16 +251,17 @@ public final class TabBar {
 		boolean hovered = l.overAllButton(mouseX, mouseY);
 		int crafting = TreeTabs.craftingCount();
 		graphics.fill(x, y + 1, x + TabLayout.ALL_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
-		int colour = crafting == 0 ? COLOR_TEXT_DIM : COLOR_CRAFTING;
-		graphics.drawString(font, "≡", x + 3, y + 7, colour, false);
+				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
+		int colour = crafting == 0 ? TabPalette.TEXT_DIM : TabPalette.CRAFTING;
+		Icons.centred(graphics, Icons.CRAFT_ALL, x, y + 1, TabLayout.ALL_BUTTON_WIDTH, HEIGHT - 2,
+				colour);
 		if (crafting > 0) {
 			graphics.fill(x + TabLayout.ALL_BUTTON_WIDTH - 5, y + 4,
-					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, COLOR_CRAFTING);
+					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, TabPalette.CRAFTING);
 		}
 	}
 
-	private static void drawAddButton(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawAddButton(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (TreeTabs.activeTab() == null) {
 			return;
 		}
@@ -260,12 +269,13 @@ public final class TabBar {
 		int y = l.barY;
 		boolean hovered = l.overAddButton(mouseX, mouseY);
 		graphics.fill(x, y + 1, x + TabLayout.ADD_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
-		graphics.drawString(font, "+", x + TabLayout.ADD_BUTTON_WIDTH / 2 - 2, y + 7,
-				hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
+		Icons.centred(graphics, Icons.NEW_TAB, x, y + 1, TabLayout.ADD_BUTTON_WIDTH, HEIGHT - 2,
+				hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 	}
 
-	private static void drawTooltip(GuiGraphics graphics, Font font, int index, int mouseX, int mouseY) {
+	private static void drawTooltip(Screen screen, TabLayout l, GuiGraphics graphics, Font font,
+			int index, int mouseX, int mouseY) {
 		TreeTab tab = TreeTabs.tab(index);
 		if (tab == null) {
 			return;
@@ -276,6 +286,17 @@ public final class TabBar {
 			lines.add(tab.goalName().copy().withStyle(ChatFormatting.GRAY));
 		}
 		lines.add(Component.translatable("emi.tree_tabs.batches", tab.batches()).withStyle(ChatFormatting.GRAY));
+		TabGroup group = tab.groupId >= 0 ? TreeTabs.group(tab.groupId) : null;
+		if (group != null) {
+			// The stripe says "in a group"; only the name says which one, and the strip has no
+			// room to draw it.
+			lines.add(Component.translatable("emi.tree_tabs.group.member", group.name)
+					.withStyle(ChatFormatting.GRAY));
+			if (group.parked) {
+				lines.add(Component.translatable("emi.tree_tabs.group.parked")
+						.withStyle(ChatFormatting.GOLD));
+			}
+		}
 		if (TreeTabsConfig.showProgress) {
 			lines.add(progressText(tab.progress));
 		}
@@ -286,22 +307,26 @@ public final class TabBar {
 		lines.add(Component.translatable("emi.tree_tabs.hint.rename").withStyle(ChatFormatting.DARK_GRAY));
 		lines.add(Component.translatable("emi.tree_tabs.hint.close").withStyle(ChatFormatting.DARK_GRAY));
 		lines.add(Component.translatable("emi.tree_tabs.hint.crafting").withStyle(ChatFormatting.DARK_GRAY));
-		graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
+		// Anchored to the tab and pushed clear of the whole strip: at the top of the screen the
+		// default positioner puts this straight over the bar it describes.
+		TabTooltip.render(graphics, font, lines, screen.width, screen.height,
+				new TabTooltip.Rect(0, l.barY, screen.width, TabLayout.HEIGHT),
+				l.tabX(index, scroll) + l.tabWidth / 2, mouseX, mouseY);
 	}
 
 	private static int accentColor(TreeTab tab) {
 		if (!TreeTabsConfig.showProgress || tab.progress == null) {
-			return COLOR_ACCENT;
+			return TabPalette.ACCENT;
 		}
 		// Deliberately not a switch: switching on another mod's enum makes javac emit a synthetic
 		// TabBar$1 switch-map class, one more thing that has to resolve at runtime.
 		if (tab.progress == ProgressState.COMPLETED) {
-			return 0xFF5BD16A;
+			return TabPalette.PROGRESS_COMPLETE;
 		}
 		if (tab.progress == ProgressState.PARTIAL) {
-			return 0xFFE0A63C;
+			return TabPalette.PROGRESS_PARTIAL;
 		}
-		return 0xFF6E6E76;
+		return TabPalette.PROGRESS_NONE;
 	}
 
 	private static Component progressText(ProgressState state) {
@@ -459,6 +484,11 @@ public final class TabBar {
 			return false;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F2 && TreeTabs.activeTab() != null) {
+			// In the sidebar the rename happens there, in place on the row. This class's own box
+			// is painted by render(), which the sidebar layout never calls.
+			if (TabUi.vertical(screen)) {
+				return TreeSidebar.renameHovered(screen, mouseX(), mouseY());
+			}
 			startRename(screen, TreeTabs.activeIndex());
 			return true;
 		}
@@ -466,6 +496,22 @@ public final class TabBar {
 			return false;
 		}
 		switch (keyCode) {
+			case GLFW.GLFW_KEY_R -> {
+				// The footer button is the discoverable way in; this is the one that still works
+				// on the strip, which has no footer, and on a panel too narrow for a third button.
+				click();
+				TreeSidebar.openChoices(screen);
+				return true;
+			}
+			case GLFW.GLFW_KEY_G -> {
+				// Ctrl+G makes a phase out of the active tree. A keybind as well as the sidebar
+				// button, because the strip has no footer to put a button in.
+				if (TreeTabs.activeTab() != null) {
+					click();
+					TreeSidebar.newGroup(screen);
+				}
+				return true;
+			}
 			case GLFW.GLFW_KEY_TAB -> {
 				TreeTabs.selectRelative(Screen.hasShiftDown() ? -1 : 1);
 				ensureVisible(screen, TreeTabs.activeIndex());
@@ -524,6 +570,19 @@ public final class TabBar {
 	}
 
 	// ---------------------------------------------------------------- rename
+
+	/** Where the pointer is, in GUI pixels, for the gestures that care which row it is over. */
+	private static double mouseX() {
+		Minecraft client = Minecraft.getInstance();
+		return client.mouseHandler.xpos() * client.getWindow().getGuiScaledWidth()
+				/ client.getWindow().getScreenWidth();
+	}
+
+	private static double mouseY() {
+		Minecraft client = Minecraft.getInstance();
+		return client.mouseHandler.ypos() * client.getWindow().getGuiScaledHeight()
+				/ client.getWindow().getScreenHeight();
+	}
 
 	private static void startRename(Screen screen, int index) {
 		TreeTab tab = TreeTabs.tab(index);

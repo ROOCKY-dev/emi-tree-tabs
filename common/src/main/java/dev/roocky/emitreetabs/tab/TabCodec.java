@@ -45,6 +45,9 @@ public final class TabCodec {
 		if (tab.customName != null && !tab.customName.isBlank()) {
 			obj.addProperty("name", tab.customName);
 		}
+		if (tab.groupId >= 0) {
+			obj.addProperty("group", tab.groupId);
+		}
 		if (tab.craftingMode) {
 			// Only written for tabs being worked on, so the common case stays out of the file.
 			obj.addProperty("mode", "craft");
@@ -152,6 +155,9 @@ public final class TabCodec {
 		}
 		if (obj.has("mode")) {
 			tab.craftingMode = "craft".equals(obj.get("mode").getAsString());
+		}
+		if (obj.has("group")) {
+			tab.groupId = obj.get("group").getAsInt();
 		}
 		if (obj.has("offX") && obj.has("offY")) {
 			tab.offX = obj.get("offX").getAsDouble();
