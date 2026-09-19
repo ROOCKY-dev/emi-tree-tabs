@@ -45,6 +45,16 @@ public final class SubCraftCosts {
 
 	private static Map<EmiIngredient, Map<TreeTab, Map<EmiIngredient, long[]>>> building =
 			new LinkedHashMap<>();
+	/**
+	 * One walk's findings, material -> consuming sub-craft -> amount.
+	 *
+	 * <p>Separate from {@link #building} because EMI walks each tree <em>three times</em> per
+	 * update — {@code calculateCost()}, then {@code calculateProgress(empty)} to get the untouched
+	 * totals, then {@code calculateProgress(inventory)} for the real ones. Accumulating across all
+	 * three tripled every figure. Only the last walk produces the numbers the sidebar shows, so
+	 * each walk discards the one before it and whatever survives is the answer.
+	 */
+	private static Map<EmiIngredient, Map<EmiIngredient, long[]>> walk = new LinkedHashMap<>();
 	private static final Deque<MaterialNode> STACK = new ArrayDeque<>();
 	private static TreeTab capturing;
 
@@ -65,11 +75,33 @@ public final class SubCraftCosts {
 	public static void begin(TreeTab tab) {
 		capturing = tab;
 		STACK.clear();
+		walk.clear();
 	}
 
+	/** A fresh walk of the same tree. Whatever the previous one found is superseded. */
+	public static void beginWalk() {
+		if (capturing != null) {
+			STACK.clear();
+			walk.clear();
+		}
+	}
+
+	/** Keeps the last walk's findings and stops watching. */
 	public static void end() {
+		if (capturing != null) {
+			for (Map.Entry<EmiIngredient, Map<EmiIngredient, long[]>> material : walk.entrySet()) {
+				Map<EmiIngredient, long[]> into = building
+						.computeIfAbsent(material.getKey(), k -> new LinkedHashMap<>())
+						.computeIfAbsent(capturing, k -> new LinkedHashMap<>());
+				for (Map.Entry<EmiIngredient, long[]> consumer : material.getValue().entrySet()) {
+					into.computeIfAbsent(consumer.getKey(), k -> new long[1])[0]
+							+= consumer.getValue()[0];
+				}
+			}
+		}
 		capturing = null;
 		STACK.clear();
+		walk.clear();
 	}
 
 	/**
@@ -111,8 +143,7 @@ public final class SubCraftCosts {
 		if (consumer == null) {
 			return;
 		}
-		building.computeIfAbsent(stack, k -> new LinkedHashMap<>())
-				.computeIfAbsent(tab, k -> new LinkedHashMap<>())
+		walk.computeIfAbsent(stack, k -> new LinkedHashMap<>())
 				.computeIfAbsent(consumer, k -> new long[1])[0] += amount;
 	}
 
@@ -133,27 +164,20 @@ public final class SubCraftCosts {
 	/**
 	 * How one tree's demand for a material splits across its sub-crafts, most demanding first.
 	 *
-	 * @return empty when there is no split to show, which includes the case of one sub-craft
-	 *         wanting all of it — saying "all of it goes to the only thing that wants it" is noise.
+	 * <p>Unfiltered: a single consumer is returned too. Whether one line is worth showing is the
+	 * caller's decision, because it depends on what else is being drawn — inside a per-tree
+	 * breakdown "60 into Oak Planks" is the answer, while on its own it is only restating the
+	 * total. Filtering here drew a heading with nothing underneath it.
 	 */
 	public static List<Share> shares(EmiIngredient stack, TreeTab tab) {
 		Map<TreeTab, Map<EmiIngredient, long[]>> byTab = RESULT.get(stack);
 		if (byTab == null) {
 			return List.of();
 		}
-		Map<EmiIngredient, long[]> byConsumer = byTab.get(tab);
-		if (byConsumer == null || byConsumer.size() < 2) {
-			return List.of();
-		}
-		List<Share> out = new ArrayList<>();
-		for (Map.Entry<EmiIngredient, long[]> e : byConsumer.entrySet()) {
-			out.add(new Share(e.getKey(), e.getValue()[0]));
-		}
-		out.sort((a, b) -> Long.compare(b.needed(), a.needed()));
-		return out;
+		return sorted(byTab.get(tab));
 	}
 
-	/** The same across every tree at once, for a material only one tree wants. */
+	/** The same merged across every tree, for when the per-tree split is not what is being shown. */
 	public static List<Share> shares(EmiIngredient stack) {
 		Map<TreeTab, Map<EmiIngredient, long[]>> byTab = RESULT.get(stack);
 		if (byTab == null || byTab.isEmpty()) {
@@ -165,11 +189,15 @@ public final class SubCraftCosts {
 				merged.computeIfAbsent(e.getKey(), k -> new long[1])[0] += e.getValue()[0];
 			}
 		}
-		if (merged.size() < 2) {
+		return sorted(merged);
+	}
+
+	private static List<Share> sorted(Map<EmiIngredient, long[]> byConsumer) {
+		if (byConsumer == null || byConsumer.isEmpty()) {
 			return List.of();
 		}
 		List<Share> out = new ArrayList<>();
-		for (Map.Entry<EmiIngredient, long[]> e : merged.entrySet()) {
+		for (Map.Entry<EmiIngredient, long[]> e : byConsumer.entrySet()) {
 			out.add(new Share(e.getKey(), e.getValue()[0]));
 		}
 		out.sort((a, b) -> Long.compare(b.needed(), a.needed()));

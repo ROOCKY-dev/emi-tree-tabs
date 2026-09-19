@@ -6,6 +6,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import dev.roocky.emitreetabs.tab.SubCraftCosts;
+import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.bom.ChanceState;
 import dev.emi.emi.bom.MaterialNode;
@@ -28,6 +29,27 @@ import dev.emi.emi.bom.TreeCost;
  */
 @Mixin(value = TreeCost.class, remap = false)
 public class TreeCostMixin {
+
+	/**
+	 * A tree is walked three times per update: {@code calculateCost}, then
+	 * {@code calculateProgress} against an empty inventory for the untouched totals, then again
+	 * against the real one. Only the last produces the numbers the sidebar shows, so each walk
+	 * starts by discarding what the previous one recorded.
+	 *
+	 * <p>These two are public, unlike the pair below, so they are the cheaper dependency of the
+	 * four.
+	 */
+	@Inject(method = "calculate(Ldev/emi/emi/bom/MaterialNode;J)V", at = @At("HEAD"), require = 0)
+	private void emitreetabs$walk(MaterialNode node, long batches, CallbackInfo ci) {
+		SubCraftCosts.beginWalk();
+	}
+
+	@Inject(method = "calculateProgress(Ldev/emi/emi/bom/MaterialNode;JLdev/emi/emi/api/recipe/EmiPlayerInventory;)V",
+			at = @At("HEAD"), require = 0)
+	private void emitreetabs$progressWalk(MaterialNode node, long batches,
+			EmiPlayerInventory inventory, CallbackInfo ci) {
+		SubCraftCosts.beginWalk();
+	}
 
 	@Inject(method = "calculateCost(Ldev/emi/emi/bom/MaterialNode;JLdev/emi/emi/bom/ChanceState;Z)V",
 			at = @At("HEAD"), require = 0)

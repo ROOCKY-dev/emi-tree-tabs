@@ -1,5 +1,6 @@
 package dev.roocky.emitreetabs.mixin;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -81,9 +82,9 @@ public class SyntheticTooltipMixin {
 			return;
 		}
 		if (byTree.size() < 2) {
-			// One tree wanting all of it is not a split. The sub-craft view still has something to
-			// say about it, though, so offer that rather than nothing.
-			if (!subCrafts(stack, byTree).isEmpty()) {
+			// One tree wanting all of it is not a split. The sub-craft view may still have
+			// something to say about it, so offer that rather than nothing.
+			if (!splitBody(stack, byTree).isEmpty()) {
 				hint(lines);
 			}
 			return;
@@ -101,7 +102,8 @@ public class SyntheticTooltipMixin {
 					a.needed(), a.tab().displayName()).withStyle(ChatFormatting.AQUA));
 			shown++;
 		}
-		if (!subCrafts(stack, byTree).isEmpty()) {
+		// Offered only when Shift would actually show something.
+		if (!splitBody(stack, byTree).isEmpty()) {
 			hint(lines);
 		}
 	}
@@ -109,61 +111,83 @@ public class SyntheticTooltipMixin {
 	/**
 	 * The sub-craft split.
 	 *
-	 * <p>With one tree it is shown flat, since naming the tree would be repeating the obvious. With
-	 * several, each tree's line is followed by its own sub-crafts, because a total of "60 for
-	 * plates" across two machines does not tell you which machine to stop building.
+	 * <p>Built before anything is drawn, because a heading must not appear without a body. It did:
+	 * the per-tree lists were filtered to "two or more consumers" further down, so a material that
+	 * each tree spent in one place produced "Goes into" and then nothing at all.
+	 *
+	 * <p>With one tree it is shown flat, since naming the tree would repeat the obvious. With
+	 * several, each tree's line is followed by its own sub-crafts, because "60 for plates" summed
+	 * across two machines does not tell you which machine to stop building.
 	 */
 	private static void subCraftSplit(List<ClientTooltipComponent> lines, EmiIngredient stack,
 			List<CraftingFavorites.Attribution> byTree) {
-		List<SubCraftCosts.Share> flat = subCrafts(stack, byTree);
-		if (flat.isEmpty()) {
+		List<Component> body = splitBody(stack, byTree);
+		if (body.isEmpty()) {
 			return;
 		}
 		add(lines, Component.translatable("emi.tree_tabs.attribution.subcraft.title")
 				.withStyle(ChatFormatting.GRAY));
-		if (byTree.size() < 2) {
-			lines(lines, flat, 0);
-			return;
-		}
-		int budget = MAX_LINES;
-		for (CraftingFavorites.Attribution a : byTree) {
-			List<SubCraftCosts.Share> shares = SubCraftCosts.shares(stack, a.tab());
-			if (shares.isEmpty() || budget <= 1) {
-				continue;
-			}
-			add(lines, Component.translatable("emi.tree_tabs.attribution.line",
-					a.needed(), a.tab().displayName()).withStyle(ChatFormatting.AQUA));
-			budget--;
-			budget -= lines(lines, shares, budget);
+		for (Component line : body) {
+			add(lines, line);
 		}
 	}
 
-	/** @return how many lines were used. */
-	private static int lines(List<ClientTooltipComponent> out, List<SubCraftCosts.Share> shares,
+	/**
+	 * The lines the split would draw, or empty when it has nothing to say.
+	 *
+	 * <p>"Nothing to say" is one destination: a material that goes to a single place is only
+	 * restating the total the tooltip has already given.
+	 */
+	private static List<Component> splitBody(EmiIngredient stack,
+			List<CraftingFavorites.Attribution> byTree) {
+		List<Component> out = new ArrayList<>();
+		if (byTree.size() < 2) {
+			List<SubCraftCosts.Share> flat = byTree.isEmpty()
+					? SubCraftCosts.shares(stack)
+					: SubCraftCosts.shares(stack, byTree.get(0).tab());
+			if (flat.size() < 2) {
+				return List.of();
+			}
+			shareLines(out, flat, MAX_LINES);
+			return out;
+		}
+		int splits = 0;
+		for (CraftingFavorites.Attribution a : byTree) {
+			List<SubCraftCosts.Share> shares = SubCraftCosts.shares(stack, a.tab());
+			if (shares.isEmpty() || out.size() >= MAX_LINES) {
+				continue;
+			}
+			out.add(Component.translatable("emi.tree_tabs.attribution.line",
+					a.needed(), a.tab().displayName()).withStyle(ChatFormatting.AQUA));
+			// A tree that spends it in one place needs no breakdown: its own line already carries
+			// that number, and the sub-line under it read "20 for Piston / 20 for Piston".
+			if (shares.size() < 2) {
+				continue;
+			}
+			splits++;
+			shareLines(out, shares, MAX_LINES - out.size());
+		}
+		// If no tree splits it, this is the tree view again under a different heading.
+		return splits == 0 ? List.of() : out;
+	}
+
+	/** Appends up to {@code budget} share lines, then says how many were left out. */
+	private static void shareLines(List<Component> out, List<SubCraftCosts.Share> shares,
 			int budget) {
-		int cap = budget > 0 ? Math.min(budget, MAX_LINES) : MAX_LINES;
+		int cap = Math.max(1, budget);
 		int shown = 0;
 		for (SubCraftCosts.Share share : shares) {
 			if (shown >= cap) {
-				add(out, Component.translatable("emi.tree_tabs.attribution.more",
+				out.add(Component.translatable("emi.tree_tabs.attribution.more",
 						shares.size() - shown).withStyle(ChatFormatting.DARK_GRAY));
-				return shown + 1;
+				return;
 			}
-			add(out, Component.translatable("emi.tree_tabs.attribution.subcraft.line",
+			out.add(Component.translatable("emi.tree_tabs.attribution.subcraft.line",
 					share.needed(), name(share.consumer())).withStyle(ChatFormatting.AQUA));
 			shown++;
 		}
-		return shown;
 	}
 
-	/** Whichever sub-craft split applies: one tree's, or every tree's merged. */
-	private static List<SubCraftCosts.Share> subCrafts(EmiIngredient stack,
-			List<CraftingFavorites.Attribution> byTree) {
-		if (byTree.size() == 1) {
-			return SubCraftCosts.shares(stack, byTree.get(0).tab());
-		}
-		return SubCraftCosts.shares(stack);
-	}
 
 	/** Says when an amount is being counted from somewhere that is not the player's inventory. */
 	private static void stockSource(List<ClientTooltipComponent> lines, EmiIngredient stack) {
