@@ -383,10 +383,37 @@ everything else is internal.
 
 ## 4.0 — Release the overhaul
 
-- [ ] Everything in 3.1 to 3.5 landed and used in a real world for more than a session.
+**The code for 3.1 to 3.5 is in.** What is left is not code.
+
+- [x] Everything in 3.1 to 3.5 **landed**, with three things deliberately not built and one blocked:
+      - the **active tab width bonus** (3.1) and **group chips on the strip** (3.2) are one job —
+        both need non-uniform tab widths, which every hit test, the drag drop and the scroll
+        arithmetic assume away. Deferred together, on purpose.
+      - **splitting rendering from input** (3.1) — the geometry was where the value was; this half
+        has not bought anything yet.
+      - **a formula on a node** (3.3) — the reasoning says it fights the solver, and the decision
+        was explicitly deferred until the tree-level version has been used. It has not been.
+      - **a picture per option** (3.4) — blocked on a game session, not on code. The plumbing is
+        there; the pictures are stills of the real interface and there is no way to take one
+        without playing.
+- [ ] **Used in a real world for more than a session.** Nothing below 3.1 has been seen running:
+      the whole 3.x line was built and verified by compiling, and a green build says a texture is
+      in the jar, not that a sprite lands on the right pixel. **This is the gate.**
 - [ ] **Maintainer confirms.** Only then does a `store-v4.0.0` tag go up; nothing before it reaches
       Modrinth or CurseForge.
 - [ ] `publish_game_versions` checked before tagging — it is what the stores are told.
+
+### What to look at first, when there is a session
+
+In rough order of "most likely to be wrong, cheapest to check":
+
+1. **The icon sheet.** Ten sprites at 4–12px; wrong by a pixel is wrong.
+2. **Contrast**, in both layouts, against a real tree rather than a swatch.
+3. **The section header hit area** — click the words, not the first slot.
+4. **Resolution sync end to end.** Never seen working; its own commit said not to merge it.
+5. **The YACL screen**, including whether the live preview draws at the width YACL gives it.
+6. **The sub-craft split** — the `TreeCostMixin` attribution is the one place a silent wrong
+      *number* is possible rather than a visible wrong *pixel*.
 
 ## 5.0 — Minecraft 1.21.1
 
