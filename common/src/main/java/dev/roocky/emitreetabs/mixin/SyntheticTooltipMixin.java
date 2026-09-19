@@ -12,6 +12,7 @@ import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.CraftingFavorites;
 import dev.roocky.emitreetabs.tab.ApiRegistry;
 import dev.roocky.emitreetabs.tab.SubCraftCosts;
+import dev.roocky.emitreetabs.ui.AttributionLine;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.runtime.EmiFavorite;
 import net.minecraft.ChatFormatting;
@@ -98,8 +99,7 @@ public class SyntheticTooltipMixin {
 						byTree.size() - shown).withStyle(ChatFormatting.DARK_GRAY));
 				break;
 			}
-			add(lines, Component.translatable("emi.tree_tabs.attribution.line",
-					a.needed(), a.tab().displayName()).withStyle(ChatFormatting.AQUA));
+			lines.add(new AttributionLine(a.tab().icon(), a.tab().batches(), a.needed(), 0));
 			shown++;
 		}
 		// Offered only when Shift would actually show something.
@@ -121,15 +121,13 @@ public class SyntheticTooltipMixin {
 	 */
 	private static void subCraftSplit(List<ClientTooltipComponent> lines, EmiIngredient stack,
 			List<CraftingFavorites.Attribution> byTree) {
-		List<Component> body = splitBody(stack, byTree);
+		List<ClientTooltipComponent> body = splitBody(stack, byTree);
 		if (body.isEmpty()) {
 			return;
 		}
 		add(lines, Component.translatable("emi.tree_tabs.attribution.subcraft.title")
 				.withStyle(ChatFormatting.GRAY));
-		for (Component line : body) {
-			add(lines, line);
-		}
+		lines.addAll(body);
 	}
 
 	/**
@@ -138,9 +136,9 @@ public class SyntheticTooltipMixin {
 	 * <p>"Nothing to say" is one destination: a material that goes to a single place is only
 	 * restating the total the tooltip has already given.
 	 */
-	private static List<Component> splitBody(EmiIngredient stack,
+	private static List<ClientTooltipComponent> splitBody(EmiIngredient stack,
 			List<CraftingFavorites.Attribution> byTree) {
-		List<Component> out = new ArrayList<>();
+		List<ClientTooltipComponent> out = new ArrayList<>();
 		if (byTree.size() < 2) {
 			List<SubCraftCosts.Share> flat = byTree.isEmpty()
 					? SubCraftCosts.shares(stack)
@@ -148,7 +146,7 @@ public class SyntheticTooltipMixin {
 			if (flat.size() < 2) {
 				return List.of();
 			}
-			shareLines(out, flat, MAX_LINES);
+			shareLines(out, flat, MAX_LINES, 0);
 			return out;
 		}
 		int splits = 0;
@@ -157,33 +155,34 @@ public class SyntheticTooltipMixin {
 			if (shares.isEmpty() || out.size() >= MAX_LINES) {
 				continue;
 			}
-			out.add(Component.translatable("emi.tree_tabs.attribution.line",
-					a.needed(), a.tab().displayName()).withStyle(ChatFormatting.AQUA));
+			out.add(new AttributionLine(a.tab().icon(), a.tab().batches(), a.needed(), 0));
 			// A tree that spends it in one place needs no breakdown: its own line already carries
 			// that number, and the sub-line under it read "20 for Piston / 20 for Piston".
 			if (shares.size() < 2) {
 				continue;
 			}
 			splits++;
-			shareLines(out, shares, MAX_LINES - out.size());
+			shareLines(out, shares, MAX_LINES - out.size(), 1);
 		}
 		// If no tree splits it, this is the tree view again under a different heading.
 		return splits == 0 ? List.of() : out;
 	}
 
 	/** Appends up to {@code budget} share lines, then says how many were left out. */
-	private static void shareLines(List<Component> out, List<SubCraftCosts.Share> shares,
-			int budget) {
+	private static void shareLines(List<ClientTooltipComponent> out,
+			List<SubCraftCosts.Share> shares, int budget, int indent) {
 		int cap = Math.max(1, budget);
 		int shown = 0;
 		for (SubCraftCosts.Share share : shares) {
 			if (shown >= cap) {
-				out.add(Component.translatable("emi.tree_tabs.attribution.more",
-						shares.size() - shown).withStyle(ChatFormatting.DARK_GRAY));
+				out.add(ClientTooltipComponent.create(
+						Component.translatable("emi.tree_tabs.attribution.more",
+								shares.size() - shown)
+								.withStyle(ChatFormatting.DARK_GRAY).getVisualOrderText()));
 				return;
 			}
-			out.add(Component.translatable("emi.tree_tabs.attribution.subcraft.line",
-					share.needed(), name(share.consumer())).withStyle(ChatFormatting.AQUA));
+			out.add(new AttributionLine(share.consumer(), share.consumerCount(), share.needed(),
+					indent));
 			shown++;
 		}
 	}

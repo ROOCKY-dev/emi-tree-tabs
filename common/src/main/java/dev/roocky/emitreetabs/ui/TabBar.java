@@ -484,9 +484,10 @@ public final class TabBar {
 			return false;
 		}
 		if (keyCode == GLFW.GLFW_KEY_F2 && TreeTabs.activeTab() != null) {
-			// Over a phase header, F2 renames the phase; anywhere else it renames the active tab.
-			if (TabUi.vertical(screen) && TreeSidebar.renameHovered(screen, mouseX(), mouseY())) {
-				return true;
+			// In the sidebar the rename happens there, in place on the row. This class's own box
+			// is painted by render(), which the sidebar layout never calls.
+			if (TabUi.vertical(screen)) {
+				return TreeSidebar.renameHovered(screen, mouseX(), mouseY());
 			}
 			startRename(screen, TreeTabs.activeIndex());
 			return true;

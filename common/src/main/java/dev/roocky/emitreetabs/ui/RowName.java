@@ -1,6 +1,7 @@
 package dev.roocky.emitreetabs.ui;
 
 import dev.roocky.emitreetabs.tab.TabGroup;
+import dev.roocky.emitreetabs.tab.TreeTab;
 import dev.roocky.emitreetabs.tab.TreeTabs;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Rect;
 import net.minecraft.client.Minecraft;
@@ -11,7 +12,7 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * Typing a phase's name, in place on its own header.
+ * Typing a row's name, in place on the row itself — a phase header or a tab.
  *
  * <p>In place rather than in a popup, because that is how the strip already renames a tab and a
  * phase name is the same kind of edit — short, and about the row you are looking at. A popup would
@@ -19,37 +20,63 @@ import org.lwjgl.glfw.GLFW;
  *
  * <p>Opened on creation, so a new phase is named at the moment it exists rather than living as
  * "Phase 2" until someone remembers the gesture.
+ *
+ * <p>It handles tabs as well as phases because {@code TabBar}'s rename box cannot: that one is
+ * drawn by {@code TabBar.render}, which never runs while the sidebar is the layout, so F2 in the
+ * sidebar used to open a text box positioned with strip geometry and never painted. You typed
+ * blind into a control you could not see.
  */
-public final class GroupName {
+public final class RowName {
 
 	private static EditBox box;
 	private static int groupId = -1;
+	private static int tabIndex = -1;
 
-	private GroupName() {
+	private RowName() {
 	}
 
-	/** True while this group's header is being edited, so the row draws the box instead of a name. */
-	public static boolean editing(int id) {
+	/** True while this phase's header is being edited, so the row draws the box instead of a name. */
+	public static boolean editingGroup(int id) {
 		return box != null && groupId == id;
 	}
 
-	public static void open(Screen screen, int id, Rect row) {
+	/** The same for a tab row. */
+	public static boolean editingTab(int index) {
+		return box != null && tabIndex == index;
+	}
+
+	public static void openGroup(Screen screen, int id, Rect row) {
 		TabGroup group = TreeTabs.group(id);
 		if (group == null || screen == null || row == null) {
 			return;
 		}
 		close(screen);
-		int inset = SidebarLayout.ROW_PAD + SidebarLayout.COLLAPSE + 4;
+		groupId = id;
+		open(screen, row, SidebarLayout.ROW_PAD + SidebarLayout.COLLAPSE + 4, group.name);
+	}
+
+	/** Renames a tree. Its own name, not the goal's — clearing it falls back to the goal. */
+	public static void openTab(Screen screen, int index, Rect row) {
+		TreeTab tab = TreeTabs.tab(index);
+		if (tab == null || screen == null || row == null) {
+			return;
+		}
+		close(screen);
+		tabIndex = index;
+		open(screen, row, SidebarLayout.ROW_PAD + SidebarLayout.ICON + 5,
+				tab.customName != null ? tab.customName : tab.goalName().getString());
+	}
+
+	private static void open(Screen screen, Rect row, int inset, String value) {
 		int width = Math.max(40, row.width() - inset - SidebarLayout.MARKER - SidebarLayout.ROW_PAD * 2);
 		box = new EditBox(Minecraft.getInstance().font, row.x() + inset,
 				row.y() + (row.height() - 14) / 2, width, 14,
-				Component.translatable("emi.tree_tabs.group.rename"));
+				Component.translatable("emi.tree_tabs.rename"));
 		box.setMaxLength(32);
 		box.setBordered(true);
-		box.setValue(group.name);
+		box.setValue(value);
 		box.moveCursorToEnd();
 		box.setHighlightPos(0);
-		groupId = id;
 		screen.setFocused(box);
 		box.setFocused(true);
 	}
@@ -58,7 +85,11 @@ public final class GroupName {
 		if (box == null) {
 			return;
 		}
-		TreeTabs.renameGroup(groupId, box.getValue());
+		if (groupId >= 0) {
+			TreeTabs.renameGroup(groupId, box.getValue());
+		} else if (tabIndex >= 0) {
+			TreeTabs.rename(tabIndex, box.getValue());
+		}
 		close(screen);
 	}
 
@@ -68,6 +99,7 @@ public final class GroupName {
 		}
 		box = null;
 		groupId = -1;
+		tabIndex = -1;
 		if (screen != null && screen.getFocused() instanceof EditBox) {
 			screen.setFocused(null);
 		}
@@ -112,5 +144,6 @@ public final class GroupName {
 	public static void reset() {
 		box = null;
 		groupId = -1;
+		tabIndex = -1;
 	}
 }

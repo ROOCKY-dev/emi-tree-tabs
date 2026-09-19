@@ -124,5 +124,10 @@
   "emi.tree_tabs.choices.none.desc": "Every ingredient is made the same way in every open tree.",
   "emi.tree_tabs.choices.button": "Recipe choices",
   "emi.tree_tabs.choices.button.desc": "%s ingredient(s) are made one way in one tree and another way in another. Open to see which, and make them agree.",
-  "emi.tree_tabs.choices.button.hint": "Ctrl+R"
+  "emi.tree_tabs.choices.button.hint": "Ctrl+R",
+  "emi.tree_tabs.hint.sidebar.select": "Left click to switch, drag to reorder or into a phase",
+  "emi.tree_tabs.hint.sidebar.marker": "Click the number to switch between viewing and crafting",
+  "emi.tree_tabs.hint.sidebar.batch": "Ctrl+click the number to set how many",
+  "emi.tree_tabs.attribution.count": "x%s",
+  "emi.tree_tabs.attribution.amount": "needs %s"
 }

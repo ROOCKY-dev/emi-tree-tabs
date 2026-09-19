@@ -35,8 +35,15 @@ import dev.emi.emi.bom.MaterialNode;
  */
 public final class SubCraftCosts {
 
-	/** One sub-craft's share of a material, inside one tree. */
-	public record Share(EmiIngredient consumer, long needed) {
+	/**
+	 * One sub-craft's share of a material, inside one tree.
+	 *
+	 * @param needed        how much of the material goes this way
+	 * @param consumerCount how many of the sub-craft that is for. Without it a line reads "2 for
+	 *                      Redstone Torch" and you cannot tell whether that is two redstone for
+	 *                      one torch or for two.
+	 */
+	public record Share(EmiIngredient consumer, long needed, long consumerCount) {
 	}
 
 	/** material -> tree -> consuming sub-craft -> amount. */
@@ -54,6 +61,7 @@ public final class SubCraftCosts {
 	 * three tripled every figure. Only the last walk produces the numbers the sidebar shows, so
 	 * each walk discards the one before it and whatever survives is the answer.
 	 */
+	/** material -> consumer -> {amount of material, how many of the consumer}. */
 	private static Map<EmiIngredient, Map<EmiIngredient, long[]>> walk = new LinkedHashMap<>();
 	private static final Deque<MaterialNode> STACK = new ArrayDeque<>();
 	private static TreeTab capturing;
@@ -94,8 +102,9 @@ public final class SubCraftCosts {
 						.computeIfAbsent(material.getKey(), k -> new LinkedHashMap<>())
 						.computeIfAbsent(capturing, k -> new LinkedHashMap<>());
 				for (Map.Entry<EmiIngredient, long[]> consumer : material.getValue().entrySet()) {
-					into.computeIfAbsent(consumer.getKey(), k -> new long[1])[0]
-							+= consumer.getValue()[0];
+					long[] cell = into.computeIfAbsent(consumer.getKey(), k -> new long[2]);
+					cell[0] += consumer.getValue()[0];
+					cell[1] = Math.max(cell[1], consumer.getValue()[1]);
 				}
 			}
 		}
@@ -155,8 +164,24 @@ public final class SubCraftCosts {
 		if (consumer == null) {
 			return;
 		}
-		walk.computeIfAbsent(stack, k -> new LinkedHashMap<>())
-				.computeIfAbsent(consumer, k -> new long[1])[0] += amount;
+		long[] cell = walk.computeIfAbsent(stack, k -> new LinkedHashMap<>())
+				.computeIfAbsent(consumer, k -> new long[2]);
+		cell[0] += amount;
+		// TreeCost sets totalNeeded on a node before recursing into its children, so by the time
+		// a leaf reports its cost the consumer above it already knows its own count. Taken, not
+		// summed: the same sub-craft reached twice is still that many of it.
+		cell[1] = Math.max(cell[1], consumerCount());
+	}
+
+	/** How many of the consuming sub-craft are needed, or 1 when the leaf is its own consumer. */
+	private static long consumerCount() {
+		int depth = 0;
+		for (MaterialNode node : STACK) {
+			if (depth++ == 1) {
+				return Math.max(1, node.totalNeeded);
+			}
+		}
+		return 1;
 	}
 
 	private static EmiIngredient consumer() {
@@ -198,7 +223,9 @@ public final class SubCraftCosts {
 		Map<EmiIngredient, long[]> merged = new LinkedHashMap<>();
 		for (Map<EmiIngredient, long[]> byConsumer : byTab.values()) {
 			for (Map.Entry<EmiIngredient, long[]> e : byConsumer.entrySet()) {
-				merged.computeIfAbsent(e.getKey(), k -> new long[1])[0] += e.getValue()[0];
+				long[] cell = merged.computeIfAbsent(e.getKey(), k -> new long[2]);
+				cell[0] += e.getValue()[0];
+				cell[1] += e.getValue()[1];
 			}
 		}
 		return sorted(merged);
@@ -210,7 +237,7 @@ public final class SubCraftCosts {
 		}
 		List<Share> out = new ArrayList<>();
 		for (Map.Entry<EmiIngredient, long[]> e : byConsumer.entrySet()) {
-			out.add(new Share(e.getKey(), e.getValue()[0]));
+			out.add(new Share(e.getKey(), e.getValue()[0], e.getValue()[1]));
 		}
 		out.sort((a, b) -> Long.compare(b.needed(), a.needed()));
 		return out;

@@ -280,7 +280,7 @@ public final class TreeSidebar {
 		}
 
 		int budget = l.labelBudget(s);
-		if (budget > 6) {
+		if (budget > 6 && !RowName.editingTab(tabIndex)) {
 			g.drawString(font, tab.trimmedLabel(font, budget),
 					iconX + SidebarLayout.ICON + 5, b.y() + (b.height() - 8) / 2,
 					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
@@ -315,7 +315,7 @@ public final class TreeSidebar {
 				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 
 		int budget = l.labelBudget(s);
-		if (budget > 6 && !GroupName.editing(group.id)) {
+		if (budget > 6 && !RowName.editingGroup(group.id)) {
 			g.drawString(font, trim(font, group.name, budget),
 					c.x() + SidebarLayout.COLLAPSE + 4, b.y() + (b.height() - 8) / 2,
 					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
@@ -421,6 +421,19 @@ public final class TreeSidebar {
 				lines.add(Component.translatable("emi.tree_tabs.group.parked")
 						.withStyle(ChatFormatting.GOLD));
 			}
+			// The strip's tooltip has listed its gestures since 2.0; this one listed none, so
+			// every one of them - the marker being a control, drag moving a tree between phases,
+			// F2, middle click - had to be discovered by accident.
+			lines.add(Component.translatable("emi.tree_tabs.hint.sidebar.select")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.hint.sidebar.marker")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.hint.sidebar.batch")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.hint.rename")
+					.withStyle(ChatFormatting.DARK_GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.hint.close")
+					.withStyle(ChatFormatting.DARK_GRAY));
 		}
 		// Anchored beside the panel, never over it: the sidebar occupies a whole screen edge, so a
 		// cursor-relative tooltip would sit on top of the rows it is describing.
@@ -487,7 +500,7 @@ public final class TreeSidebar {
 			// them, so deleting it must not take them with it.
 			if (button == 2) {
 				click();
-				GroupName.close(screen);
+				RowName.close(screen);
 				TreeTabs.removeGroup(id);
 				return true;
 			}
@@ -610,7 +623,7 @@ public final class TreeSidebar {
 		SidebarLayout l = layout(screen, rows);
 		for (Slot s : l.slots()) {
 			if (s.row().kind() == RowKind.GROUP && s.row().groupIndex() == group.id) {
-				GroupName.open(screen, group.id, s.bounds());
+				RowName.openGroup(screen, group.id, s.bounds());
 				return;
 			}
 		}
@@ -621,17 +634,42 @@ public final class TreeSidebar {
 		Minecraft.getInstance().setScreen(new RecipeChoicesScreen(screen));
 	}
 
-	/** F2 renames whichever phase the pointer is over, matching F2 on a tab. */
+	/**
+	 * F2 renames whichever row the pointer is over — a phase or a tree — and falls back to the
+	 * active tree's row when the pointer is elsewhere.
+	 *
+	 * <p>Always handled here while the sidebar is the layout. {@code TabBar}'s own rename box is
+	 * drawn by {@code TabBar.render}, which does not run in this layout, so letting it take F2
+	 * opened a text box that was never painted.
+	 */
 	public static boolean renameHovered(Screen screen, double mouseX, double mouseY) {
 		if (!active(screen)) {
 			return false;
 		}
-		SidebarLayout l = layout(screen, TreeTabs.sidebarRows());
+		SidebarRows.Result rows = TreeTabs.sidebarRows();
+		SidebarLayout l = layout(screen, rows);
 		Slot s = l.slotAt(mouseX, mouseY);
-		if (s == null || s.row().kind() != RowKind.GROUP) {
+		if (s == null) {
+			int row = rows.rowOf(TreeTabs.activeIndex());
+			for (Slot candidate : l.slots()) {
+				if (candidate.index() == row) {
+					s = candidate;
+					break;
+				}
+			}
+		}
+		if (s == null) {
 			return false;
 		}
-		GroupName.open(screen, s.row().groupIndex(), s.bounds());
+		if (s.row().kind() == RowKind.GROUP) {
+			RowName.openGroup(screen, s.row().groupIndex(), s.bounds());
+			return true;
+		}
+		int tab = rows.tabAt(s.index());
+		if (tab < 0) {
+			return false;
+		}
+		RowName.openTab(screen, tab, s.bounds());
 		return true;
 	}
 
@@ -678,7 +716,7 @@ public final class TreeSidebar {
 	}
 
 	public static void reset() {
-		GroupName.reset();
+		RowName.reset();
 		choiceCountAt = 0;
 		scroll = 0;
 		dragTab = -1;
