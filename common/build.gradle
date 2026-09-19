@@ -29,6 +29,11 @@ dependencies {
 	// identical across loaders, so the Forge jar serves purely as a compile-time reference here.
 	modCompileOnly "dev.emi:emi-forge:${rootProject.emi_version}"
 
+	// Same arrangement for YACL: the dev.isxander.yacl3.* API is identical across loaders, so the
+	// Forge artifact is a compile-time reference and the settings screen lives in common rather
+	// than being written twice.
+	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-forge"
+
 	// Loom does not put Mixin on a common module's compile classpath, so it is declared here.
 	// compileOnly because Forge ships Mixin at runtime; the annotation processor writes the refmap.
 	compileOnly "org.spongepowered:mixin:${rootProject.mixin_version}"

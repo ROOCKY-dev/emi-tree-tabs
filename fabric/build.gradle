@@ -40,7 +40,9 @@ dependencies {
 
 	modImplementation "dev.emi:emi-fabric:${rootProject.emi_version}"
 	// Optional: only drives the in-game config screen, never bundled.
-	modCompileOnly "me.shedaniel.cloth:cloth-config-fabric:${rootProject.cloth_version}"
+	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-fabric"
+	// ...but present in the dev client, otherwise the config screen can never be tested.
+	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-fabric"
 
 	common(project(path: ':common', configuration: 'namedElements')) { transitive false }
 	shadowBundle project(path: ':common', configuration: 'transformProductionFabric')

@@ -32,29 +32,6 @@ import net.minecraft.sounds.SoundEvents;
  */
 public final class TreeSidebar {
 
-	// Same palette as the strip, and for the same reason: the panel and a row were 1.09:1 apart,
-	// which is a surface you can only find by moving the mouse. Deepening the panel and lifting the
-	// rows puts it at 1.81:1, with label text still 8.87:1 on a row.
-	private static final int COLOR_PANEL = 0xF00B0B12;
-	private static final int COLOR_PANEL_HI = 0xFF40404E;
-	private static final int COLOR_PANEL_LO = 0xFF04040A;
-	private static final int COLOR_ROW = 0xFF3B3B45;
-	private static final int COLOR_ROW_HOVER = 0xFF4E4E5C;
-	private static final int COLOR_ROW_ACTIVE = 0xFF5E5E78;
-	private static final int COLOR_GROUP = 0xFF2A2A38;
-	private static final int COLOR_GROUP_HOVER = 0xFF373748;
-	private static final int COLOR_BORDER = 0xFF4A4A56;
-	/** Outlines the small controls drawn on a row, so it has to out-read the row rather than the panel. */
-	private static final int COLOR_OUTLINE = 0xFF6A6A7C;
-	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_TEXT_DIM = 0xFFB4B4BE;
-	private static final int COLOR_ACCENT = 0xFF5A8CFF;
-	private static final int COLOR_CRAFTING = 0xFF48C8E0;
-	private static final int COLOR_MARKER_BG = 0xFF15151C;
-	private static final int COLOR_PARKED = 0x66000000;
-	/** A tree a pending recipe-sync offer would change. The strip uses the same orange. */
-	private static final int COLOR_SYNC = 0xFFFF8C42;
-
 	private static double scroll;
 
 	/** How far the pointer must travel before a click on a row becomes a drag. */
@@ -170,7 +147,7 @@ public final class TreeSidebar {
 		}
 		for (Slot s : l.visibleSlots()) {
 			if (s.index() == row) {
-				outline(g, s.bounds(), COLOR_ACCENT);
+				outline(g, s.bounds(), TabPalette.ACCENT);
 				return;
 			}
 		}
@@ -182,7 +159,7 @@ public final class TreeSidebar {
 		int y = last == null ? l.viewport.y()
 				: Math.min(last.bounds().y() + last.bounds().height() + SidebarLayout.ROW_GAP,
 						l.viewport.y() + l.viewport.height() - 2);
-		g.fill(l.viewport.x(), y, l.viewport.x() + l.viewport.width(), y + 2, COLOR_ACCENT);
+		g.fill(l.viewport.x(), y, l.viewport.x() + l.viewport.width(), y + 2, TabPalette.ACCENT);
 	}
 
 	/**
@@ -202,12 +179,12 @@ public final class TreeSidebar {
 	}
 
 	private static void panel(GuiGraphics g, Rect r) {
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), COLOR_PANEL);
+		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL);
 		// Vanilla's bevel: light on the top and left, dark on the bottom and right.
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + 1, COLOR_PANEL_HI);
-		g.fill(r.x(), r.y(), r.x() + 1, r.y() + r.height(), COLOR_PANEL_HI);
-		g.fill(r.x(), r.y() + r.height() - 1, r.x() + r.width(), r.y() + r.height(), COLOR_PANEL_LO);
-		g.fill(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), COLOR_PANEL_LO);
+		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + 1, TabPalette.PANEL_HI);
+		g.fill(r.x(), r.y(), r.x() + 1, r.y() + r.height(), TabPalette.PANEL_HI);
+		g.fill(r.x(), r.y() + r.height() - 1, r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
+		g.fill(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
 	}
 
 	private static void outline(GuiGraphics g, Rect r, int colour) {
@@ -226,13 +203,13 @@ public final class TreeSidebar {
 		Rect b = s.bounds();
 		boolean isActive = tabIndex == TreeTabs.activeIndex();
 		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				isActive ? COLOR_ROW_ACTIVE : hovered ? COLOR_ROW_HOVER : COLOR_ROW);
+				isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
 
 		// State on the border, not a corner pip: down a column a stripe reads at a glance.
-		int state = isActive ? COLOR_ACCENT : progressColour(tab);
+		int state = isActive ? TabPalette.ACCENT : progressColour(tab);
 		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), state);
 		if (isActive) {
-			outline(g, b, COLOR_ACCENT);
+			outline(g, b, TabPalette.ACCENT);
 		}
 
 		int iconX = b.x() + SidebarLayout.ROW_PAD + 2;
@@ -246,7 +223,7 @@ public final class TreeSidebar {
 		if (budget > 6) {
 			g.drawString(font, tab.trimmedLabel(font, budget),
 					iconX + SidebarLayout.ICON + 5, b.y() + (b.height() - 8) / 2,
-					isActive ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
 		}
 
 		marker(g, font, s.marker(), String.valueOf(tab.batches()), tab.craftingMode,
@@ -254,11 +231,11 @@ public final class TreeSidebar {
 
 		// A parked group's trees are dimmed, because they have stopped asking for materials.
 		if (TreeTabs.isParked(tab)) {
-			g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), COLOR_PARKED);
+			g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), TabPalette.PARKED);
 		}
 		// Drawn over the veil: a parked tree that is also out of step still has to say so.
 		if (TreeTabs.isSyncCandidate(tabIndex)) {
-			outline(g, b, COLOR_SYNC);
+			outline(g, b, TabPalette.SYNC);
 		}
 	}
 
@@ -272,20 +249,20 @@ public final class TreeSidebar {
 		// The header fills the panel width as its own background — that is what separates it from a
 		// tab, which only has a border.
 		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				hovered ? COLOR_GROUP_HOVER : COLOR_GROUP);
+				hovered ? TabPalette.GROUP_HOVER : TabPalette.GROUP);
 		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), group.colour);
-		g.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), COLOR_BORDER);
+		g.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), TabPalette.BORDER);
 
 		Rect c = s.collapse();
 		Icons.centred(g, group.collapsed ? Icons.CARET_RIGHT : Icons.CARET_DOWN,
 				c.x(), c.y(), c.width(), c.height(),
-				l.overCollapse(s, mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM);
+				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 
 		int budget = l.labelBudget(s);
 		if (budget > 6) {
 			g.drawString(font, trim(font, group.name, budget),
 					c.x() + SidebarLayout.COLLAPSE + 4, b.y() + (b.height() - 8) / 2,
-					group.parked ? COLOR_TEXT_DIM : COLOR_TEXT, false);
+					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
 		}
 
 		int size = TreeTabs.groupSize(group.id);
@@ -295,7 +272,7 @@ public final class TreeSidebar {
 		// aside for now" - and not at all on a header whose name was too long to draw.
 		if (group.parked) {
 			Icons.draw(g, Icons.PARK, m.x() - Icons.PARK.width() - 3,
-					m.y() + (m.height() - Icons.PARK.height()) / 2, COLOR_TEXT_DIM);
+					m.y() + (m.height() - Icons.PARK.height()) / 2, TabPalette.TEXT_DIM);
 		}
 		marker(g, font, m, String.valueOf(size), allCrafting,
 				hovered && l.overMarker(s, mouseX, mouseY));
@@ -306,9 +283,9 @@ public final class TreeSidebar {
 			boolean crafting, boolean hovered) {
 		boolean lit = crafting || hovered;
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? COLOR_CRAFTING : COLOR_MARKER_BG);
-		outline(g, r, lit ? 0xFF7FE0F0 : COLOR_OUTLINE);
-		int ink = lit ? 0xFF0C0C10 : COLOR_TEXT_DIM;
+				lit ? TabPalette.CRAFTING : TabPalette.MARKER_BG);
+		outline(g, r, lit ? TabPalette.CRAFTING_EDGE : TabPalette.OUTLINE);
+		int ink = lit ? TabPalette.INK_ON_LIT : TabPalette.TEXT_DIM;
 		if (hovered) {
 			// The number is only information until you reach for it; then the same square is the
 			// control, and says so with the mark the craft-all button uses.
@@ -333,10 +310,10 @@ public final class TreeSidebar {
 	private static void button(GuiGraphics g, Rect r, Icons.Sprite icon,
 			boolean hovered, boolean lit) {
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? COLOR_CRAFTING : hovered ? COLOR_ROW_HOVER : COLOR_ROW);
-		outline(g, r, COLOR_OUTLINE);
+				lit ? TabPalette.CRAFTING : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
+		outline(g, r, TabPalette.OUTLINE);
 		Icons.centred(g, icon, r.x(), r.y(), r.width(), r.height(),
-				lit ? 0xFF0C0C10 : hovered ? COLOR_TEXT : COLOR_TEXT_DIM);
+				lit ? TabPalette.INK_ON_LIT : hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 	}
 
 	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
@@ -600,15 +577,15 @@ public final class TreeSidebar {
 
 	private static int progressColour(TreeTab tab) {
 		if (!TreeTabsConfig.showProgress || tab.progress == null) {
-			return 0xFF6E6E76;
+			return TabPalette.PROGRESS_NONE;
 		}
 		if (tab.progress == ProgressState.COMPLETED) {
-			return 0xFF5BD16A;
+			return TabPalette.PROGRESS_COMPLETE;
 		}
 		if (tab.progress == ProgressState.PARTIAL) {
-			return 0xFFE0A63C;
+			return TabPalette.PROGRESS_PARTIAL;
 		}
-		return 0xFF6E6E76;
+		return TabPalette.PROGRESS_NONE;
 	}
 
 	private static Component progressText(ProgressState state) {

@@ -32,7 +32,7 @@ allprojects {
 
 	repositories {
 		maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }  // EMI
-		maven { name = 'Shedaniel';      url = 'https://maven.shedaniel.me/' }                 // Cloth Config
+		maven { name = 'Xander';         url = 'https://maven.isxander.dev/releases' }         // YACL
 		maven { name = 'Sponge';         url = 'https://repo.spongepowered.org/repository/maven-public/' }
 		mavenCentral()
 	}

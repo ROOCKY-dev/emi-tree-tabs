@@ -38,32 +38,8 @@ public final class TabBar {
 	private static final int ICON_SIZE = TabLayout.ICON_SIZE;
 	private static final int DRAG_SLOP = 4;
 
-	// The bar is a panel, not a tint. It used to be 0xE0121212 - 88% alpha over the tree - which
-	// let the world bleed through and left the bar and a tab 1.11:1 apart, measured in game as
-	// (29,24,18) against (37,34,32). An opaque fill and lifted tab colours put that at 1.81:1
-	// without costing legibility: label text is 8.87:1 on a tab and the dimmed label 5.38:1, both
-	// past WCAG AA. Ratios computed, not eyeballed; see the roadmap entry this closes.
-	private static final int COLOR_BAR = 0xFF08080A;
-	/** The bar's content-facing edge. Black was invisible against a dark tree; a rule is not. */
-	private static final int COLOR_BORDER = 0xFF4A4A56;
-	private static final int COLOR_TAB = 0xFF3B3B45;
-	private static final int COLOR_TAB_HOVER = 0xFF4E4E5C;
-	private static final int COLOR_TAB_ACTIVE = 0xFF5E5E78;
-	private static final int COLOR_ACCENT = 0xFF5A8CFF;
-	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_TEXT_DIM = 0xFFB4B4BE;
+	/** Only the strip has a close button, so this is the one colour that stays local. */
 	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
-	private static final int COLOR_CRAFTING = 0xFF48C8E0;
-	private static final int COLOR_DIVIDER = 0x40FFFFFF;
-	/** Laid over a parked tab. The same value the sidebar uses, so the two layouts agree. */
-	private static final int COLOR_PARKED = 0x66000000;
-	/**
-	 * A tree a pending recipe-sync offer would change. Orange on purpose: blue is "active", cyan
-	 * "crafting", and green/amber/grey are already progress, so none of them were free.
-	 */
-	private static final int COLOR_SYNC = 0xFFFF8C42;
-	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
-	private static final int COLOR_DISABLED = 0xFF55555E;
 
 	private static double scroll;
 	private static int dragIndex = -1;
@@ -123,9 +99,9 @@ public final class TabBar {
 		// Only the tabs actually on screen need their progress costed.
 		TreeTabs.pollProgress(l.firstVisible(scroll), l.lastVisible(scroll));
 
-		graphics.fill(0, y, screen.width, y + HEIGHT, COLOR_BAR);
+		graphics.fill(0, y, screen.width, y + HEIGHT, TabPalette.BAR);
 		int borderY = l.barAtBottom ? y : y + HEIGHT - 1;
-		graphics.fill(0, borderY, screen.width, borderY + 1, COLOR_BORDER);
+		graphics.fill(0, borderY, screen.width, borderY + 1, TabPalette.BORDER);
 
 		graphics.enableScissor(l.stripLeft, y, l.stripLeft + l.stripWidth, y + HEIGHT);
 		for (int i = 0; i < l.count; i++) {
@@ -181,7 +157,7 @@ public final class TabBar {
 		int y = l.barY;
 		int width = l.tabWidth;
 		boolean isActive = index == TreeTabs.activeIndex();
-		int background = isActive ? COLOR_TAB_ACTIVE : hovered ? COLOR_TAB_HOVER : COLOR_TAB;
+		int background = isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB;
 		graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, background);
 
 		// The group's colour down the tab's leading edge. The strip does not reorder tabs into
@@ -200,7 +176,7 @@ public final class TabBar {
 			int accentY = l.barAtBottom ? y + 1 : y + HEIGHT - 3;
 			graphics.fill(x, accentY, x + width - 1, accentY + 1, accent);
 			// Hairline between inactive neighbours; the active tab reads on its own.
-			graphics.fill(x + width - 1, y + 4, x + width, y + HEIGHT - 4, COLOR_DIVIDER);
+			graphics.fill(x + width - 1, y + 4, x + width, y + HEIGHT - 4, TabPalette.DIVIDER);
 		}
 
 		// At icon density the tab is barely wider than the icon, so centre it rather than letting
@@ -214,30 +190,30 @@ public final class TabBar {
 				graphics.fill(iconX - 1 + ICON_SIZE - 4, y + 2 + ICON_SIZE - 4,
 						iconX - 1 + ICON_SIZE + 1, y + 2 + ICON_SIZE + 1, 0xFF000000);
 				graphics.fill(iconX - 1 + ICON_SIZE - 3, y + 2 + ICON_SIZE - 3,
-						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, COLOR_CRAFTING);
+						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, TabPalette.CRAFTING);
 			}
 		}
 
 		// A parked tree has stopped asking for materials. The sidebar dims it; so should this, or
 		// the same tab reads as two different states depending on which layout is up.
 		if (TreeTabs.isParked(tab)) {
-			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, COLOR_PARKED);
+			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.PARKED);
 		}
 
 		// Which trees would change, not just how many. Drawn over the parked veil so a parked
 		// tree that is also out of step still says so.
 		if (TreeTabs.isSyncCandidate(index)) {
-			graphics.fill(x, y + 1, x + width - 1, y + 2, COLOR_SYNC);
-			graphics.fill(x, y + HEIGHT - 2, x + width - 1, y + HEIGHT - 1, COLOR_SYNC);
-			graphics.fill(x, y + 1, x + 1, y + HEIGHT - 1, COLOR_SYNC);
-			graphics.fill(x + width - 2, y + 1, x + width - 1, y + HEIGHT - 1, COLOR_SYNC);
+			graphics.fill(x, y + 1, x + width - 1, y + 2, TabPalette.SYNC);
+			graphics.fill(x, y + HEIGHT - 2, x + width - 1, y + HEIGHT - 1, TabPalette.SYNC);
+			graphics.fill(x, y + 1, x + 1, y + HEIGHT - 1, TabPalette.SYNC);
+			graphics.fill(x + width - 2, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.SYNC);
 		}
 
 		boolean closeShown = l.closeVisible(hovered, isActive);
 		int budget = l.labelBudget(closeShown);
 		if (budget > 4) {
 			graphics.drawString(font, tab.trimmedLabel(font, budget), x + 4 + ICON_SIZE + 3, y + 7,
-					isActive ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
 		}
 
 		if (closeShown) {
@@ -246,7 +222,7 @@ public final class TabBar {
 			int rx = r.x() + (x - l.tabX(index, scroll));
 			boolean closeHovered = mouseX >= rx && mouseX < rx + r.width()
 					&& mouseY >= r.y() && mouseY < r.y() + r.height();
-			int colour = closeHovered ? COLOR_CLOSE_HOVER : COLOR_TEXT_DIM;
+			int colour = closeHovered ? COLOR_CLOSE_HOVER : TabPalette.TEXT_DIM;
 			if (l.density == Density.ICON) {
 				// A badge, not an inline button: the rest of the tab has to stay selectable.
 				graphics.fill(rx, r.y(), rx + r.width(), r.y() + r.height(), 0xC0101014);
@@ -264,9 +240,9 @@ public final class TabBar {
 		boolean canLeft = scroll > 0.5;
 		boolean canRight = scroll < l.maxScroll - 0.5;
 		Icons.centred(graphics, Icons.ARROW_LEFT, l.leftArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
-				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : COLOR_DISABLED);
+				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
 		Icons.centred(graphics, Icons.ARROW_RIGHT, l.rightArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
-				canRight ? (l.overRightArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : COLOR_DISABLED);
+				canRight ? (l.overRightArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
 	}
 
 	/**
@@ -284,13 +260,13 @@ public final class TabBar {
 		boolean hovered = l.overAllButton(mouseX, mouseY);
 		int crafting = TreeTabs.craftingCount();
 		graphics.fill(x, y + 1, x + TabLayout.ALL_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
-		int colour = crafting == 0 ? COLOR_TEXT_DIM : COLOR_CRAFTING;
+				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
+		int colour = crafting == 0 ? TabPalette.TEXT_DIM : TabPalette.CRAFTING;
 		Icons.centred(graphics, Icons.CRAFT_ALL, x, y + 1, TabLayout.ALL_BUTTON_WIDTH, HEIGHT - 2,
 				colour);
 		if (crafting > 0) {
 			graphics.fill(x + TabLayout.ALL_BUTTON_WIDTH - 5, y + 4,
-					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, COLOR_CRAFTING);
+					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, TabPalette.CRAFTING);
 		}
 	}
 
@@ -302,9 +278,9 @@ public final class TabBar {
 		int y = l.barY;
 		boolean hovered = l.overAddButton(mouseX, mouseY);
 		graphics.fill(x, y + 1, x + TabLayout.ADD_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
+				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
 		Icons.centred(graphics, Icons.NEW_TAB, x, y + 1, TabLayout.ADD_BUTTON_WIDTH, HEIGHT - 2,
-				hovered ? COLOR_TEXT : COLOR_TEXT_DIM);
+				hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 	}
 
 	private static void drawTooltip(Screen screen, TabLayout l, GuiGraphics graphics, Font font,
@@ -355,17 +331,17 @@ public final class TabBar {
 
 	private static int accentColor(TreeTab tab) {
 		if (!TreeTabsConfig.showProgress || tab.progress == null) {
-			return COLOR_ACCENT;
+			return TabPalette.ACCENT;
 		}
 		// Deliberately not a switch: switching on another mod's enum makes javac emit a synthetic
 		// TabBar$1 switch-map class, one more thing that has to resolve at runtime.
 		if (tab.progress == ProgressState.COMPLETED) {
-			return 0xFF5BD16A;
+			return TabPalette.PROGRESS_COMPLETE;
 		}
 		if (tab.progress == ProgressState.PARTIAL) {
-			return 0xFFE0A63C;
+			return TabPalette.PROGRESS_PARTIAL;
 		}
-		return 0xFF6E6E76;
+		return TabPalette.PROGRESS_NONE;
 	}
 
 	private static Component progressText(ProgressState state) {
