@@ -652,8 +652,13 @@ public final class TreeTabs {
 			if (!uses(tree, ingredient)) {
 				continue;
 			}
-			tree.addResolution(ingredient, recipe);
-			tree.recalculate();
+			applying = true;
+			try {
+				tree.addResolution(ingredient, recipe);
+				tree.recalculate();
+			} finally {
+				applying = false;
+			}
 			tab.labelVersion++;
 			changed++;
 		}
@@ -698,6 +703,15 @@ public final class TreeTabs {
 	private static EmiIngredient pendingIngredient;
 	private static EmiRecipe pendingRecipe;
 	private static final List<TreeTab> PENDING_TABS = new ArrayList<>();
+	/**
+	 * Set while this class is writing resolutions itself.
+	 *
+	 * <p>{@code addResolution} is what the mixin watches, and applying the offer calls it - so
+	 * accepting it for one tree came straight back in through {@link #noteResolution}, whose first
+	 * act is to clear the pending offer. Taking one tree therefore cancelled the offer for all the
+	 * others, which is the opposite of what the gesture is for.
+	 */
+	private static boolean applying;
 
 	/**
 	 * Records a recipe choice and, if other open trees use the same ingredient differently, offers
@@ -709,6 +723,10 @@ public final class TreeTabs {
 	 * trees that already exist.
 	 */
 	public static void noteResolution(MaterialTree origin, EmiIngredient ingredient, EmiRecipe recipe) {
+		if (applying) {
+			// Our own write, not a choice the player just made.
+			return;
+		}
 		clearPendingSync();
 		if (ingredient == null || recipe == null) {
 			// A null recipe is EMI clearing a resolution; there is nothing to propagate.
@@ -791,8 +809,13 @@ public final class TreeTabs {
 		if (tree == null || pendingIngredient == null || pendingRecipe == null) {
 			return false;
 		}
-		tree.addResolution(pendingIngredient, pendingRecipe);
-		tree.recalculate();
+		applying = true;
+		try {
+			tree.addResolution(pendingIngredient, pendingRecipe);
+			tree.recalculate();
+		} finally {
+			applying = false;
+		}
 		tab.labelVersion++;
 		markDirty();
 		return true;
