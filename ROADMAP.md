@@ -329,24 +329,31 @@ free.
 
 The goal: nobody should ever need to open `emitreetabs.json`.
 
-- [ ] **Move from Cloth Config to YACL.** Cloth is stale by its own developer's account. YACL is
-      actively developed (~119.9M downloads), supports **Forge 1.20.1 and NeoForge 1.20.4+** — exactly
-      our matrix — and offers tabs, collapsible groups, several controls per data type, and **rich
-      descriptions with image previews**. Note YACL will not support Forge past 1.20.1, which happens
-      to be where we stop anyway.
-- [ ] **Name the tabs by intent, not by code:** *Tabs & layout*, *Crafting list*, *Behaviour & keys*.
-- [ ] **Give every option a picture.** Nobody reads "fold shared materials by default"; everybody
-      understands a still of it folded. Largest usability gain available, and mostly a screenshotting
-      job.
-- [ ] **A live tab bar at the top of the layout tab** — five sample tabs that redraw as you change
-      density and orientation. Needs the layout engine from 3.1 to exist first, which is why this
-      milestone comes after it.
-- [ ] **No bare numbers.** Sliders labelled at both ends (*Narrow ←→ Wide*), never a raw integer
-      without a range.
-- [ ] **Show every default with a one-click reset**, and collapse anything that touches the
-      persistence format into an *Advanced* group.
-- [ ] **Keep the JSON working.** YACL is the front end, not the store — pack authors ship configs as
-      files and should keep being able to.
+- [x] **Move from Cloth Config to YACL** — `3.6.6+1.20.1`, the last release for this Minecraft
+      version. The screen lives in `common` because `dev.isxander.yacl3.*` is identical on both
+      loaders, which means **Fabric has a settings screen for the first time**: the Cloth one was
+      written in the Forge module and never ported. Cloth is gone rather than kept as a fallback —
+      two screens is two things to keep in step, and the json is the documented fallback.
+- [x] **Name the tabs by intent, not by code:** *Tabs & layout*, *Crafting list*, *Behaviour & keys*.
+- [ ] **Give every option a picture.** **Blocked, and not on code.** The plumbing is there —
+      `OptionDescription.image(...)` takes a `ResourceLocation` and the descriptions are already
+      built per option — but the pictures themselves are stills of the real interface in the real
+      game, and there is no way to take one without a session. Mock-ups would defeat the point: the
+      value is in showing what it actually looks like folded, not something close to it.
+- [x] **A live tab bar at the top of the layout tab** — five sample tabs, drawn by the real
+      `TabLayout` and `SidebarLayout` arithmetic and the real palette, so it cannot drift from what
+      it previews. It reads the **pending** values rather than the saved ones, so it answers "what
+      would this do" rather than "what did this do", and it reports which density the current width
+      lands in. YACL has no arbitrary widget slot, so it is attached as the description of the two
+      layout options — which is where it is looked at anyway.
+- [x] **No bare numbers.** Every slider formats its own value: *32 tabs*, *Remember 16*, *Off —
+      closing is final*, *Every 0.5s — responsive*.
+- [x] **Show every default with a one-click reset** — YACL's own, from the default in each
+      binding — **and collapse anything that touches the persistence format into an *Advanced*
+      group**, one per category, closed, with a line saying a wrong answer there costs you tabs
+      rather than looks.
+- [x] **Keep the JSON working.** The screen writes through `TreeTabsConfig.save()`; nothing else
+      changed about the file, and hand edits are still picked up within a couple of seconds.
 
 ## 3.5 — Public API
 

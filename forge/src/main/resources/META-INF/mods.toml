@@ -38,9 +38,9 @@ displayTest="IGNORE_ALL_VERSION"
 
 # Optional. Only used to draw the in-game settings screen; the json config works without it.
 [[dependencies.${mod_id}]]
-    modId="cloth_config"
+    modId="yet_another_config_lib_v3"
     mandatory=false
-    versionRange="[11,)"
+    versionRange="[3.6,)"
     ordering="AFTER"
     side="CLIENT"
 

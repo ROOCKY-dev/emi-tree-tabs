@@ -88,10 +88,15 @@ a warning from `emitreetabs`, and it will fall back to sharing the favourites pa
 
 ## Config
 
-In game: **Mods → EMI Tree Tabs → Config**, which needs
-[Cloth Config](https://modrinth.com/mod/cloth-config). That is a *soft* dependency — without it the
-mod works identically and you edit `config/emitreetabs.json` by hand. Edits to that file are picked
-up within a couple of seconds without restarting.
+In game: the **settings button in the tab sidebar**, or **Mods → EMI Tree Tabs → Config** on
+Forge. Either needs [YACL](https://modrinth.com/mod/yacl). That is a *soft* dependency — without it
+the mod works identically and you edit `config/emitreetabs.json` by hand. Edits to that file are
+picked up within a couple of seconds without restarting.
+
+The screen has three tabs — *Tabs & layout*, *Crafting list*, *Behaviour & keys* — and the layout
+options carry a live tab bar that redraws as you change them, so you can see what a setting does
+rather than read a sentence about it. Anything that touches how tabs are stored is collapsed into
+*Advanced*.
 
 | Key | Default | Meaning |
 | --- | --- | --- |

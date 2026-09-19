@@ -20,8 +20,11 @@ public final class EmiTreeTabs {
 	public static final String MOD_ID = "emitreetabs";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
-	/** Cloth Config is optional; without it the json file is still the source of truth. */
-	public static final String CLOTH_CONFIG = "cloth_config";
+	/**
+	 * YACL drives the settings screen and is optional; without it the json file is still the
+	 * source of truth, and pack authors shipping one keep working either way.
+	 */
+	public static final String YACL = "yet_another_config_lib_v3";
 
 	private EmiTreeTabs() {
 	}
