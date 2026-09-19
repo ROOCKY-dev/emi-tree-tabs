@@ -168,7 +168,8 @@ Open questions to settle while building, not before:
 - [x] **What happens to the strip** — it stays, as the fallback, behind a `TabUi` dispatcher so the
       mixin never asks which layout is live. Whether the sidebar becomes the default everywhere is
       still open, and is now answerable by comparing them in game.
-- [ ] **Drag to reorder in the sidebar.** The strip has it; the sidebar does not yet.
+- [x] **Drag to reorder in the sidebar** — and to move a tree between phases, which the strip's
+      flat drop cannot express. `SidebarDrag`, 11 tests.
 
 ### Refactor first
 
