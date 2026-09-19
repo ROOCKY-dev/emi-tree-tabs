@@ -360,12 +360,26 @@ The goal: nobody should ever need to open `emitreetabs.json`.
 Small, versioned, and checked at runtime. Needed by [Quartermaster](../quartermaster); see
 *Decisions taken*.
 
-- [ ] Register a **stock source** that feeds the crafting list's arithmetic, rendered distinctly from
-      the player's own inventory, off by default.
-- [ ] Register a **locate provider** for an item, surfaced from a shortfall in the crafting list.
-- [ ] A **listener** for crafting-list changes.
-- [ ] Version the API explicitly and degrade to nothing when a consumer's version does not match.
-      `NoSuchMethodError` on a user's machine is the failure mode to design against.
+Written up for consumers in [API.md](API.md). Five files in `dev.roocky.emitreetabs.api`;
+everything else is internal.
+
+- [x] Register a **stock source** that feeds the crafting list's arithmetic, rendered distinctly
+      from the player's own inventory (`Counted from: In chests`), off by default behind
+      `useExternalStock`. Takes plain `ItemStack`s rather than EMI types — a container holds stacks,
+      and a consumer should not have to learn EMI's stack model to say what is in a box; matching
+      against tags stays Tree Tabs' job, because Tree Tabs is the one already carrying EMI.
+- [x] Register a **locate provider** for an item, surfaced from a shortfall in the crafting list —
+      asked about a material the list says you are short of, at the moment the cursor is on it.
+- [x] A **listener** for crafting-list changes, fired after the pass publishes rather than during
+      it, so a listener sees the finished list.
+- [x] Version the API explicitly and degrade to nothing when a consumer's version does not match.
+      One entry method with a frozen signature, `TreeTabsApi.registry(int)`, returning null rather
+      than a registry that would break halfway through; everything else hangs off an interface, so
+      adding to it never breaks an older consumer. 5 tests cover the gate, which is the one part
+      whose failure mode is a crash on a user's machine in a build that compiled cleanly.
+- [x] **Consumers are not trusted.** Every call out is wrapped: one that throws is logged once,
+      naming the mod, and its integration is dropped for the session rather than taking the
+      crafting list, the sidebar and the tree screen down with it.
 
 ## 4.0 — Release the overhaul
 

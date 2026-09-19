@@ -110,5 +110,9 @@
   "emi.tree_tabs.config.craftingPanelSide.LEFT": "Left panel",
   "emi.tree_tabs.config.craftingPanelSide.RIGHT": "Right panel",
   "emi.tree_tabs.config.craftingPanelSide.TOP": "Top panel",
-  "emi.tree_tabs.config.craftingPanelSide.BOTTOM": "Bottom panel"
+  "emi.tree_tabs.config.craftingPanelSide.BOTTOM": "Bottom panel",
+  "emi.tree_tabs.api.stock": "Counted from: %s",
+  "emi.tree_tabs.api.locate": "Find it in",
+  "emi.tree_tabs.config.useExternalStock": "Count materials stored elsewhere",
+  "emi.tree_tabs.config.useExternalStock.tooltip": "Let another mod tell the crafting list what you have in chests, drawers or a backpack, so it stops asking for things you already own. Off by default, and does nothing unless such a mod is installed."
 }

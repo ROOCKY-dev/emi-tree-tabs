@@ -154,6 +154,9 @@ public final class YaclConfigScreen {
 						.option(toggle("craftingInFavorites", true,
 								() -> TreeTabsConfig.craftingInFavorites,
 								v -> TreeTabsConfig.craftingInFavorites = v))
+						.option(toggle("useExternalStock", false,
+								() -> TreeTabsConfig.useExternalStock,
+								v -> TreeTabsConfig.useExternalStock = v))
 						.option(Option.<String>createBuilder()
 								.name(Component.translatable("emi.tree_tabs.config.craftingPanelSide"))
 								.description(OptionDescription.of(Component.translatable(

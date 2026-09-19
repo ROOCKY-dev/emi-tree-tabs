@@ -22,6 +22,7 @@ import dev.emi.emi.bom.MaterialTree;
 import dev.emi.emi.runtime.EmiFavorite;
 import dev.emi.emi.runtime.EmiFavorites;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Feeds EMI's crafting mode from every tracked tree instead of only the visible one.
@@ -86,7 +87,10 @@ public final class CraftingFavorites {
 		reentrant = true;
 		SubCraftCosts.beginPass();
 		try {
-			EmiPlayerInventory pool = inventory;
+			// Materials another mod says the player has elsewhere join the pool before any tree
+			// draws on it, so a chest three rooms away counts the same as a pocket - which is the
+			// point. Off until the player turns it on: see TreeTabsConfig.useExternalStock.
+			EmiPlayerInventory pool = withExternalStock(inventory);
 			for (TreeTab tab : included) {
 				BoM.tree = tab.tree;
 				BoM.craftingMode = true;
@@ -128,6 +132,9 @@ public final class CraftingFavorites {
 		} finally {
 			reentrant = false;
 			SubCraftCosts.endPass();
+			// After the pass, never during it: a listener that looks at the list must see the
+			// finished one, and one that throws must not leave BoM.tree pointing at a stray tree.
+			ApiRegistry.get().craftingListChanged();
 			BoM.tree = restore;
 			// The global flag is only about what the open screen shows, so restore the active tab's.
 			TreeTab activeTab = TreeTabs.activeTab();
@@ -210,6 +217,67 @@ public final class CraftingFavorites {
 	}
 
 	private static Map<EmiIngredient, Map<TreeTab, long[]>> ATTRIBUTION = new LinkedHashMap<>();
+
+	/**
+	 * Which registered source is offering each item, from the last pass.
+	 *
+	 * <p>Kept rather than asked for, because the tooltip that wants it is rebuilt every frame the
+	 * cursor is on the item and a third-party mod should be called once per crafting-list pass, not
+	 * sixty times a second.
+	 */
+	private static Map<EmiStack, Component> STOCK_LABELS = new LinkedHashMap<>();
+
+	/**
+	 * What to call the place this material is coming from, or null when it is the player's own
+	 * inventory.
+	 *
+	 * <p>"You have it" and "you have it three rooms away" are different answers, and a crafting
+	 * list that silently stops asking for something on the strength of the second one is worse
+	 * than one that never counted it.
+	 */
+	public static Component stockLabel(EmiIngredient ingredient) {
+		if (STOCK_LABELS.isEmpty() || ingredient == null) {
+			return null;
+		}
+		for (EmiStack stack : ingredient.getEmiStacks()) {
+			Component label = STOCK_LABELS.get(stack.copy().setAmount(1));
+			if (label != null) {
+				return label;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The player's inventory plus whatever registered stock sources are offering.
+	 *
+	 * <p>Built as a copy rather than by adding to EMI's own inventory object, which belongs to EMI
+	 * and is handed back to it for its own uses.
+	 */
+	private static EmiPlayerInventory withExternalStock(EmiPlayerInventory inventory) {
+		ApiRegistry api = ApiRegistry.get();
+		if (!api.hasStock()) {
+			return inventory;
+		}
+		Map<EmiStack, Component> labels = new LinkedHashMap<>();
+		List<ItemStack> offered = api.stock((stack, label) ->
+				labels.putIfAbsent(EmiStack.of(stack).copy().setAmount(1), label));
+		STOCK_LABELS = labels;
+		if (offered.isEmpty()) {
+			return inventory;
+		}
+		EmiPlayerInventory merged = new EmiPlayerInventory(List.of());
+		merged.inventory.clear();
+		merged.inventory.putAll(inventory.inventory);
+		for (ItemStack stack : offered) {
+			EmiStack key = EmiStack.of(stack).copy().setAmount(1);
+			EmiStack existing = merged.inventory.get(key);
+			long have = existing == null ? 0 : existing.getAmount();
+			EmiStack combined = EmiStack.of(stack).copy().setAmount(have + stack.getCount());
+			merged.inventory.put(key, combined);
+		}
+		return merged;
+	}
 
 	private static EmiPlayerInventory leftovers(MaterialTree tree) {
 		// The list constructor also folds in the cursor stack, so clear it and fill the map

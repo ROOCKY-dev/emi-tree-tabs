@@ -82,6 +82,15 @@ public final class TreeTabsConfig {
 	 */
 	public static boolean markChoiceEntries = true;
 	/**
+	 * Count materials another mod says you have elsewhere — in chests, drawers, a backpack —
+	 * towards the crafting list.
+	 *
+	 * <p>Off by design, not by caution. Turning it on changes what the list asks you to gather on
+	 * the strength of another mod's idea of what you own, and doing that without being asked is how
+	 * a tool stops being trustworthy. Nothing happens either way until such a mod is installed.
+	 */
+	public static boolean useExternalStock = false;
+	/**
 	 * Whether the favourites sidebar may also carry the crafting list. Turn off to keep favourites
 	 * strictly favourites. Ignored anyway once a Crafting page is placed on a sidebar, since the
 	 * list would then be showing twice.
@@ -159,6 +168,7 @@ public final class TreeTabsConfig {
 			showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
 			collapsibleGroups = bool(obj, "collapsibleGroups", collapsibleGroups);
 			markChoiceEntries = bool(obj, "markChoiceEntries", markChoiceEntries);
+			useExternalStock = bool(obj, "useExternalStock", useExternalStock);
 			craftingInFavorites = bool(obj, "craftingInFavorites", craftingInFavorites);
 		} catch (Exception e) {
 			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}, using defaults", path, e);
@@ -188,6 +198,7 @@ public final class TreeTabsConfig {
 		obj.addProperty("showGroupSeparators", showGroupSeparators);
 		obj.addProperty("collapsibleGroups", collapsibleGroups);
 		obj.addProperty("markChoiceEntries", markChoiceEntries);
+		obj.addProperty("useExternalStock", useExternalStock);
 		obj.addProperty("craftingInFavorites", craftingInFavorites);
 		Path path = file();
 		try {

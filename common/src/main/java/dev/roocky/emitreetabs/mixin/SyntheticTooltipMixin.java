@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.CraftingFavorites;
+import dev.roocky.emitreetabs.tab.ApiRegistry;
 import dev.roocky.emitreetabs.tab.SubCraftCosts;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.runtime.EmiFavorite;
@@ -41,6 +42,8 @@ public class SyntheticTooltipMixin {
 
 	/** Beyond this the tooltip becomes the problem rather than the answer. */
 	private static final int MAX_LINES = 6;
+	/** Tighter, because a locate provider's lines sit above everything else this adds. */
+	private static final int MAX_LOCATE_LINES = 3;
 
 	@Inject(method = "getTooltip", at = @At("TAIL"), cancellable = true, require = 0)
 	private void emitreetabs$attribution(CallbackInfoReturnable<List<ClientTooltipComponent>> cir) {
@@ -57,6 +60,13 @@ public class SyntheticTooltipMixin {
 			return;
 		}
 		EmiIngredient stack = self.getStack();
+
+		// Where it is, and where it is coming from. Both are answers other mods supply, and both
+		// belong before the splits: "it is in the chest behind you" ends the question that the
+		// arithmetic below only helps you think about.
+		stockSource(lines, stack);
+		locate(lines, stack);
+
 		List<CraftingFavorites.Attribution> byTree = CraftingFavorites.attribution(stack);
 
 		if (Screen.hasShiftDown()) {
@@ -146,6 +156,48 @@ public class SyntheticTooltipMixin {
 			return SubCraftCosts.shares(stack, byTree.get(0).tab());
 		}
 		return SubCraftCosts.shares(stack);
+	}
+
+	/** Says when an amount is being counted from somewhere that is not the player's inventory. */
+	private static void stockSource(List<ClientTooltipComponent> lines, EmiIngredient stack) {
+		Component label = CraftingFavorites.stockLabel(stack);
+		if (label != null) {
+			add(lines, Component.translatable("emi.tree_tabs.api.stock", label)
+					.withStyle(ChatFormatting.GREEN));
+		}
+	}
+
+	/**
+	 * Asks registered providers where a shortfall can be found.
+	 *
+	 * <p>Only for a cost entry, which is by definition something the player is short of - asking
+	 * "where do I find this" about something already in hand is noise.
+	 */
+	private static void locate(List<ClientTooltipComponent> lines, EmiIngredient stack) {
+		ApiRegistry api = ApiRegistry.get();
+		if (!api.hasLocate()) {
+			return;
+		}
+		List<dev.emi.emi.api.stack.EmiStack> stacks = stack.getEmiStacks();
+		if (stacks.isEmpty()) {
+			return;
+		}
+		List<Component> where = api.locate(stacks.get(0).getItemStack());
+		if (where.isEmpty()) {
+			return;
+		}
+		add(lines, Component.translatable("emi.tree_tabs.api.locate")
+				.withStyle(ChatFormatting.GRAY));
+		int shown = 0;
+		for (Component line : where) {
+			if (shown >= MAX_LOCATE_LINES) {
+				add(lines, Component.translatable("emi.tree_tabs.attribution.more",
+						where.size() - shown).withStyle(ChatFormatting.DARK_GRAY));
+				break;
+			}
+			add(lines, line.copy().withStyle(ChatFormatting.YELLOW));
+			shown++;
+		}
 	}
 
 	private static void hint(List<ClientTooltipComponent> lines) {

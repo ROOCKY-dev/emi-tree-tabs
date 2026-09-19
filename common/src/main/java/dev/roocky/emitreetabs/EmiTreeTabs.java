@@ -2,7 +2,9 @@ package dev.roocky.emitreetabs;
 
 import com.mojang.logging.LogUtils;
 
+import dev.roocky.emitreetabs.api.TreeTabsApi;
 import dev.roocky.emitreetabs.sidebar.CraftingSidebarType;
+import dev.roocky.emitreetabs.tab.ApiRegistry;
 import org.slf4j.Logger;
 
 /**
@@ -38,5 +40,9 @@ public final class EmiTreeTabs {
 	public static void initClient() {
 		TreeTabsConfig.load();
 		CraftingSidebarType.install();
+		// Before anything else can ask for it. A consumer's own init may run before or after ours
+		// depending on loader and mod order, and TreeTabsApi.registry returning null to a mod that
+		// simply loaded first would be a race nobody could reproduce.
+		TreeTabsApi.install(ApiRegistry.get());
 	}
 }
