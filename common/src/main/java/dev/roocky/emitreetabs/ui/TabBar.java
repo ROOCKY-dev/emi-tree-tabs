@@ -6,6 +6,7 @@ import java.util.List;
 import org.lwjgl.glfw.GLFW;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
+import dev.roocky.emitreetabs.tab.TabGroup;
 import dev.roocky.emitreetabs.tab.TreeTab;
 import dev.roocky.emitreetabs.tab.TreeTabs;
 import dev.roocky.emitreetabs.ui.TabLayout.Density;
@@ -54,6 +55,8 @@ public final class TabBar {
 	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
 	private static final int COLOR_CRAFTING = 0xFF48C8E0;
 	private static final int COLOR_DIVIDER = 0x40FFFFFF;
+	/** Laid over a parked tab. The same value the sidebar uses, so the two layouts agree. */
+	private static final int COLOR_PARKED = 0x66000000;
 	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
 	private static final int COLOR_DISABLED = 0xFF55555E;
 
@@ -176,6 +179,14 @@ public final class TabBar {
 		int background = isActive ? COLOR_TAB_ACTIVE : hovered ? COLOR_TAB_HOVER : COLOR_TAB;
 		graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, background);
 
+		// The group's colour down the tab's leading edge. The strip does not reorder tabs into
+		// their groups the way the sidebar does, so this is the only thing that can say a tab
+		// belongs to a phase; it claims membership, not adjacency, which is all that is true.
+		TabGroup group = tab.groupId >= 0 ? TreeTabs.group(tab.groupId) : null;
+		if (group != null) {
+			graphics.fill(x, y + 1, x + 2, y + HEIGHT - 1, group.colour);
+		}
+
 		int accent = accentColor(tab);
 		if (isActive) {
 			int accentY = l.barAtBottom ? y + HEIGHT - 3 : y + 1;
@@ -200,6 +211,12 @@ public final class TabBar {
 				graphics.fill(iconX - 1 + ICON_SIZE - 3, y + 2 + ICON_SIZE - 3,
 						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, COLOR_CRAFTING);
 			}
+		}
+
+		// A parked tree has stopped asking for materials. The sidebar dims it; so should this, or
+		// the same tab reads as two different states depending on which layout is up.
+		if (TreeTabs.isParked(tab)) {
+			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, COLOR_PARKED);
 		}
 
 		boolean closeShown = l.closeVisible(hovered, isActive);
@@ -288,6 +305,17 @@ public final class TabBar {
 			lines.add(tab.goalName().copy().withStyle(ChatFormatting.GRAY));
 		}
 		lines.add(Component.translatable("emi.tree_tabs.batches", tab.batches()).withStyle(ChatFormatting.GRAY));
+		TabGroup group = tab.groupId >= 0 ? TreeTabs.group(tab.groupId) : null;
+		if (group != null) {
+			// The stripe says "in a group"; only the name says which one, and the strip has no
+			// room to draw it.
+			lines.add(Component.translatable("emi.tree_tabs.group.member", group.name)
+					.withStyle(ChatFormatting.GRAY));
+			if (group.parked) {
+				lines.add(Component.translatable("emi.tree_tabs.group.parked")
+						.withStyle(ChatFormatting.GOLD));
+			}
+		}
 		if (TreeTabsConfig.showProgress) {
 			lines.add(progressText(tab.progress));
 		}
