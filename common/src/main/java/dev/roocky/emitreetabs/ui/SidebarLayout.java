@@ -290,6 +290,26 @@ public final class SidebarLayout {
 	 * <p>Beside settings rather than in the free corner: the two corners are "change how this
 	 * behaves" and "act on every tree", and making a phase is neither — it acts on one tree.
 	 */
+	/**
+	 * Opens the recipe-choices screen. Drawn only when the trees actually disagree, so the corner
+	 * stays empty until there is something to look at.
+	 */
+	public Rect choicesButton() {
+		return new Rect(panel.x() + PAD + (BUTTON + 4) * 2, panel.y() + panel.height() - PAD - BUTTON,
+				BUTTON, BUTTON);
+	}
+
+	/**
+	 * Whether a footer button has room before the craft-all corner.
+	 *
+	 * <p>At {@link #MIN_PANEL_WIDTH} the third button lands on top of it. The corners are the two
+	 * that always exist, so it is the middle ones that give way — and the keybind is why losing
+	 * one costs nothing.
+	 */
+	public boolean footerFits(Rect r) {
+		return r.x() + r.width() + 4 <= craftAllButton().x();
+	}
+
 	public Rect newGroupButton() {
 		return new Rect(panel.x() + PAD + BUTTON + 4, panel.y() + panel.height() - PAD - BUTTON,
 				BUTTON, BUTTON);

@@ -121,6 +121,22 @@ SPRITES = {
 ..###..
 ...#...
 """),
+    # Two ways of making one thing: a stem that forks. Used for the recipe-choices button, which
+    # only appears when the open trees have taken different branches.
+    "choices": (12, 12, """
+............
+.....#####..
+.....#####..
+...####.....
+...####.....
+#####.......
+#####.......
+...####.....
+...####.....
+.....#####..
+.....#####..
+............
+"""),
     # A phase: a header bar filling the width, with two indented members under it. That is
     # exactly how a group draws in the sidebar - the header fills the panel as its own
     # background, members are inset - so the icon is a small picture of the thing it makes.
@@ -168,6 +184,7 @@ PLACEMENT = {
     "close": (48, 0),
     "park": (56, 0),
     "new_group": (0, 44),
+    "choices": (16, 44),
     "arrow_left": (0, 16),
     "arrow_right": (6, 16),
     "caret_right": (12, 16),

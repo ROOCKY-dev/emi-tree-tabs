@@ -200,15 +200,6 @@ public final class TabBar {
 			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.PARKED);
 		}
 
-		// Which trees would change, not just how many. Drawn over the parked veil so a parked
-		// tree that is also out of step still says so.
-		if (TreeTabs.isSyncCandidate(index)) {
-			graphics.fill(x, y + 1, x + width - 1, y + 2, TabPalette.SYNC);
-			graphics.fill(x, y + HEIGHT - 2, x + width - 1, y + HEIGHT - 1, TabPalette.SYNC);
-			graphics.fill(x, y + 1, x + 1, y + HEIGHT - 1, TabPalette.SYNC);
-			graphics.fill(x + width - 2, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.SYNC);
-		}
-
 		boolean closeShown = l.closeVisible(hovered, isActive);
 		int budget = l.labelBudget(closeShown);
 		if (budget > 4) {
@@ -305,12 +296,6 @@ public final class TabBar {
 				lines.add(Component.translatable("emi.tree_tabs.group.parked")
 						.withStyle(ChatFormatting.GOLD));
 			}
-		}
-		if (TreeTabs.isSyncCandidate(index)) {
-			lines.add(Component.translatable("emi.tree_tabs.sync.candidate")
-					.withStyle(ChatFormatting.GOLD));
-			lines.add(Component.translatable("emi.tree_tabs.sync.candidate.hint")
-					.withStyle(ChatFormatting.DARK_GRAY));
 		}
 		if (TreeTabsConfig.showProgress) {
 			lines.add(progressText(tab.progress));
@@ -409,15 +394,6 @@ public final class TabBar {
 		}
 		if (button == 1) {
 			startRename(screen, index);
-			return true;
-		}
-		// Shift+click on a highlighted tab takes the offer for that one tree. The point of
-		// highlighting them is to decide per tree; without this you could only see them.
-		if (button == 0 && Screen.hasShiftDown() && TreeTabs.isSyncCandidate(index)) {
-			click();
-			if (TreeTabs.applyPendingSyncTo(index)) {
-				TreeTabs.reportResolutionSync(1);
-			}
 			return true;
 		}
 		if (button == 0 && Screen.hasControlDown()) {
@@ -519,6 +495,13 @@ public final class TabBar {
 			return false;
 		}
 		switch (keyCode) {
+			case GLFW.GLFW_KEY_R -> {
+				// The footer button is the discoverable way in; this is the one that still works
+				// on the strip, which has no footer, and on a panel too narrow for a third button.
+				click();
+				TreeSidebar.openChoices(screen);
+				return true;
+			}
 			case GLFW.GLFW_KEY_G -> {
 				// Ctrl+G makes a phase out of the active tree. A keybind as well as the sidebar
 				// button, because the strip has no footer to put a button in.
@@ -546,17 +529,6 @@ public final class TabBar {
 					click();
 					TreeTabs.reopenClosed();
 					ensureVisible(screen, TreeTabs.activeIndex());
-					return true;
-				}
-				return false;
-			}
-			case GLFW.GLFW_KEY_S -> {
-				// Accepts the offer made when a recipe choice was picked on this tree and other
-				// trees use the same ingredient. Shift as well as control, because it edits trees
-				// that are not on screen and should not be a one-key accident.
-				if (Screen.hasShiftDown() && TreeTabs.hasPendingSync()) {
-					click();
-					TreeTabs.applyPendingSync();
 					return true;
 				}
 				return false;

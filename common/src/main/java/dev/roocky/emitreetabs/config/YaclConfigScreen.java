@@ -185,9 +185,6 @@ public final class YaclConfigScreen {
 						.option(toggle("keyboardShortcuts", true,
 								() -> TreeTabsConfig.keyboardShortcuts,
 								v -> TreeTabsConfig.keyboardShortcuts = v))
-						.option(toggle("offerResolutionSync", true,
-								() -> TreeTabsConfig.offerResolutionSync,
-								v -> TreeTabsConfig.offerResolutionSync = v))
 						.build())
 				.group(OptionGroup.createBuilder()
 						.name(Component.translatable("emi.tree_tabs.config.group.advanced"))

@@ -50,11 +50,6 @@ public final class TabPalette {
 
 	/** Laid over a parked tab: its tree has stopped asking for materials. */
 	public static final int PARKED = 0x66000000;
-	/**
-	 * A tree a pending recipe-sync offer would change. Orange on purpose: blue is "active", cyan
-	 * "crafting", and green/amber/grey are already progress, so none of them were free.
-	 */
-	public static final int SYNC = 0xFFFF8C42;
 	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
 	public static final int DISABLED = 0xFF55555E;
 

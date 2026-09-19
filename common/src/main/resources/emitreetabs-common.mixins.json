@@ -9,7 +9,6 @@
 		"EmiFavoritesMixin",
 		"ScreenSpaceMixin",
 		"EmiScreenManagerMixin",
-		"MaterialTreeMixin",
 		"TreeCostMixin",
 		"EmiSidebarsMixin",
 		"SyntheticTooltipMixin"

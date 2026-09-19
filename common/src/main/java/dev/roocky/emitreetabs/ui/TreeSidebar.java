@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
+import dev.roocky.emitreetabs.tab.RecipeChoices;
 import dev.roocky.emitreetabs.tab.TabGroup;
 import dev.roocky.emitreetabs.tab.TreeTab;
 import dev.roocky.emitreetabs.tab.TreeTabs;
@@ -36,6 +37,9 @@ public final class TreeSidebar {
 
 	/** How far the pointer must travel before a click on a row becomes a drag. */
 	private static final int DRAG_SLOP = 4;
+
+	private static int choiceCount;
+	private static long choiceCountAt;
 
 	private static int dragTab = -1;
 	private static double dragOriginY;
@@ -189,7 +193,8 @@ public final class TreeSidebar {
 	private static void footerTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
 			int mouseX, int mouseY) {
 		List<Component> lines = new ArrayList<>();
-		if (TreeTabs.count() > 0 && l.newGroupButton().contains(mouseX, mouseY)) {
+		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.group.new"));
 			lines.add(Component.translatable("emi.tree_tabs.group.new.desc")
 					.withStyle(ChatFormatting.GRAY));
@@ -199,6 +204,13 @@ public final class TreeSidebar {
 			lines.add(Component.translatable("emi.tree_tabs.all.title"));
 			lines.add(Component.translatable("emi.tree_tabs.all.state",
 					TreeTabs.craftingCount(), TreeTabs.count()).withStyle(ChatFormatting.GRAY));
+		} else if (choiceCount() > 0 && l.footerFits(l.choicesButton())
+				&& l.choicesButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable("emi.tree_tabs.choices.button"));
+			lines.add(Component.translatable("emi.tree_tabs.choices.button.desc", choiceCount())
+					.withStyle(ChatFormatting.GRAY));
+			lines.add(Component.translatable("emi.tree_tabs.choices.button.hint")
+					.withStyle(ChatFormatting.DARK_GRAY));
 		} else if (ConfigScreenHook.available() && l.settingsButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.config.title"));
 		} else {
@@ -208,6 +220,22 @@ public final class TreeSidebar {
 				new TabTooltip.Rect(l.panel.x(), l.panel.y(), l.panel.width(), l.panel.height()),
 				l.onLeft ? l.panel.x() + l.panel.width() + 60 : l.panel.x() - 60,
 				mouseX, mouseY);
+	}
+
+	/**
+	 * How many ingredients the open trees disagree about.
+	 *
+	 * <p>Cached for a second: the scan walks every tree and this is asked once a frame to decide
+	 * whether to draw a button. A second is short enough that a change you just made shows up
+	 * before you look for it, and long enough that the walk is not the frame's problem.
+	 */
+	private static int choiceCount() {
+		long now = System.currentTimeMillis();
+		if (now - choiceCountAt > 1000) {
+			choiceCountAt = now;
+			choiceCount = RecipeChoices.scan().size();
+		}
+		return choiceCount;
 	}
 
 	private static void panel(GuiGraphics g, Rect r) {
@@ -264,10 +292,6 @@ public final class TreeSidebar {
 		// A parked group's trees are dimmed, because they have stopped asking for materials.
 		if (TreeTabs.isParked(tab)) {
 			g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), TabPalette.PARKED);
-		}
-		// Drawn over the veil: a parked tree that is also out of step still has to say so.
-		if (TreeTabs.isSyncCandidate(tabIndex)) {
-			outline(g, b, TabPalette.SYNC);
 		}
 	}
 
@@ -336,9 +360,15 @@ public final class TreeSidebar {
 			Rect settings = l.settingsButton();
 			button(g, settings, Icons.SETTINGS, settings.contains(mouseX, mouseY), false);
 		}
-		if (TreeTabs.count() > 0) {
+		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())) {
 			Rect group = l.newGroupButton();
 			button(g, group, Icons.NEW_GROUP, group.contains(mouseX, mouseY), false);
+		}
+		// Lit, because it is a thing to attend to rather than a thing to do - and absent entirely
+		// when the trees agree, which is most of the time.
+		if (choiceCount() > 0 && l.footerFits(l.choicesButton())) {
+			Rect choices = l.choicesButton();
+			button(g, choices, Icons.CHOICES, choices.contains(mouseX, mouseY), true);
 		}
 		button(g, all, Icons.CRAFT_ALL, all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
 	}
@@ -391,12 +421,6 @@ public final class TreeSidebar {
 				lines.add(Component.translatable("emi.tree_tabs.group.parked")
 						.withStyle(ChatFormatting.GOLD));
 			}
-			if (TreeTabs.isSyncCandidate(rows.tabAt(s.index()))) {
-				lines.add(Component.translatable("emi.tree_tabs.sync.candidate")
-						.withStyle(ChatFormatting.GOLD));
-				lines.add(Component.translatable("emi.tree_tabs.sync.candidate.hint")
-						.withStyle(ChatFormatting.DARK_GRAY));
-			}
 		}
 		// Anchored beside the panel, never over it: the sidebar occupies a whole screen edge, so a
 		// cursor-relative tooltip would sit on top of the rows it is describing.
@@ -428,9 +452,16 @@ public final class TreeSidebar {
 			ConfigScreenHook.open(screen);
 			return true;
 		}
-		if (button == 0 && TreeTabs.count() > 0 && l.newGroupButton().contains(mouseX, mouseY)) {
+		if (button == 0 && TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			click();
 			newGroup(screen);
+			return true;
+		}
+		if (button == 0 && choiceCount() > 0 && l.footerFits(l.choicesButton())
+				&& l.choicesButton().contains(mouseX, mouseY)) {
+			click();
+			openChoices(screen);
 			return true;
 		}
 
@@ -492,14 +523,6 @@ public final class TreeSidebar {
 				BatchInput.open(screen, tabIndex, m.x() + m.width() + 4, m.y());
 			} else {
 				TreeTabs.toggleCrafting(tabIndex);
-			}
-			return true;
-		}
-		// Shift+click on a highlighted row takes the pending offer for that one tree.
-		if (button == 0 && Screen.hasShiftDown() && TreeTabs.isSyncCandidate(tabIndex)) {
-			click();
-			if (TreeTabs.applyPendingSyncTo(tabIndex)) {
-				TreeTabs.reportResolutionSync(1);
 			}
 			return true;
 		}
@@ -593,6 +616,11 @@ public final class TreeSidebar {
 		}
 	}
 
+	/** Opens the recipe-choices screen, from the footer button or from the keybind. */
+	public static void openChoices(Screen screen) {
+		Minecraft.getInstance().setScreen(new RecipeChoicesScreen(screen));
+	}
+
 	/** F2 renames whichever phase the pointer is over, matching F2 on a tab. */
 	public static boolean renameHovered(Screen screen, double mouseX, double mouseY) {
 		if (!active(screen)) {
@@ -651,6 +679,7 @@ public final class TreeSidebar {
 
 	public static void reset() {
 		GroupName.reset();
+		choiceCountAt = 0;
 		scroll = 0;
 		dragTab = -1;
 		dragging = false;
