@@ -191,13 +191,25 @@ Minecraft. Both of those regressions now have tests. It is also what makes the l
   scheme), separated by a 2px gap, sitting on the dim overlay rather than carved out of one
   continuous strip. The active tab is brighter and drops its bottom bevel so it reads as joined to
   the content.
-- [ ] **Draw proper icons** instead of borrowing font glyphs. Author in SVG, export to 16×16 PNG at
-      1× and 2×. Five sprites: craft-all (a 2×2 crafting grid with a check — Minecraft's own
-      vocabulary for "make things"), new tab, scroll arrows (reuse vanilla's 6×9 triangles), park,
-      close.
-- [ ] **Replace the toggle-all icon.** The three-bar glyph reads as "switch to vertical tabs" — and
-      it should, because `≡` *is* the vertical-tabs icon in every browser shipping today. The fault
-      is borrowing a glyph, not choosing the wrong one.
+- [x] **Draw proper icons** instead of borrowing font glyphs. Ten sprites on one 64×32 sheet,
+      authored in `art/icons/*.svg` and packed by `art/make_icons.py`: craft-all (a 2×2 crafting
+      grid with a check — Minecraft's own vocabulary for "make things"), the same check alone for a
+      row's marker, new tab, close, park, both scroll arrows, both fold carets, settings. White
+      alpha masks, tinted at draw time, which is what keeps the dimmed / hovered / active /
+      crafting / close-hover states down to one sprite each.
+      Two deviations from the spec above, written up in `art/README.md` so they are not re-tried:
+      sprites are the size of the control they fill rather than a uniform 16×16 (the close badge is
+      9px, the fold caret 10, an arrow 9), and there is no 2× sheet because nearest-neighbour
+      filtering makes a 32px sprite in a 16px box drop every other pixel at GUI scale 1. The scroll
+      arrows are drawn here rather than borrowed from vanilla's 6×9 triangles, so the sheet stays
+      self-contained across the 1.21 port. A gear was drawn for settings and rejected — at 12px it
+      reads as a face — and replaced with three sliders.
+- [x] **Replace the toggle-all icon.** The three-bar glyph read as "switch to vertical tabs" — and
+      it should, because `≡` *is* the vertical-tabs icon in every browser shipping today, which got
+      worse once this mod grew a real vertical layout. It is now the craft-all sprite.
+- [x] **Park became visible.** Not on the list, but it fell out of drawing the sprite: a parked
+      group showed only as dimmed text, which reads as "disabled" rather than "set aside", and not
+      at all when the name was too long to draw. It now carries two bars beside its marker.
 
 ## 3.2 — The sidebar, and groups on top of it
 
