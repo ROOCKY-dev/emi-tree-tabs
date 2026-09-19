@@ -10,6 +10,7 @@ import java.util.Set;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.sidebar.CraftingGroups;
+import dev.roocky.emitreetabs.sidebar.ChoiceEntry;
 import dev.roocky.emitreetabs.sidebar.CraftingSidebarType;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.api.recipe.EmiRecipe;
@@ -152,7 +153,7 @@ public final class CraftingFavorites {
 		for (Map.Entry<EmiIngredient, long[]> entry : costTotals.entrySet()) {
 			long[] totals = entry.getValue();
 			EmiFavorite.Synthetic synthetic =
-					new EmiFavorite.Synthetic(entry.getKey(), totals[0], totals[1]);
+					ChoiceEntry.of(entry.getKey(), totals[0], totals[1]);
 			EmiFavorites.syntheticFavorites.add(synthetic);
 
 			Set<TreeTab> owners = costOwners.containsKey(entry.getKey())

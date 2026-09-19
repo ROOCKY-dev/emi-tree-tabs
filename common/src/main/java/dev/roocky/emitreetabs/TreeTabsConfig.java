@@ -77,6 +77,11 @@ public final class TreeTabsConfig {
 	/** Let group headers be clicked to fold their section away. */
 	public static boolean collapsibleGroups = true;
 	/**
+	 * Frame a crafting-list entry that is a tag or any other choice of items, so it cannot be
+	 * mistaken for the plain item a different tree happens to want.
+	 */
+	public static boolean markChoiceEntries = true;
+	/**
 	 * Whether the favourites sidebar may also carry the crafting list. Turn off to keep favourites
 	 * strictly favourites. Ignored anyway once a Crafting page is placed on a sidebar, since the
 	 * list would then be showing twice.
@@ -153,6 +158,7 @@ public final class TreeTabsConfig {
 			groupCraftingList = bool(obj, "groupCraftingList", groupCraftingList);
 			showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
 			collapsibleGroups = bool(obj, "collapsibleGroups", collapsibleGroups);
+			markChoiceEntries = bool(obj, "markChoiceEntries", markChoiceEntries);
 			craftingInFavorites = bool(obj, "craftingInFavorites", craftingInFavorites);
 		} catch (Exception e) {
 			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}, using defaults", path, e);
@@ -181,6 +187,7 @@ public final class TreeTabsConfig {
 		obj.addProperty("groupCraftingList", groupCraftingList);
 		obj.addProperty("showGroupSeparators", showGroupSeparators);
 		obj.addProperty("collapsibleGroups", collapsibleGroups);
+		obj.addProperty("markChoiceEntries", markChoiceEntries);
 		obj.addProperty("craftingInFavorites", craftingInFavorites);
 		Path path = file();
 		try {

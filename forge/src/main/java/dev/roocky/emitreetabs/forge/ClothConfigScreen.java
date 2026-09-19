@@ -116,6 +116,11 @@ public final class ClothConfigScreen {
 				.setTooltip(key("collapsibleGroups.tooltip"))
 				.setSaveConsumer(value -> TreeTabsConfig.collapsibleGroups = value)
 				.build());
+		sidebar.addEntry(entries.startBooleanToggle(key("markChoiceEntries"), TreeTabsConfig.markChoiceEntries)
+				.setDefaultValue(true)
+				.setTooltip(key("markChoiceEntries.tooltip"))
+				.setSaveConsumer(value -> TreeTabsConfig.markChoiceEntries = value)
+				.build());
 
 		return builder.build();
 	}
