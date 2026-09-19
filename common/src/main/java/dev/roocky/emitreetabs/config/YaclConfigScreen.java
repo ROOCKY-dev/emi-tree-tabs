@@ -1,5 +1,6 @@
 package dev.roocky.emitreetabs.config;
 
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -13,6 +14,7 @@ import dev.isxander.yacl3.api.controller.CyclingListControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -216,10 +218,49 @@ public final class YaclConfigScreen {
 			Supplier<Boolean> getter, Consumer<Boolean> setter) {
 		return Option.<Boolean>createBuilder()
 				.name(Component.translatable("emi.tree_tabs.config." + key))
-				.description(OptionDescription.of(
-						Component.translatable("emi.tree_tabs.config." + key + ".tooltip")))
+				.description(described(key))
 				.binding(fallback, getter, setter)
 				.controller(TickBoxControllerBuilder::create)
+				.build();
+	}
+
+	/**
+	 * Which options carry a picture, and what it is.
+	 *
+	 * <p>Nobody reads "fold shared materials by default"; everybody understands a still of it
+	 * folded. These are screenshots of the real interface, taken in a real world — a drawing of
+	 * roughly the right thing would defeat the point, which is showing what it actually looks
+	 * like.
+	 *
+	 * <p>Sizes are the PNG's own pixels. They were captured at GUI scale 2, so they are already
+	 * twice the logical size and stay crisp in the description panel.
+	 */
+	private static final Map<String, int[]> PICTURES = Map.of(
+			"groupCraftingList", new int[] {228, 205},
+			"showGroupSeparators", new int[] {228, 100},
+			"collapsibleGroups", new int[] {228, 127},
+			"markChoiceEntries", new int[] {128, 70},
+			"aggregateCraftingFavorites", new int[] {228, 212});
+
+	/** The file each picture lives in, where it does not simply follow the option's name. */
+	private static final Map<String, String> PICTURE_FILES = Map.of(
+			"groupCraftingList", "group_crafting_list",
+			"showGroupSeparators", "group_separators",
+			"collapsibleGroups", "collapsible_groups",
+			"markChoiceEntries", "mark_choices",
+			"aggregateCraftingFavorites", "aggregate");
+
+	private static OptionDescription described(String key) {
+		Component text = Component.translatable("emi.tree_tabs.config." + key + ".tooltip");
+		int[] size = PICTURES.get(key);
+		if (size == null) {
+			return OptionDescription.of(text);
+		}
+		return OptionDescription.createBuilder()
+				.text(text)
+				.image(new ResourceLocation("emitreetabs",
+						"textures/gui/config/" + PICTURE_FILES.get(key) + ".png"),
+						size[0], size[1])
 				.build();
 	}
 
