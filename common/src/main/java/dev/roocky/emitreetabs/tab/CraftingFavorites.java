@@ -84,12 +84,17 @@ public final class CraftingFavorites {
 		boolean anything = false;
 
 		reentrant = true;
+		SubCraftCosts.beginPass();
 		try {
 			EmiPlayerInventory pool = inventory;
 			for (TreeTab tab : included) {
 				BoM.tree = tab.tree;
 				BoM.craftingMode = true;
+				// Watch this tree's costing, so each raw material can be attributed to the
+				// sub-craft that wanted it. Only knowable from inside EMI's own walk.
+				SubCraftCosts.begin(tab);
 				EmiFavorites.updateSynthetic(pool);
+				SubCraftCosts.end();
 				// Costed against the pool, so whatever this tree claimed is gone for the next one.
 				// Valid even when the tree had nothing to do: it still earmarked what it consumed.
 				if (TreeTabsConfig.sharedCraftingInventory) {
@@ -122,6 +127,7 @@ public final class CraftingFavorites {
 			}
 		} finally {
 			reentrant = false;
+			SubCraftCosts.endPass();
 			BoM.tree = restore;
 			// The global flag is only about what the open screen shows, so restore the active tab's.
 			TreeTab activeTab = TreeTabs.activeTab();

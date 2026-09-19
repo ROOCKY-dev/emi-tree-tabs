@@ -251,12 +251,18 @@ a fan, say, which has a cheap recipe and an expensive one. Changing the default 
 The other eight machines still quietly used the expensive recipe, and the only way to find them was
 to open each tree and hunt through it.
 
-- [ ] **Shift-click a resolution to apply it to every tree that uses that ingredient.** Not the whole
-      tree — just that one sub-craft.
-- [ ] **Or find them:** search for a sub-recipe and highlight the trees using it, so you can decide
-      per tree rather than changing all of them blind.
-- [ ] A confirmation showing how many trees would change, since this edits trees you are not
-      looking at.
+- [x] **Apply a resolution to every tree that uses that ingredient.** Not the whole tree — just
+      that one sub-craft. **Not on shift-click, and it cannot be:** EMI's output slot accepts an
+      unmodified click and `Ctrl`+click and swallows every other modifier, so shift- and alt-click
+      never reach `addResolution` at all. There is no gesture left on EMI's own control. So the
+      choice is noticed, the trees that differ are counted, and `Ctrl+Shift+S` — a key this mod
+      owns — applies it. Nothing changes by itself; silently rewriting trees the player cannot see
+      would be the wrong behaviour anyway.
+- [x] **Or find them:** candidate trees are outlined in both layouts while the offer is live, and
+      **Shift+click a highlighted tab applies the choice to that tree alone**, leaving the offer up
+      for the rest. That is the "decide per tree rather than changing all of them blind" half.
+- [x] A confirmation showing how many trees would change, since this edits trees you are not
+      looking at — a toast before, and a second one reporting what actually changed.
 
 Feasible cheaply: `MaterialTree.resolutions` is a plain `Map<EmiIngredient, EmiRecipe>` that this mod
 already serialises per tab in `TabCodec`. Applying one across tabs is a loop and a recalculation.
@@ -276,7 +282,10 @@ whole tree implies, and the number being arithmetic you did it in your head — 
 - [x] **Reachable from the thing being counted** — control-click a tab's marker, which is the square
       already showing the batch count. Plain click still toggles crafting; the modifier acts on what
       the square displays.
-- [ ] The same, on a *node* rather than a whole tree.
+- [ ] The same, on a *node* rather than a whole tree. **Still deliberately not built**, on the
+      reasoning below: it fights the solver rather than using it, and the question of whether it is
+      wanted was explicitly deferred until the cheap reading has been used. It has not been used
+      yet, so the answer is still unknown and building it now would be guessing.
 - [x] **Scope decided: the cheap reading first.** `MaterialTree.batches` is what the input sets, and
       a sub-craft quantity is usually reachable by opening a tree on that sub-item and setting its
       batches. Whether pinning an amount on a node is still wanted is a question for after this has
@@ -298,7 +307,17 @@ plates now starves the pipes later. Working it out means doing the arithmetic by
 
 - [x] **Hover a material to see what wants it** — which tree and how much, sorted by demand. Hidden
       when only one tree wants it, since that is not a split, and capped at six lines.
-- [ ] Break it down by *sub-craft* as well as by tree.
+- [x] Break it down by *sub-craft* as well as by tree. On **Shift**, because both splits at once
+      is how a tooltip becomes the problem rather than the answer. With one tree it shows flat;
+      with several, each tree's line carries its own sub-crafts, since "60 for plates" summed
+      across two machines does not tell you which machine to stop building.
+      **The numbers are captured, not calculated.** Walking the tree and adding up leaves gives
+      wrong answers: `TreeCost.calculateCost` spends remainders as it descends, so what a leaf
+      costs depends on the order the walk reached it. A second walk cannot reproduce that without
+      reimplementing the solver, and a tooltip whose whole purpose is arithmetic must not show
+      arithmetic of its own. So `TreeCostMixin` rides along with EMI's own walk and takes the
+      figures it records. Two more private-method mixins, both `require = 0`: if EMI renames
+      either, the split quietly does not appear rather than the mod refusing to load.
 - [x] Shown on the material's own tooltip, not a separate screen.
 
 Feasible cheaply too, and further along than it looks: `CraftingFavorites.aggregate` already builds
