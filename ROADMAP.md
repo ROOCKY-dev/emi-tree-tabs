@@ -228,7 +228,14 @@ So the primitive is not a folder. It is a group with an active/parked flag:
       making planks.
 - [x] One action: **park everything except this group** — shift right click on a header.
 - [x] Vertical mode shows real headers, coloured per group.
-- [ ] Horizontal mode still shows no group chips; the strip is group-blind for now.
+- [x] Horizontal mode is no longer group-blind — but not with chips. A chip means a run of
+      adjacent tabs, and the strip has none: it draws tabs in master order while the sidebar
+      derives its order from group membership. Making the strip group-ordered would put
+      non-uniform elements in the row, which every hit test, the drag drop and the scroll
+      arithmetic assume away — **the same structural problem that deferred the active-tab width
+      bonus, and the same job.** So a strip tab carries 2px of its group's colour down its leading
+      edge (membership, not adjacency), the group's name on its tooltip, and the sidebar's parked
+      dimming.
 - [x] **Persistence format change** — file version 2, groups array, group id per tab. Version 1
       files still load and simply have no groups.
 
