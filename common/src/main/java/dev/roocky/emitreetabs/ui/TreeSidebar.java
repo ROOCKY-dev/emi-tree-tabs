@@ -13,6 +13,8 @@ import dev.roocky.emitreetabs.ui.SidebarLayout.Slot;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.bom.ProgressState;
 import net.minecraft.ChatFormatting;
+import org.lwjgl.glfw.GLFW;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -52,6 +54,14 @@ public final class TreeSidebar {
 	private static final int COLOR_PARKED = 0x66000000;
 
 	private static double scroll;
+
+	/** How far the pointer must travel before a click on a row becomes a drag. */
+	private static final int DRAG_SLOP = 4;
+
+	private static int dragTab = -1;
+	private static double dragOriginY;
+	private static double dragY;
+	private static boolean dragging;
 
 	private TreeSidebar() {
 	}
@@ -132,6 +142,9 @@ public final class TreeSidebar {
 				drawTab(graphics, font, l, s, rows.tabAt(s.index()), hovered == s, mouseX, mouseY);
 			}
 		}
+		if (dragging) {
+			drawDropTarget(graphics, l, rows);
+		}
 		graphics.disableScissor();
 
 		drawFooter(graphics, l, mouseX, mouseY);
@@ -139,6 +152,51 @@ public final class TreeSidebar {
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
 		}
+	}
+
+	/**
+	 * Marks the row a dragged tab would land on.
+	 *
+	 * <p>A line between rows would be the browser answer, but the sidebar's drop rule is "take that
+	 * row's place" rather than "go in that gap" — a line would be promising something else. So the
+	 * target row is outlined, and a group header is outlined the same way to say the tab joins it.
+	 */
+	private static void drawDropTarget(GuiGraphics g, SidebarLayout l, SidebarRows.Result rows) {
+		int row = rowAtY(l, dragY);
+		if (SidebarDrag.resolve(rows, dragTab, row, TreeTabs.count()) == null) {
+			return;
+		}
+		for (Slot s : l.visibleSlots()) {
+			if (s.index() == row) {
+				outline(g, s.bounds(), COLOR_ACCENT);
+				return;
+			}
+		}
+		// Past the last row: the drop leaves every group, so mark the space it would land in.
+		Slot last = null;
+		for (Slot s : l.visibleSlots()) {
+			last = s;
+		}
+		int y = last == null ? l.viewport.y()
+				: Math.min(last.bounds().y() + last.bounds().height() + SidebarLayout.ROW_GAP,
+						l.viewport.y() + l.viewport.height() - 2);
+		g.fill(l.viewport.x(), y, l.viewport.x() + l.viewport.width(), y + 2, COLOR_ACCENT);
+	}
+
+	/**
+	 * The row under a y coordinate, or {@code rows.size()} for the empty space past the last one.
+	 *
+	 * <p>By y alone, not by the slot's rectangle: a drag is allowed to wander outside the panel
+	 * horizontally, and cancelling the drop because the pointer drifted sideways would be a worse
+	 * answer than landing it where the pointer's height says.
+	 */
+	private static int rowAtY(SidebarLayout l, double y) {
+		for (Slot s : l.visibleSlots()) {
+			if (y >= s.bounds().y() && y < s.bounds().y() + s.bounds().height()) {
+				return s.index();
+			}
+		}
+		return Integer.MAX_VALUE;
 	}
 
 	private static void panel(GuiGraphics g, Rect r) {
@@ -407,9 +465,60 @@ public final class TreeSidebar {
 		if (button == 0) {
 			click();
 			TreeTabs.select(tabIndex);
+			dragTab = tabIndex;
+			dragOriginY = mouseY;
+			dragY = mouseY;
+			dragging = false;
 			return true;
 		}
 		return true;
+	}
+
+	public static boolean mouseDragged(Screen screen, double mouseX, double mouseY, int button) {
+		if (!active(screen) || dragTab < 0 || button != 0) {
+			return false;
+		}
+		dragY = mouseY;
+		if (!dragging && Math.abs(mouseY - dragOriginY) > DRAG_SLOP) {
+			dragging = true;
+		}
+		return true;
+	}
+
+	/**
+	 * Finishes a drag once the button comes back up.
+	 *
+	 * <p>Polled rather than handled, for the reason the strip polls: {@code BoMScreen} does not
+	 * override {@code mouseReleased}, so there is nothing to inject into.
+	 */
+	public static void tickDrag(Screen screen) {
+		if (dragTab < 0) {
+			return;
+		}
+		if (!active(screen)) {
+			dragTab = -1;
+			dragging = false;
+			return;
+		}
+		long window = Minecraft.getInstance().getWindow().getWindow();
+		if (GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) != GLFW.GLFW_RELEASE) {
+			return;
+		}
+		if (dragging) {
+			SidebarRows.Result rows = TreeTabs.sidebarRows();
+			SidebarLayout l = layout(screen, rows);
+			SidebarDrag.Drop drop =
+					SidebarDrag.resolve(rows, dragTab, rowAtY(l, dragY), TreeTabs.count());
+			if (drop != null) {
+				// Group first: the move's meaning depends on which bucket the tab is in, since
+				// SidebarRows derives display order from group membership and then tab order.
+				TreeTabs.assignToGroup(dragTab, drop.groupId());
+				TreeTabs.move(dragTab, drop.moveTo());
+				ensureVisible(screen, TreeTabs.activeIndex());
+			}
+		}
+		dragTab = -1;
+		dragging = false;
 	}
 
 	public static boolean mouseScrolled(Screen screen, double mouseX, double mouseY, double amount) {
@@ -456,6 +565,8 @@ public final class TreeSidebar {
 
 	public static void reset() {
 		scroll = 0;
+		dragTab = -1;
+		dragging = false;
 	}
 
 	// ---------------------------------------------------------------- shared

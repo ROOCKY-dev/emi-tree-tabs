@@ -32,6 +32,7 @@ public final class TabUi {
 
 	private static void renderTabs(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
 		if (vertical(screen)) {
+			TreeSidebar.tickDrag(screen);
 			TreeSidebar.render(screen, graphics, mouseX, mouseY, delta);
 		} else {
 			TabBar.tickDrag(screen);
@@ -58,9 +59,17 @@ public final class TabUi {
 				: TabBar.mouseClicked(screen, mouseX, mouseY, button);
 	}
 
-	/** Dragging reorders tabs on the strip. The sidebar does not support it yet. */
+	/**
+	 * Dragging reorders tabs in both layouts, but they do not mean the same thing.
+	 *
+	 * <p>On the strip a drop is one number, because tabs are one flat list. In the sidebar it also
+	 * decides which group the tab joins, since the rows are derived from group membership — see
+	 * {@link SidebarDrag}.
+	 */
 	public static boolean mouseDragged(Screen screen, double mouseX, double mouseY, int button) {
-		return !vertical(screen) && TabBar.mouseDragged(screen, mouseX, mouseY, button);
+		return vertical(screen)
+				? TreeSidebar.mouseDragged(screen, mouseX, mouseY, button)
+				: TabBar.mouseDragged(screen, mouseX, mouseY, button);
 	}
 
 	public static boolean mouseScrolled(Screen screen, double mouseX, double mouseY, double amount) {
