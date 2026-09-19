@@ -134,7 +134,7 @@ public final class TreeSidebar {
 		}
 		graphics.disableScissor();
 
-		drawFooter(graphics, font, l, mouseX, mouseY);
+		drawFooter(graphics, l, mouseX, mouseY);
 
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
@@ -213,8 +213,9 @@ public final class TreeSidebar {
 		g.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), COLOR_BORDER);
 
 		Rect c = s.collapse();
-		g.drawString(font, group.collapsed ? "▶" : "▼", c.x(), c.y() + 1,
-				l.overCollapse(s, mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+		Icons.centred(g, group.collapsed ? Icons.CARET_RIGHT : Icons.CARET_DOWN,
+				c.x(), c.y(), c.width(), c.height(),
+				l.overCollapse(s, mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM);
 
 		int budget = l.labelBudget(s);
 		if (budget > 6) {
@@ -225,7 +226,14 @@ public final class TreeSidebar {
 
 		int size = TreeTabs.groupSize(group.id);
 		boolean allCrafting = size > 0 && TreeTabs.groupCraftingCount(group.id) == size;
-		marker(g, font, s.marker(), String.valueOf(size), allCrafting,
+		Rect m = s.marker();
+		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
+		// aside for now" - and not at all on a header whose name was too long to draw.
+		if (group.parked) {
+			Icons.draw(g, Icons.PARK, m.x() - Icons.PARK.width() - 3,
+					m.y() + (m.height() - Icons.PARK.height()) / 2, COLOR_TEXT_DIM);
+		}
+		marker(g, font, m, String.valueOf(size), allCrafting,
 				hovered && l.overMarker(s, mouseX, mouseY));
 	}
 
@@ -236,30 +244,35 @@ public final class TreeSidebar {
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
 				lit ? COLOR_CRAFTING : COLOR_MARKER_BG);
 		outline(g, r, lit ? 0xFF7FE0F0 : COLOR_OUTLINE);
-		String label = hovered ? "✦" : count;
-		int w = font.width(label);
-		g.drawString(font, label, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
-				lit ? 0xFF0C0C10 : COLOR_TEXT_DIM, false);
+		int ink = lit ? 0xFF0C0C10 : COLOR_TEXT_DIM;
+		if (hovered) {
+			// The number is only information until you reach for it; then the same square is the
+			// control, and says so with the mark the craft-all button uses.
+			Icons.centred(g, Icons.CRAFT_ONE, r.x(), r.y(), r.width(), r.height(), ink);
+		} else {
+			int w = font.width(count);
+			g.drawString(font, count, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
+					ink, false);
+		}
 	}
 
-	private static void drawFooter(GuiGraphics g, Font font, SidebarLayout l, int mouseX, int mouseY) {
+	private static void drawFooter(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
 		Rect all = l.craftAllButton();
 		// No settings screen installed means no button, rather than a button that does nothing.
 		if (ConfigScreenHook.available()) {
 			Rect settings = l.settingsButton();
-			button(g, font, settings, "⚙", settings.contains(mouseX, mouseY), false);
+			button(g, settings, Icons.SETTINGS, settings.contains(mouseX, mouseY), false);
 		}
-		button(g, font, all, "≡", all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
+		button(g, all, Icons.CRAFT_ALL, all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
 	}
 
-	private static void button(GuiGraphics g, Font font, Rect r, String glyph,
+	private static void button(GuiGraphics g, Rect r, Icons.Sprite icon,
 			boolean hovered, boolean lit) {
 		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
 				lit ? COLOR_CRAFTING : hovered ? COLOR_ROW_HOVER : COLOR_ROW);
 		outline(g, r, COLOR_OUTLINE);
-		int w = font.width(glyph);
-		g.drawString(font, glyph, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
-				lit ? 0xFF0C0C10 : hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+		Icons.centred(g, icon, r.x(), r.y(), r.width(), r.height(),
+				lit ? 0xFF0C0C10 : hovered ? COLOR_TEXT : COLOR_TEXT_DIM);
 	}
 
 	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,

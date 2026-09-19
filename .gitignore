@@ -27,3 +27,7 @@ bin/
 
 # Personal notes, not documentation
 Future.md
+
+# Icon rasterisation intermediates. The SVG sources and the built sheet are tracked;
+# these per-sprite PNGs are rebuilt by art/make_icons.py.
+art/icons/*.png

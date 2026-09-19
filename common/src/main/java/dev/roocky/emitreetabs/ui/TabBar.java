@@ -54,6 +54,8 @@ public final class TabBar {
 	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
 	private static final int COLOR_CRAFTING = 0xFF48C8E0;
 	private static final int COLOR_DIVIDER = 0x40FFFFFF;
+	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
+	private static final int COLOR_DISABLED = 0xFF55555E;
 
 	private static double scroll;
 	private static int dragIndex = -1;
@@ -134,9 +136,9 @@ public final class TabBar {
 			drawTab(l, graphics, font, dragIndex, (int) (dragX - l.tabWidth / 2.0), true, -1, -1);
 		}
 
-		drawArrows(l, graphics, font, mouseX, mouseY);
-		drawAllButton(l, graphics, font, mouseX, mouseY);
-		drawAddButton(l, graphics, font, mouseX, mouseY);
+		drawArrows(l, graphics, mouseX, mouseY);
+		drawAllButton(l, graphics, mouseX, mouseY);
+		drawAddButton(l, graphics, mouseX, mouseY);
 
 		if (renameBox != null) {
 			renameBox.render(graphics, mouseX, mouseY, delta);
@@ -217,25 +219,23 @@ public final class TabBar {
 			if (l.density == Density.ICON) {
 				// A badge, not an inline button: the rest of the tab has to stay selectable.
 				graphics.fill(rx, r.y(), rx + r.width(), r.y() + r.height(), 0xC0101014);
-				graphics.drawString(font, "×", rx + 2, r.y() + 1, colour, false);
-			} else {
-				graphics.drawString(font, "×", rx + 2, r.y() + 2, colour, false);
 			}
+			Icons.centred(graphics, Icons.CLOSE, rx, r.y(), r.width(), r.height(), colour);
 		}
 	}
 
 	/** Scroll affordances, so a long strip does not look like it simply ends. */
-	private static void drawArrows(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawArrows(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (!l.scrolling) {
 			return;
 		}
 		int y = l.barY;
 		boolean canLeft = scroll > 0.5;
 		boolean canRight = scroll < l.maxScroll - 0.5;
-		graphics.drawString(font, "◀", l.leftArrowX() + 1, y + 7,
-				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
-		graphics.drawString(font, "▶", l.rightArrowX() + 1, y + 7,
-				canRight ? (l.overRightArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : 0xFF3A3A40, false);
+		Icons.centred(graphics, Icons.ARROW_LEFT, l.leftArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
+				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : COLOR_DISABLED);
+		Icons.centred(graphics, Icons.ARROW_RIGHT, l.rightArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
+				canRight ? (l.overRightArrow(mouseX, mouseY) ? COLOR_TEXT : COLOR_TEXT_DIM) : COLOR_DISABLED);
 	}
 
 	/**
@@ -244,7 +244,7 @@ public final class TabBar {
 	 * <p>Shows how many are being crafted, because with a dozen tabs the state is otherwise only
 	 * legible by scanning every icon for its corner pip.
 	 */
-	private static void drawAllButton(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawAllButton(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (l.count == 0) {
 			return;
 		}
@@ -255,14 +255,15 @@ public final class TabBar {
 		graphics.fill(x, y + 1, x + TabLayout.ALL_BUTTON_WIDTH, y + HEIGHT - 1,
 				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
 		int colour = crafting == 0 ? COLOR_TEXT_DIM : COLOR_CRAFTING;
-		graphics.drawString(font, "≡", x + 3, y + 7, colour, false);
+		Icons.centred(graphics, Icons.CRAFT_ALL, x, y + 1, TabLayout.ALL_BUTTON_WIDTH, HEIGHT - 2,
+				colour);
 		if (crafting > 0) {
 			graphics.fill(x + TabLayout.ALL_BUTTON_WIDTH - 5, y + 4,
 					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, COLOR_CRAFTING);
 		}
 	}
 
-	private static void drawAddButton(TabLayout l, GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+	private static void drawAddButton(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (TreeTabs.activeTab() == null) {
 			return;
 		}
@@ -271,8 +272,8 @@ public final class TabBar {
 		boolean hovered = l.overAddButton(mouseX, mouseY);
 		graphics.fill(x, y + 1, x + TabLayout.ADD_BUTTON_WIDTH, y + HEIGHT - 1,
 				hovered ? COLOR_TAB_HOVER : COLOR_TAB);
-		graphics.drawString(font, "+", x + TabLayout.ADD_BUTTON_WIDTH / 2 - 2, y + 7,
-				hovered ? COLOR_TEXT : COLOR_TEXT_DIM, false);
+		Icons.centred(graphics, Icons.NEW_TAB, x, y + 1, TabLayout.ADD_BUTTON_WIDTH, HEIGHT - 2,
+				hovered ? COLOR_TEXT : COLOR_TEXT_DIM);
 	}
 
 	private static void drawTooltip(Screen screen, TabLayout l, GuiGraphics graphics, Font font,
