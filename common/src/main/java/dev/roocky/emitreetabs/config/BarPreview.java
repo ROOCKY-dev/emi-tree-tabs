@@ -81,7 +81,10 @@ public final class BarPreview implements ImageRenderer {
 	}
 
 	private void drawStrip(GuiGraphics g, Font font, int x, int y, int width) {
-		TabLayout l = new TabLayout(width, PREVIEW_HEIGHT, SAMPLE_TABS, !barAtBottom.getAsBoolean());
+		// Not negated. TreeSidebar passes !barAtBottom because its last argument is "on the left";
+		// TabLayout's is "at the bottom", and copying the ! put the preview's bar on the wrong
+		// edge - visible in game as a strip that ignored the toggle right next to it.
+		TabLayout l = new TabLayout(width, PREVIEW_HEIGHT, SAMPLE_TABS, barAtBottom.getAsBoolean());
 		int barY = y + l.barY;
 		g.fill(x, barY, x + width, barY + TabLayout.HEIGHT, TabPalette.BAR);
 		int borderY = l.barAtBottom ? barY : barY + TabLayout.HEIGHT - 1;
@@ -120,14 +123,15 @@ public final class BarPreview implements ImageRenderer {
 		Icons.centred(g, Icons.NEW_TAB, x + l.addButtonX(), barY + 1,
 				TabLayout.ADD_BUTTON_WIDTH, TabLayout.HEIGHT - 2, TabPalette.TEXT_DIM);
 
-		caption(g, font, x, y, width, Component.translatable(
+		caption(g, font, x, y, width, l.barAtBottom, Component.translatable(
 				"emi.tree_tabs.config.preview.density." + l.density.name().toLowerCase(),
 				l.tabWidth));
 	}
 
 	private void drawSidebar(GuiGraphics g, Font font, int x, int y, int width) {
 		int panelWidth = Math.max(SidebarLayout.MIN_PANEL_WIDTH, width / 5);
-		int panelX = x + 4;
+		// Same rule the real sidebar uses: barAtBottom doubles as "put it on the right".
+		int panelX = barAtBottom.getAsBoolean() ? x + width - panelWidth - 4 : x + 4;
 		int panelY = y + 4;
 		int panelHeight = PREVIEW_HEIGHT - 20;
 
@@ -161,14 +165,21 @@ public final class BarPreview implements ImageRenderer {
 			rowY += SidebarLayout.ROW_HEIGHT + SidebarLayout.ROW_GAP;
 		}
 
-		caption(g, font, x, y, width,
+		caption(g, font, x, y, width, false,
 				Component.translatable("emi.tree_tabs.config.preview.sidebar"));
 	}
 
-	private void caption(GuiGraphics g, Font font, int x, int y, int width, Component text) {
+	/**
+	 * The caption goes in whichever half the bar is not using.
+	 *
+	 * <p>It was pinned to the bottom, which put it straight through the strip whenever the strip
+	 * was down there too - the label describing the bar, drawn on top of the bar.
+	 */
+	private void caption(GuiGraphics g, Font font, int x, int y, int width, boolean barAtBottom,
+			Component text) {
 		String s = text.getString();
-		g.drawString(font, s, x + (width - font.width(s)) / 2, y + PREVIEW_HEIGHT - 11,
-				TabPalette.TEXT_DIM, false);
+		int ty = barAtBottom ? y + 6 : y + PREVIEW_HEIGHT - 11;
+		g.drawString(font, s, x + (width - font.width(s)) / 2, ty, TabPalette.TEXT_DIM, false);
 	}
 
 	private static String trim(Font font, String text, int budget) {

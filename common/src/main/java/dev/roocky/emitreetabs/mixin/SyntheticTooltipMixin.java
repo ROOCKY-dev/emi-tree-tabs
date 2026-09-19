@@ -45,7 +45,14 @@ public class SyntheticTooltipMixin {
 	/** Tighter, because a locate provider's lines sit above everything else this adds. */
 	private static final int MAX_LOCATE_LINES = 3;
 
-	@Inject(method = "getTooltip", at = @At("TAIL"), cancellable = true, require = 0)
+	/**
+	 * {@code RETURN}, not {@code TAIL}. {@code Synthetic.getTooltip} returns early for
+	 * {@code state == -1}, and {@code state} is -1 for exactly the entries this is about — the raw
+	 * material costs, built by the {@code (ingredient, needed, total)} constructor. TAIL hooks only
+	 * the last return in the method, so it fired for recipes and never once for a material, which
+	 * is why this feature appeared to do nothing at all until it was run.
+	 */
+	@Inject(method = "getTooltip", at = @At("RETURN"), cancellable = true, require = 0)
 	private void emitreetabs$attribution(CallbackInfoReturnable<List<ClientTooltipComponent>> cir) {
 		if (!TreeTabsConfig.enabled || !TreeTabsConfig.aggregateCraftingFavorites) {
 			return;
