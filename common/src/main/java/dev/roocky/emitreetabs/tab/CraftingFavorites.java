@@ -279,6 +279,19 @@ public final class CraftingFavorites {
 		return merged;
 	}
 
+	/**
+	 * Drops everything this class remembers about the world that just went away.
+	 *
+	 * <p>Both maps are keyed or valued by {@link TreeTab}, and a TreeTab holds a
+	 * {@code MaterialTree} — which is the whole node graph, and every {@code EmiRecipe} in it. Left
+	 * alone they pin the previous world's recipes for as long as the client runs, which is the
+	 * exact leak {@code TreeTabs.releaseTrees} was written to prevent.
+	 */
+	public static void release() {
+		ATTRIBUTION = new LinkedHashMap<>();
+		STOCK_LABELS = new LinkedHashMap<>();
+	}
+
 	private static EmiPlayerInventory leftovers(MaterialTree tree) {
 		// The list constructor also folds in the cursor stack, so clear it and fill the map
 		// directly. EMI does the same thing when it needs an inventory it fully controls.

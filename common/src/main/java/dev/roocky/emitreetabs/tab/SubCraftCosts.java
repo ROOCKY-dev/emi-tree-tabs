@@ -116,6 +116,18 @@ public final class SubCraftCosts {
 		building = new LinkedHashMap<>();
 	}
 
+	/**
+	 * Drops the world's findings. Same reason as {@link CraftingFavorites#release()}: these maps
+	 * are keyed by {@link TreeTab}, which holds a whole material tree.
+	 */
+	public static void release() {
+		RESULT = new LinkedHashMap<>();
+		building = new LinkedHashMap<>();
+		walk = new LinkedHashMap<>();
+		STACK.clear();
+		capturing = null;
+	}
+
 	public static void push(MaterialNode node) {
 		if (capturing != null && node != null) {
 			STACK.push(node);

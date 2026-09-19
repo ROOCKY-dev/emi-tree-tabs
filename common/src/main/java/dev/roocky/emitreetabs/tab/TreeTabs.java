@@ -490,6 +490,11 @@ public final class TreeTabs {
 	 * a whole dead recipe graph. The tabs come back on the next {@link #onEmiReload()}.
 	 */
 	public static void releaseTrees() {
+		// Unconditional, and before the early return: a cache can outlive the tabs it was built
+		// from, since closing the last tab does not run another aggregation pass to empty it.
+		CraftingFavorites.release();
+		SubCraftCosts.release();
+		clearPendingSync();
 		if (TABS.isEmpty() && pending == null) {
 			BoM.tree = null;
 			return;
