@@ -335,11 +335,10 @@ The goal: nobody should ever need to open `emitreetabs.json`.
       written in the Forge module and never ported. Cloth is gone rather than kept as a fallback —
       two screens is two things to keep in step, and the json is the documented fallback.
 - [x] **Name the tabs by intent, not by code:** *Tabs & layout*, *Crafting list*, *Behaviour & keys*.
-- [ ] **Give every option a picture.** **Blocked, and not on code.** The plumbing is there —
-      `OptionDescription.image(...)` takes a `ResourceLocation` and the descriptions are already
-      built per option — but the pictures themselves are stills of the real interface in the real
-      game, and there is no way to take one without a session. Mock-ups would defeat the point: the
-      value is in showing what it actually looks like folded, not something close to it.
+- [x] **Give every option a picture** — the five crafting-list options where a picture says more
+      than the sentence does. Real stills of the real interface, captured at GUI scale 2 so they
+      stay crisp when YACL scales them up. The rest are behaviour you cannot photograph, and a
+      decorative screenshot beside them would be worse than none.
 - [x] **A live tab bar at the top of the layout tab** — five sample tabs, drawn by the real
       `TabLayout` and `SidebarLayout` arithmetic and the real palette, so it cannot drift from what
       it previews. It reads the **pending** values rather than the saved ones, so it answers "what
@@ -396,24 +395,36 @@ everything else is internal.
       - **a picture per option** (3.4) — blocked on a game session, not on code. The plumbing is
         there; the pictures are stills of the real interface and there is no way to take one
         without playing.
-- [ ] **Used in a real world for more than a session.** Nothing below 3.1 has been seen running:
-      the whole 3.x line was built and verified by compiling, and a green build says a texture is
-      in the jar, not that a sprite lands on the right pixel. **This is the gate.**
+- [x] **Seen running.** A dev client session on 2026-09-19 exercised the whole 3.x line. Eight
+      defects were found that no amount of compiling would have shown — listed below — and all
+      eight are fixed and re-verified.
+- [ ] **Used in a real world for more than a session.** Driven, not played. A session that proves
+      each feature works once is not the same as a build that survives an evening of real use, and
+      it is the second that 4.0 is waiting on. **This is the gate.**
 - [ ] **Maintainer confirms.** Only then does a `store-v4.0.0` tag go up; nothing before it reaches
       Modrinth or CurseForge.
 - [ ] `publish_game_versions` checked before tagging — it is what the stores are told.
 
-### What to look at first, when there is a session
+### What the first session found
 
-In rough order of "most likely to be wrong, cheapest to check":
+Every item on the checklist this section used to carry was checked. The icons, the contrast in
+both layouts, the header hit area, the choice frames, the batch formula, tab persistence, the
+settings screen and its pictures, and the sync end to end all work. Eight things did not:
 
-1. **The icon sheet.** Ten sprites at 4–12px; wrong by a pixel is wrong.
-2. **Contrast**, in both layouts, against a real tree rather than a swatch.
-3. **The section header hit area** — click the words, not the first slot.
-4. **Resolution sync end to end.** Never seen working; its own commit said not to merge it.
-5. **The YACL screen**, including whether the live preview draws at the width YACL gives it.
-6. **The sub-craft split** — the `TreeCostMixin` attribution is the one place a silent wrong
-      *number* is possible rather than a visible wrong *pixel*.
+| Found | Why compiling could not have caught it |
+|---|---|
+| YACL would not load in the dev client | Its json parsers are jar-in-jar; Forge unpacks them for players, Loom does not for a dev run. `forgeRuntimeLibrary`, dev-only. |
+| **The attribution tooltip had never worked at all** | EMI's `Synthetic.getTooltip` returns early for `state == -1`, which is exactly the raw-material entries. `@At("TAIL")` hooks only the last return. |
+| The sub-craft numbers were roughly tripled | EMI walks each tree three times per update; the capture summed all three. |
+| "Goes into" could draw with nothing under it | The per-tree lists were filtered after the heading was committed. |
+| A single-destination tree said the same thing twice | Its own line already carried that number. |
+| Applying the sync to one tree cancelled it for the others | Our own `addResolution` re-entered the notice path, which clears the offer. |
+| The live preview drew its bar on the wrong edge | `TreeSidebar`'s last argument is "on the left", `TabLayout`'s is "at the bottom"; the `!` was copied with the line. |
+| Picking "Floating sidebar" previewed a strip | The preview asked whether a sidebar fits *its own 74px box*, which it never does. |
+
+The pattern worth keeping: **five of the eight were in code that had a ticked box.** Compiling
+proves a sprite is in the jar, not that it lands on the right pixel; it proves an injection
+compiles, not that the method returns where you think it does.
 
 ## 5.0 — Minecraft 1.21.1
 
