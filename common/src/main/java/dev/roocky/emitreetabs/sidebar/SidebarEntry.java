@@ -68,4 +68,21 @@ public abstract class SidebarEntry implements EmiIngredient {
 		private Blank() {
 		}
 	}
+
+	/**
+	 * A blank that remembers the header whose row it is padding.
+	 *
+	 * <p>A header draws its title across the whole row but only ever occupies the row's first slot,
+	 * so a click on the words themselves used to land on a {@link Blank} and do nothing — the
+	 * section looked as though folding was broken. The drawn slot cannot be widened (EMI's grid
+	 * arithmetic is fixed at 18px and hover maps back through the inverse of it), but the slots the
+	 * title is painted over can say which header they belong to, which makes the hit area the row.
+	 */
+	public static final class HeaderPad extends SidebarEntry {
+		public final GroupHeader header;
+
+		public HeaderPad(GroupHeader header) {
+			this.header = header;
+		}
+	}
 }
