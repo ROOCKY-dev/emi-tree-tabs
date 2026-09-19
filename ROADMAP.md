@@ -379,18 +379,26 @@ and it is the same module boundary the public API already requires.
 
 ## Found in testing, to fix
 
-- [ ] **Section headers are only clickable on their first slot.** The title text runs across the
-      whole row, but only the leftmost ~18px responds, so clicking the words does nothing and the
-      feature looks broken. The row is 18px tall by necessity — `ScreenSpace.getY` is `ty + row * 18`
-      and hover maps back through separate inverse arithmetic — but the *hit area* can span the full
-      row even when the drawn slot does not. Fix the inverse mapping, not the layout.
-- [ ] **The tab bar's contrast is too low.** Measured: bar background `(29,24,18)` against tab
-      `(37,34,32)`. Vanilla's own panels are `(198,198,198)` on a 60%-black overlay. Give the bar a
-      real panel fill and a 1px border rather than a tint.
-- [ ] **A tag and a plain item read as duplicates.** A furnace wants `#stone_tool_materials` while a
-      piston wants Cobblestone, so they correctly stay in separate sections — but to a reader they
-      look like the same grey block listed twice. Worth making the distinction visible rather than
-      leaving people to hover and work it out.
+All three are fixed in code and **none has been seen in game yet** — they are colour and hit-area
+changes, so the build passing says nothing about whether they look right.
+
+- [x] **Section headers are only clickable on their first slot.** The title text runs across the
+      whole row, but only the leftmost ~18px responded, so clicking the words did nothing and the
+      feature looked broken. The row is 18px tall by necessity — `ScreenSpace.getY` is
+      `ty + row * 18` and hover maps back through separate inverse arithmetic — so the fix was the
+      inverse mapping, not the layout: the pad slots the title is drawn over now carry the header
+      they belong to, and the click handler accepts either.
+- [x] **The tab bar's contrast is too low.** Measured: bar background `(29,24,18)` against tab
+      `(37,34,32)` — 1.11:1. The cause was the bar being 88% alpha over the tree, so the world bled
+      through and diluted the difference. An opaque panel fill, lifted tab colours and a visible
+      border rule give 1.81:1, with label text at 8.87:1 and the dimmed label at 5.38:1, both past
+      WCAG AA. **The sidebar had the same bug at 1.09:1** — same constants, and it is what `auto`
+      picks on any screen wide enough — so it got the same palette.
+- [x] **A tag and a plain item read as duplicates.** A furnace wants `#stone_tool_materials` while a
+      piston wants Cobblestone, so they correctly stay in separate sections — but a tag is drawn by
+      cycling through its members, so most of the time both are the same grey block and the list
+      reads as one thing listed twice. An entry that accepts any of several items now gets a 1px
+      frame, drawn in the slot's own padding so it never covers the icon. `markChoiceEntries`.
 
 ## Known limitations that are unlikely to change
 
