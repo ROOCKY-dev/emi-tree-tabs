@@ -628,6 +628,10 @@ public final class TreeTabs {
 	 * contain the ingredient — writing a resolution into a tree that never reads it would be dead
 	 * weight in the save file.
 	 *
+	 * <p>Not what the pending offer uses — that applies to exactly the trees it highlighted. This
+	 * is the unconditional form: every open tree that uses the ingredient, whether or not an offer
+	 * was ever made. Kept for the public API in 3.5, where a consumer has no offer to accept.
+	 *
 	 * @return how many other trees changed.
 	 */
 	public static int syncResolution(MaterialTree origin, EmiIngredient ingredient, EmiRecipe recipe) {
@@ -685,11 +689,15 @@ public final class TreeTabs {
 		return false;
 	}
 
-	// The last recipe choice made, and how many other trees would take it. Held so the player can
+	// The last recipe choice made, and which other trees would take it. Held so the player can
 	// accept the offer on a key of ours, rather than through a modifier EMI's own slot swallows.
+	//
+	// The trees are kept, not just counted, because "how many" is only half the question. The other
+	// half - which ones, so you can decide per tree instead of changing all of them blind - is what
+	// the highlight and the per-tab gesture are for.
 	private static EmiIngredient pendingIngredient;
 	private static EmiRecipe pendingRecipe;
-	private static int pendingCount;
+	private static final List<TreeTab> PENDING_TABS = new ArrayList<>();
 
 	/**
 	 * Records a recipe choice and, if other open trees use the same ingredient differently, offers
@@ -710,7 +718,7 @@ public final class TreeTabs {
 		if (active == null || active.tree != origin) {
 			return;
 		}
-		int candidates = 0;
+		List<TreeTab> candidates = new ArrayList<>();
 		for (TreeTab tab : TABS) {
 			MaterialTree tree = tab.tree;
 			if (tree == null || tree == origin) {
@@ -721,26 +729,79 @@ public final class TreeTabs {
 				continue;
 			}
 			if (uses(tree, ingredient)) {
-				candidates++;
+				candidates.add(tab);
 			}
 		}
-		if (candidates == 0) {
+		if (candidates.isEmpty()) {
 			return;
 		}
 		pendingIngredient = ingredient;
 		pendingRecipe = recipe;
-		pendingCount = candidates;
-		offerResolutionSync(candidates);
+		PENDING_TABS.addAll(candidates);
+		offerResolutionSync(candidates.size());
 	}
 
 	public static boolean hasPendingSync() {
-		return pendingIngredient != null && pendingRecipe != null && pendingCount > 0;
+		return pendingIngredient != null && pendingRecipe != null && !PENDING_TABS.isEmpty();
+	}
+
+	/** How many trees the pending offer would still change. */
+	public static int pendingSyncCount() {
+		return hasPendingSync() ? PENDING_TABS.size() : 0;
+	}
+
+	/**
+	 * Whether this tab is one the pending offer would change.
+	 *
+	 * <p>Both layouts highlight these, which is the "find them" half of the problem: the count in
+	 * the toast says something is out of step, and the highlight says where.
+	 */
+	public static boolean isSyncCandidate(int index) {
+		TreeTab tab = tab(index);
+		return tab != null && hasPendingSync() && PENDING_TABS.contains(tab);
+	}
+
+	/**
+	 * Applies the pending choice to one tree rather than all of them.
+	 *
+	 * <p>The offer exists because eight machines quietly kept the expensive recipe — but sometimes
+	 * only some of them should change, and the only way to know is to look. So a highlighted tab
+	 * can be taken on its own, and the offer stays live for the rest.
+	 *
+	 * @return true when that tree changed.
+	 */
+	public static boolean applyPendingSyncTo(int index) {
+		TreeTab tab = tab(index);
+		if (tab == null || !hasPendingSync() || !PENDING_TABS.contains(tab)) {
+			return false;
+		}
+		PENDING_TABS.remove(tab);
+		if (!applyOneTree(tab)) {
+			return false;
+		}
+		if (PENDING_TABS.isEmpty()) {
+			clearPendingSync();
+		}
+		return true;
+	}
+
+	/** Writes the pending choice into one tree. Only the sub-craft, never the whole tree. */
+	private static boolean applyOneTree(TreeTab tab) {
+		MaterialTree tree = tab == null ? null : tab.tree;
+		if (tree == null || pendingIngredient == null || pendingRecipe == null) {
+			return false;
+		}
+		tree.addResolution(pendingIngredient, pendingRecipe);
+		tree.recalculate();
+		tab.labelVersion++;
+		markDirty();
+		return true;
 	}
 
 	public static void clearPendingSync() {
 		pendingIngredient = null;
 		pendingRecipe = null;
-		pendingCount = 0;
+		PENDING_TABS.clear();
 	}
 
 	/** Applies the offer the player just accepted. @return how many trees changed. */
@@ -748,9 +809,14 @@ public final class TreeTabs {
 		if (!hasPendingSync()) {
 			return 0;
 		}
-		TreeTab active = activeTab();
-		MaterialTree origin = active == null ? null : active.tree;
-		int changed = syncResolution(origin, pendingIngredient, pendingRecipe);
+		// Exactly the trees still highlighted. Any the player already took one at a time are gone
+		// from the list, so "apply the offer" means what the highlight shows and nothing more.
+		int changed = 0;
+		for (TreeTab tab : List.copyOf(PENDING_TABS)) {
+			if (applyOneTree(tab)) {
+				changed++;
+			}
+		}
 		clearPendingSync();
 		if (changed > 0) {
 			reportResolutionSync(changed);

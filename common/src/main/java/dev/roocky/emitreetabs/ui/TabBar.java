@@ -57,6 +57,11 @@ public final class TabBar {
 	private static final int COLOR_DIVIDER = 0x40FFFFFF;
 	/** Laid over a parked tab. The same value the sidebar uses, so the two layouts agree. */
 	private static final int COLOR_PARKED = 0x66000000;
+	/**
+	 * A tree a pending recipe-sync offer would change. Orange on purpose: blue is "active", cyan
+	 * "crafting", and green/amber/grey are already progress, so none of them were free.
+	 */
+	private static final int COLOR_SYNC = 0xFFFF8C42;
 	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
 	private static final int COLOR_DISABLED = 0xFF55555E;
 
@@ -219,6 +224,15 @@ public final class TabBar {
 			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, COLOR_PARKED);
 		}
 
+		// Which trees would change, not just how many. Drawn over the parked veil so a parked
+		// tree that is also out of step still says so.
+		if (TreeTabs.isSyncCandidate(index)) {
+			graphics.fill(x, y + 1, x + width - 1, y + 2, COLOR_SYNC);
+			graphics.fill(x, y + HEIGHT - 2, x + width - 1, y + HEIGHT - 1, COLOR_SYNC);
+			graphics.fill(x, y + 1, x + 1, y + HEIGHT - 1, COLOR_SYNC);
+			graphics.fill(x + width - 2, y + 1, x + width - 1, y + HEIGHT - 1, COLOR_SYNC);
+		}
+
 		boolean closeShown = l.closeVisible(hovered, isActive);
 		int budget = l.labelBudget(closeShown);
 		if (budget > 4) {
@@ -315,6 +329,12 @@ public final class TabBar {
 				lines.add(Component.translatable("emi.tree_tabs.group.parked")
 						.withStyle(ChatFormatting.GOLD));
 			}
+		}
+		if (TreeTabs.isSyncCandidate(index)) {
+			lines.add(Component.translatable("emi.tree_tabs.sync.candidate")
+					.withStyle(ChatFormatting.GOLD));
+			lines.add(Component.translatable("emi.tree_tabs.sync.candidate.hint")
+					.withStyle(ChatFormatting.DARK_GRAY));
 		}
 		if (TreeTabsConfig.showProgress) {
 			lines.add(progressText(tab.progress));
@@ -413,6 +433,15 @@ public final class TabBar {
 		}
 		if (button == 1) {
 			startRename(screen, index);
+			return true;
+		}
+		// Shift+click on a highlighted tab takes the offer for that one tree. The point of
+		// highlighting them is to decide per tree; without this you could only see them.
+		if (button == 0 && Screen.hasShiftDown() && TreeTabs.isSyncCandidate(index)) {
+			click();
+			if (TreeTabs.applyPendingSyncTo(index)) {
+				TreeTabs.reportResolutionSync(1);
+			}
 			return true;
 		}
 		if (button == 0 && Screen.hasControlDown()) {

@@ -52,6 +52,8 @@ public final class TreeSidebar {
 	private static final int COLOR_CRAFTING = 0xFF48C8E0;
 	private static final int COLOR_MARKER_BG = 0xFF15151C;
 	private static final int COLOR_PARKED = 0x66000000;
+	/** A tree a pending recipe-sync offer would change. The strip uses the same orange. */
+	private static final int COLOR_SYNC = 0xFFFF8C42;
 
 	private static double scroll;
 
@@ -254,6 +256,10 @@ public final class TreeSidebar {
 		if (TreeTabs.isParked(tab)) {
 			g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), COLOR_PARKED);
 		}
+		// Drawn over the veil: a parked tree that is also out of step still has to say so.
+		if (TreeTabs.isSyncCandidate(tabIndex)) {
+			outline(g, b, COLOR_SYNC);
+		}
 	}
 
 	private static void drawGroup(GuiGraphics g, Font font, SidebarLayout l, Slot s,
@@ -368,6 +374,12 @@ public final class TreeSidebar {
 				lines.add(Component.translatable("emi.tree_tabs.group.parked")
 						.withStyle(ChatFormatting.GOLD));
 			}
+			if (TreeTabs.isSyncCandidate(rows.tabAt(s.index()))) {
+				lines.add(Component.translatable("emi.tree_tabs.sync.candidate")
+						.withStyle(ChatFormatting.GOLD));
+				lines.add(Component.translatable("emi.tree_tabs.sync.candidate.hint")
+						.withStyle(ChatFormatting.DARK_GRAY));
+			}
 		}
 		// Anchored beside the panel, never over it: the sidebar occupies a whole screen edge, so a
 		// cursor-relative tooltip would sit on top of the rows it is describing.
@@ -449,6 +461,14 @@ public final class TreeSidebar {
 				BatchInput.open(screen, tabIndex, m.x() + m.width() + 4, m.y());
 			} else {
 				TreeTabs.toggleCrafting(tabIndex);
+			}
+			return true;
+		}
+		// Shift+click on a highlighted row takes the pending offer for that one tree.
+		if (button == 0 && Screen.hasShiftDown() && TreeTabs.isSyncCandidate(tabIndex)) {
+			click();
+			if (TreeTabs.applyPendingSyncTo(tabIndex)) {
+				TreeTabs.reportResolutionSync(1);
 			}
 			return true;
 		}
