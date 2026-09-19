@@ -51,7 +51,14 @@ public final class BarPreview implements ImageRenderer {
 	private static final int[] ICON_TINTS = {
 			0xFF8A6A3A, 0xFFB5652E, 0xFF6E7A8A, 0xFF9AA0A6, 0xFF7E8B6B,
 	};
-	private static final int PREVIEW_HEIGHT = 74;
+	/**
+	 * Tall enough for the sidebar to show three rows with names on them.
+	 *
+	 * <p>At 74 it fitted one nameless row, under a caption promising "room for names at any GUI
+	 * scale" - the preview contradicting its own label. The strip only ever needs 22 of this; the
+	 * rest is where its caption goes.
+	 */
+	private static final int PREVIEW_HEIGHT = 120;
 
 	@Override
 	public int render(GuiGraphics graphics, int x, int y, int width, float delta) {
@@ -67,17 +74,29 @@ public final class BarPreview implements ImageRenderer {
 	}
 
 	/**
-	 * Whether the sidebar would be chosen — asked of the preview's own box, not the screen.
+	 * Which layout to draw.
 	 *
-	 * <p>Deliberately: the box is what the player is looking at, and answering for the whole screen
-	 * would show a sidebar in a space too narrow to contain one.
+	 * <p>The box is a thumbnail, not a screen, so it is the wrong thing to ask whether a sidebar
+	 * fits — it never does at 74px tall. Asking it meant picking "Floating sidebar" previewed a
+	 * horizontal strip, which is the one answer the option must never give.
+	 *
+	 * <p>So an explicit choice is drawn as chosen, and only {@code auto} asks a question — of the
+	 * real window, because that is the screen auto would actually be deciding for.
 	 */
 	private boolean vertical(int width) {
 		String mode = orientation.get();
 		if ("horizontal".equalsIgnoreCase(mode)) {
 			return false;
 		}
-		return SidebarLayout.fits(width, PREVIEW_HEIGHT);
+		if ("vertical".equalsIgnoreCase(mode)) {
+			return true;
+		}
+		Minecraft client = Minecraft.getInstance();
+		if (client == null || client.getWindow() == null) {
+			return false;
+		}
+		return SidebarLayout.fits(client.getWindow().getGuiScaledWidth(),
+				client.getWindow().getGuiScaledHeight());
 	}
 
 	private void drawStrip(GuiGraphics g, Font font, int x, int y, int width) {
@@ -129,11 +148,14 @@ public final class BarPreview implements ImageRenderer {
 	}
 
 	private void drawSidebar(GuiGraphics g, Font font, int x, int y, int width) {
-		int panelWidth = Math.max(SidebarLayout.MIN_PANEL_WIDTH, width / 5);
+		// A fifth in game, a third here. The box is far wider than it is tall compared with a
+		// screen, so a literal fifth of it is a strip too narrow to draw a name in - which is the
+		// one thing this layout exists to have room for.
+		int panelWidth = Math.max(SidebarLayout.MIN_PANEL_WIDTH, width / 3);
 		// Same rule the real sidebar uses: barAtBottom doubles as "put it on the right".
 		int panelX = barAtBottom.getAsBoolean() ? x + width - panelWidth - 4 : x + 4;
 		int panelY = y + 4;
-		int panelHeight = PREVIEW_HEIGHT - 20;
+		int panelHeight = PREVIEW_HEIGHT - 22;
 
 		g.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, TabPalette.PANEL);
 		g.fill(panelX, panelY, panelX + panelWidth, panelY + 1, TabPalette.PANEL_HI);
