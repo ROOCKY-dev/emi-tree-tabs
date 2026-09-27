@@ -35,9 +35,15 @@ Attach **both** `emitreetabs-forge-X.Y.Z.jar` and `emitreetabs-fabric-X.Y.Z.jar`
 several files per version, so one version covers both loaders. Loaders: Forge **and** Fabric. Game
 versions: 1.20.1. Release channel: **Release** for a stable build.
 
+For a 1.21.1 release, do the same with `emitreetabs-1.21.1-fabric-X.Y.Z.jar` and
+`emitreetabs-1.21.1-neoforge-X.Y.Z.jar`, loaders Fabric **and** NeoForge, game version 1.21.1, and
+give it a version number the 1.20.1 version does not already use — the stores reject a duplicate id,
+and `X.Y.Z+fabric` would be taken.
+
 ## 3. CurseForge (manual)
 
-**Files → Add File.** One file per upload, so Forge and Fabric are two separate uploads.
+**Files → Add File.** One file per upload, so each jar is its own upload: two for a 1.20.1 release,
+two for a 1.21.1 one.
 
 The form is: Display name · Environment\* · Modloader\* · Java · Minecraft\* · Release Type ·
 Changelog (WYSIWYG or markdown).
@@ -46,6 +52,8 @@ Get these right — the 2.0.1 upload got all three wrong:
 
 - **Modloader** — the Forge jar is tagged `NeoForge, Forge`. NeoForge does not exist for 1.20.1, so
   that tag matches nobody. Tag the Forge jar `Forge` and the Fabric jar `Fabric`, nothing else.
+  For 1.21.1, tag the neoforge jar `NeoForge` and the fabric jar `Fabric`; the 1.21.1 Fabric jar is
+  a different file from the 1.20.1 one, so it is a separate upload, not a second file.
 - **Release Type** — 2.0.1 is marked **Beta**. Launchers set to "release only" will not offer it.
   Use **Release** unless the build really is a beta.
 - **Changelog** — 2.0.1 still reads `## Initial release`. Paste the GitHub release notes.
@@ -80,20 +88,29 @@ without publishing.
 
 - **Two tiers, because releasing is not the same as building.** Pushing every tag to the stores
   would spam followers and bury the versions that matter.
-- **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
-  only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
-- **Nothing about loaders or Minecraft versions is written in the workflow.** Both are read out of
-  the tag being published, so a port needs no workflow edit:
-  - **loaders** — the modules in `settings.gradle` besides `common`. Today `forge` + `fabric`; after
-    the 1.21.1 port that branch will say `neoforge` + `fabric` and publishing follows automatically.
-  - **Minecraft versions** — `publish_game_versions` in `gradle.properties`. Comma separated, so a
-    build that genuinely covers several (`1.21.1,1.21.2`) says so in one place.
+- **One version per Minecraft version × loader pair**, `X.Y.Z+1.20.1-forge`, `X.Y.Z+1.20.1-fabric`,
+  `X.Y.Z+1.21.1-fabric`, `X.Y.Z+1.21.1-neoforge`. Modrinth's download button serves only the
+  *primary* file, so a single version carrying several jars hands Fabric users the wrong one — and
+  with two Minecraft versions in flight, `X.Y.Z+fabric` would be ambiguous as well. So the
+  Minecraft version is part of the store version id, and the two trees publish as separate versions
+  off one tag.
+- **Nothing about loaders or Minecraft versions is written in the workflow.** All of it is read out
+  of the modules by [`.github/read-publish-matrix.py`](.github/read-publish-matrix.py), so adding a
+  Minecraft version or a loader needs no workflow edit:
+  - **loaders** — a module publishes when its own `gradle.properties` says `publish_loader=`. A
+    module that says nothing is shared code (a `common`) and is skipped.
+  - **Minecraft versions** — the module's `publish_game_version`, else its own
+    `minecraft_version`, else the root's `publish_game_versions`.
 
-  It is a separate property rather than `minecraft_version_range`, because the range says
+  It is a stated version rather than `minecraft_version_range`, because the range says
   `[1.20.1,1.21)` and auto-detecting from it claims 1.20.1 through 1.20.6 — which is what Modrinth
   guessed, and it is wrong. EMI publishes no Forge build past 1.20.2, so those extra versions
-  advertise installs that cannot work. Widen the list only when a build has actually been run on
-  each version in it.
+  advertise installs that cannot work. Claim a version only when a build has actually been run on
+  it.
+- **The build runs on JDK 21**, because Minecraft 1.21 is a Java 21 game and Loom will not set it up
+  on an older daemon. The 1.20.1 modules keep a Java 17 toolchain, so they still compile: Loom runs
+  ForgeGradle forked, on the module's toolchain. The store's **Java** field is per module, 17 for
+  1.20.1 and 21 for 1.21.1, because that is what each jar is actually built for.
 - **EMI declared as a required dependency** on both stores.
 - **Release type `release`, not beta.** 2.0.1 was marked beta by hand, so launchers set to
   "release only" skipped it.
