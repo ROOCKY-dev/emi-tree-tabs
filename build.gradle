@@ -10,12 +10,39 @@ architectury {
 subprojects {
 	apply plugin: 'dev.architectury.loom'
 
+	// Every module targets one Minecraft version, and a repository can hold modules for more than
+	// one: the 1.20.1 Forge + Fabric build and the 1.21.1 NeoForge + Fabric build live side by
+	// side. The default is the root's version; a module overrides it in its own gradle.properties,
+	// alongside the ranges and toolchain its own metadata needs.
+	//
+	// Read straight off the file rather than through Gradle properties, because a subproject's
+	// gradle.properties is not read until after this block has run.
+	def local = new Properties()
+	def localProps = file('gradle.properties')
+	if (localProps.exists()) {
+		localProps.withInputStream { local.load(it) }
+	}
+	def mcVersion = (local.getProperty('minecraft_version') ?: rootProject.minecraft_version)
+	def mcVersionRange = (local.getProperty('minecraft_version_range') ?: rootProject.minecraft_version_range)
+	def javaVersion = (local.getProperty('java_version') ?: rootProject.java_version)
+	// Its own, not a remap of the root's: loaderVersion in mods.toml means different things to the
+	// two loaders. On Forge 47 it is the Forge version ("[47,)"), but on NeoForge 21.1 it is the
+	// javafml/FML version ("[4,)"), and the NeoForge version belongs in its own dependency block.
+	// Getting that wrong is not a warning - the game refuses to load the mod at all.
+	def loaderVersionRange = (local.getProperty('loader_version_range')
+			?: rootProject.loader_version_range)
+	// Remembers what this module decided, so allprojects{} below can use it too.
+	ext.mcVersion = mcVersion
+	ext.mcVersionRange = mcVersionRange
+	ext.javaVersion = javaVersion
+	ext.loaderVersionRange = loaderVersionRange
+
 	loom {
 		silentMojangMappingsLicense()
 	}
 
 	dependencies {
-		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
+		minecraft "com.mojang:minecraft:${mcVersion}"
 		// Official Mojang mappings, matching what the single-project ForgeGradle build used.
 		mappings loom.officialMojangMappings()
 	}
@@ -26,7 +53,13 @@ allprojects {
 	apply plugin: 'architectury-plugin'
 	apply plugin: 'maven-publish'
 
-	base.archivesName = project == rootProject ? rootProject.mod_id : "${rootProject.mod_id}-${project.name}"
+	// A jar per module, named for the Minecraft version too where the module declares one, so the
+	// 1.20.1 and 1.21.1 artifacts of the same loader never collide in a release.
+	def tagged = project.extensions.extraProperties.has('mcVersion')
+		&& project.ext.mcVersion != rootProject.minecraft_version
+	base.archivesName = project == rootProject
+			? rootProject.mod_id
+			: (tagged ? "${rootProject.mod_id}-${project.ext.mcVersion}-${project.name}" : "${rootProject.mod_id}-${project.name}")
 	version = rootProject.mod_version
 	group = rootProject.mod_group_id
 
@@ -34,29 +67,42 @@ allprojects {
 		maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }  // EMI
 		maven { name = 'Xander';         url = 'https://maven.isxander.dev/releases' }         // YACL
 		// YACL's json parsers, which it ships jar-in-jar. Needed only to run the dev client;
-		// see the localRuntime note in forge/build.gradle.
+		// see the localRuntime note in the loader modules.
 		maven { name = 'QuiltMC';        url = 'https://maven.quiltmc.org/repository/release/' }
 		maven { name = 'Sponge';         url = 'https://repo.spongepowered.org/repository/maven-public/' }
+		// NeoForge, which the 1.21.1 Forge-flavoured module builds against.
+		maven { name = 'NeoForged';      url = 'https://maven.neoforged.net/releases' }
 		mavenCentral()
 	}
 
 	java {
-		toolchain.languageVersion = JavaLanguageVersion.of(17)
+		// 1.21 runs on Java 21, so the toolchain is per module rather than one number for the repo.
+		toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(
+				project.extensions.extraProperties.has('javaVersion')
+						? project.ext.javaVersion.toString()
+						: rootProject.java_version))
 		withSourcesJar()
 	}
 
 	tasks.withType(JavaCompile).configureEach {
 		options.encoding = 'UTF-8'
-		options.release = 17
+		options.release = Integer.parseInt(
+				project.extensions.extraProperties.has('javaVersion')
+						? project.ext.javaVersion.toString()
+						: rootProject.java_version)
 	}
 
 	tasks.withType(ProcessResources).configureEach {
 		var replaceProperties = [
-				minecraft_version      : rootProject.minecraft_version,
-				minecraft_version_range: rootProject.minecraft_version_range,
+				minecraft_version      : project.extensions.extraProperties.has('mcVersion')
+						? project.ext.mcVersion : rootProject.minecraft_version,
+				minecraft_version_range: project.extensions.extraProperties.has('mcVersionRange')
+						? project.ext.mcVersionRange : rootProject.minecraft_version_range,
 				forge_version          : rootProject.forge_version,
 				forge_version_range    : rootProject.forge_version_range,
-				loader_version_range   : rootProject.loader_version_range,
+				neoforge_version_range : rootProject.neoforge_version_range,
+				loader_version_range   : project.extensions.extraProperties.has('loaderVersionRange')
+						? project.ext.loaderVersionRange : rootProject.loader_version_range,
 				emi_version_range      : rootProject.emi_version_range,
 				mod_id                 : rootProject.mod_id,
 				mod_name               : rootProject.mod_name,
@@ -66,7 +112,7 @@ allprojects {
 				mod_description        : rootProject.mod_description,
 		]
 		inputs.properties replaceProperties
-		filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'fabric.mod.json']) {
+		filesMatching(['META-INF/mods.toml', 'META-INF/neoforge.mods.toml', 'pack.mcmeta', 'fabric.mod.json']) {
 			expand replaceProperties
 		}
 	}

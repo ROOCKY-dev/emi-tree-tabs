@@ -1,0 +1,68 @@
+plugins {
+	id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+architectury {
+	platformSetupLoomIde()
+	fabric()
+}
+
+loom {
+	runs {
+		client {
+			name = 'Fabric Client (1.21.1)'
+			// Throwaway verification instance, same budget as the 1.20.1 one.
+			vmArgs '-Xmx2G', '-Xms512M'
+			property 'mixin.debug', 'true'
+			property 'mixin.checks', 'true'
+		}
+	}
+}
+
+configurations {
+	common {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+	compileClasspath.extendsFrom common
+	runtimeClasspath.extendsFrom common
+	developmentFabric.extendsFrom common
+
+	shadowBundle {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+}
+
+dependencies {
+	modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version_1_21_1}"
+	modApi "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version_1_21_1}"
+
+	modImplementation "dev.emi:emi-fabric:${rootProject.emi_version_1_21_1}"
+	// Optional: only drives the in-game config screen, never bundled.
+	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version_1_21_1}-fabric"
+	// ...but present in the dev client, otherwise the config screen can never be tested.
+	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version_1_21_1}-fabric"
+
+	// YACL jar-in-jars its json parsers, and NeoForge's JarJar unpacks them for a real install -
+	// the published artifact's META-INF/jarjar/metadata.json lists them, so players are
+	// unaffected. Loom's dev classpath does not run JarJar, so without these the dev client dies
+	// at startup with NoClassDefFoundError: org/quiltmc/parsers/json/gson/GsonWriter and YACL
+	// never loads. Runtime-only and dev-only: nothing here reaches a published jar.
+	localRuntime "org.quiltmc.parsers:gson:${rootProject.quilt_parsers_version_1_21_1}"
+	localRuntime "org.quiltmc.parsers:json:${rootProject.quilt_parsers_version_1_21_1}"
+
+	common(project(path: ':mc1211-common', configuration: 'namedElements')) { transitive false }
+	shadowBundle project(path: ':mc1211-common', configuration: 'transformProductionFabric')
+}
+
+tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+	configurations = [project.configurations.shadowBundle]
+	archiveClassifier = 'dev-shadow'
+}
+
+tasks.named('remapJar') {
+	inputFile.set shadowJar.archiveFile
+	archiveClassifier = null
+	archiveBaseName = "emitreetabs-1.21.1-fabric"
+}
