@@ -9,11 +9,17 @@ name: Publish to stores
 #
 #   git tag store-v2.2.0 && git push origin store-v2.2.0
 #
-# Nothing about the Minecraft versions or the loaders is written down in this file. Both are read
-# out of the checked-out tag, so a Minecraft port or a loader swap needs no edit here:
+# Nothing about the Minecraft versions or the loaders is written down in this file. The whole
+# matrix is derived from the modules of the checked-out tag by .github/read-publish-matrix.py, so a
+# new Minecraft version or a new loader module needs no edit here:
 #
-#   loaders            <- the modules in settings.gradle (forge+fabric now, neoforge+fabric later)
-#   Minecraft versions <- publish_game_versions in gradle.properties
+#   what to publish   <- each module's own gradle.properties: publish_loader, publish_game_version
+#   store version id  <- <mod version>+<minecraft version>-<loader>
+#   Java              <- the module's java_version (17 for 1.20.1, 21 for 1.21.1)
+#
+# Today that is four targets: 1.20.1 on Forge and Fabric, 1.21.1 on NeoForge and Fabric. The
+# Minecraft version is in the version id because one tag builds both Minecraft versions, and a store
+# takes one version id per upload.
 #
 # Rehearse from the Actions tab with dry_run ticked. The rehearsal never reaches mc-publish.
 
@@ -35,13 +41,12 @@ permissions:
 
 jobs:
   # Work out what is being published before building anything, so the publish job can fan out over
-  # whatever loaders this branch actually has.
+  # every Minecraft version x loader pair this repository builds.
   plan:
     runs-on: ubuntu-latest
     outputs:
       v: ${{ steps.read.outputs.v }}
-      loaders: ${{ steps.read.outputs.loaders }}
-      game_versions: ${{ steps.read.outputs.game_versions }}
+      targets: ${{ steps.read.outputs.targets }}
     steps:
       # A store-v* tag marks a release that already exists; the code to build is the v* tag.
       - name: Work out which version to publish
@@ -63,51 +68,50 @@ jobs:
         with:
           ref: v${{ steps.ver.outputs.v }}
 
-      - name: Read the loaders and Minecraft versions out of the repo
+      # This repository ships two Minecraft versions side by side - 1.20.1 on Forge and Fabric,
+      # 1.21.1 on NeoForge and Fabric - and both are published from the same tag. So the fan-out is
+      # over version x loader, and the Minecraft version is part of each store version id.
+      #
+      # What gets published is read out of the modules rather than written down here: a module
+      # whose own gradle.properties says `publish_loader` is published as that loader, for
+      # `publish_game_version` (or the root's minecraft_version if it does not say). A module that
+      # says neither is shared code - common, or the common half of a tree - and is skipped. The
+      # 1.20.1 modules say neither, so they publish exactly as they always have.
+      - name: Read the version x loader matrix out of the repo
         id: read
+        env:
+          V: ${{ steps.ver.outputs.v }}
         run: |
-          V="${{ steps.ver.outputs.v }}"
           echo "v=$V" >> "$GITHUB_OUTPUT"
 
-          # Loaders are whichever modules exist besides `common`. After the 1.21.1 port that becomes
-          # neoforge+fabric on its own, with no change to this file.
-          LOADERS=$(grep -oP "^include '\K[^']+" settings.gradle | grep -v '^common$' | sort)
-          if [ -z "$LOADERS" ]; then
-            echo "::error::settings.gradle lists no loader modules"; exit 1
-          fi
-          JSON=$(printf '%s\n' $LOADERS | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')
-          echo "loaders=$JSON" >> "$GITHUB_OUTPUT"
-
-          GV=$(grep -oP '^publish_game_versions=\K.*' gradle.properties | tr -d '[:space:]' || true)
-          if [ -z "$GV" ]; then
-            # Fall back to the single version this branch builds against, never to
-            # minecraft_version_range — the range spans versions EMI has no build for.
-            GV=$(grep -oP '^minecraft_version=\K.*' gradle.properties | tr -d '[:space:]')
-            echo "::warning::publish_game_versions unset; falling back to minecraft_version=$GV"
-          fi
-          echo "game_versions=$GV" >> "$GITHUB_OUTPUT"
-
-          echo "Publishing $V | loaders: $(echo $LOADERS | tr '\n' ' ')| Minecraft: $GV"
+          # The script prints a human-readable plan to stderr and the matrix as JSON on stdout, so
+          # there is one place the fan-out is decided.
+          TARGETS=$(python3 .github/read-publish-matrix.py "$V")
+          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: plan
     runs-on: ubuntu-latest
     strategy:
-      # One loader failing should not stop the others from reaching players.
+      # One target failing should not stop the others from reaching players.
       fail-fast: false
       matrix:
-        loader: ${{ fromJson(needs.plan.outputs.loaders) }}
+        target: ${{ fromJson(needs.plan.outputs.targets) }}
     steps:
       - name: Check out the matching release tag
         uses: actions/checkout@v4
         with:
           ref: v${{ needs.plan.outputs.v }}
 
-      - name: Set up JDK 17
+      # One JDK for the whole build, whichever target this matrix entry is. 1.20.1 is a Java 17
+      # game and 1.21 a Java 21 one, and Loom refuses to even set up Minecraft 1.21 on an older
+      # daemon, so the build needs 21 whether or not the 1.20.1 modules still compile on it. They
+      # do: Loom runs ForgeGradle in a forked process on the toolchain the module declares.
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -116,7 +120,8 @@ jobs:
         run: ./gradlew build --no-daemon --stacktrace
 
       # If gradle.properties disagrees with the tag, the jar is named something other than what is
-      # being published.
+      # being published. The matrix was built from the same file, so re-deriving it here catches a
+      # module that changed shape between planning and building.
       - name: Check the build matches the tag
         run: |
           V="${{ needs.plan.outputs.v }}"
@@ -124,7 +129,13 @@ jobs:
           if [ "$V" != "$BUILT" ]; then
             echo "::error::Publishing $V but gradle.properties says $BUILT"; exit 1
           fi
-          test -f "${{ matrix.loader }}/build/libs/emitreetabs-${{ matrix.loader }}-$V.jar"
+          JAR="${{ matrix.target.jar }}"
+          if [ ! -f "$JAR" ]; then
+            echo "::error::expected $JAR; built jars were:"
+            ls -1 */build/libs/*.jar mc1211/*/build/libs/*.jar 2>/dev/null || true
+            exit 1
+          fi
+          echo "jar OK: $JAR ($(stat -c%s "$JAR") bytes)"
 
       # The GitHub release for this tag already carries notes written for players, reviewed by the
       # time anyone decides to push to the stores. A file in the repo cannot serve: this job checks
@@ -148,9 +159,11 @@ jobs:
         env:
           MR: ${{ secrets.MODRINTH_TOKEN }}
           CF: ${{ secrets.CURSEFORGE_TOKEN }}
+          TARGET: ${{ matrix.target.store_version }}
+          LOADER: ${{ matrix.target.loader }}
+          GAME: ${{ matrix.target.game_version }}
+          JAR: ${{ matrix.target.jar }}
         run: |
-          V="${{ needs.plan.outputs.v }}"
-          L="${{ matrix.loader }}"
           UA="roocky-dev/ett-publish (roocky@roocky.dev)"
           fail=0
 
@@ -162,25 +175,41 @@ jobs:
             echo "::error::Modrinth returned HTTP $mr"; fail=1
           fi
 
+          # A store refuses a version id it has already seen. Checking here means a rehearsal
+          # catches a re-run of an old tag before it can create a duplicate, which is the one
+          # failure mode that is annoying to undo by hand.
+          if [ "$mr" = 200 ]; then
+            if python3 -c "
+          import json, sys
+          d = json.load(open('/tmp/mr.json'))
+          sys.exit(0 if any(v['version_number'] == '$TARGET' for v in d.get('versions', [])) else 1)
+          "; then
+              echo "::error::Modrinth already has a version called $TARGET"; fail=1
+            else
+              echo "Modrinth version id free: $TARGET"
+            fi
+          fi
+
           cf=$(curl -s -o /dev/null -w '%{http_code}' -H "X-Api-Token: $CF" \
                 https://minecraft.curseforge.com/api/game/versions)
           [ "$cf" = 200 ] && echo "CurseForge OK" \
                           || { echo "::error::CurseForge returned HTTP $cf"; fail=1; }
 
-          JAR="$L/build/libs/emitreetabs-$L-$V.jar"
           [ -f "$JAR" ] && echo "jar OK: $JAR ($(stat -c%s "$JAR") bytes)" \
                         || { echo "::error::missing $JAR"; fail=1; }
 
           echo "changelog: $(wc -c < release-notes.md) bytes"
-          echo "WOULD PUBLISH: $V+$L | loader $L | Minecraft ${{ needs.plan.outputs.game_versions }} | release"
+          echo "WOULD PUBLISH: $TARGET | loader $LOADER | Minecraft $GAME | release"
           exit $fail
 
       # mc-publish's own dry-run cannot be trusted: it logged `dry-run: true` and uploaded to both
       # stores anyway, creating duplicate versions. So a rehearsal never reaches this step at all.
       #
-      # One version per loader, not one version carrying every jar. Modrinth's download button
-      # serves only the *primary* file, so a combined version hands Fabric users the Forge jar.
-      - name: Publish ${{ matrix.loader }}
+      # One store version per Minecraft version x loader pair, not one version carrying every jar.
+      # Modrinth's download button serves only the *primary* file, so a combined version hands
+      # Fabric users the Forge jar - and with two Minecraft versions in flight, two jars both called
+      # "<mod version>+fabric" would collide outright.
+      - name: Publish ${{ matrix.target.store_version }}
         if: ${{ !inputs.dry_run }}
         uses: Kir-Antipov/mc-publish@v3.3
         with:
@@ -188,12 +217,13 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           curseforge-id: '1677804'
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          files: ${{ matrix.loader }}/build/libs/emitreetabs-${{ matrix.loader }}-${{ needs.plan.outputs.v }}.jar
-          name: EMI Tree Tabs ${{ needs.plan.outputs.v }} (${{ matrix.loader }})
-          version: ${{ needs.plan.outputs.v }}+${{ matrix.loader }}
+          files: ${{ matrix.target.jar }}
+          name: EMI Tree Tabs ${{ matrix.target.store_version }}
+          version: ${{ matrix.target.store_version }}
           version-type: release
-          loaders: ${{ matrix.loader }}
-          game-versions: ${{ needs.plan.outputs.game_versions }}
-          java: '17'
+          loaders: ${{ matrix.target.loader }}
+          game-versions: ${{ matrix.target.game_version }}
+          # Declared per module, because 1.20.1 is a Java 17 game and 1.21 a Java 21 one.
+          java: ${{ matrix.target.java }}
           dependencies: emi(required)
           changelog-file: release-notes.md
