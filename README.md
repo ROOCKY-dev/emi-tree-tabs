@@ -239,6 +239,8 @@ version gate — have 99 tests; everything that touches EMI has to be run in gam
 The code in this mod was written by an AI assistant working from my direction. See
 [AI-DISCLOSURE.md](AI-DISCLOSURE.md) for the full statement.
 
+This Project is being reviewed by me ROOCKY DEV to reduce AI usage -slop- and hopfully move away from it.
+
 ## Licence
 
 [MIT](LICENSE).
