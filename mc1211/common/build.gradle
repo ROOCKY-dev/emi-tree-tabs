@@ -1,0 +1,53 @@
+architectury {
+	common('neoforge', 'fabric')
+	// No Architectury API at runtime, so its injected helper class is just dead weight.
+	injectInjectables = false
+}
+
+loom {
+	mixin {
+		// Loom 1.10 stopped wiring up the Mixin annotation processor unless asked, and this
+		// project writes its refmap with it - the same arrangement the 1.20.1 module uses.
+		useLegacyMixinAp = true
+		// Loom otherwise names this emitreetabs-mc1211-common-common-refmap.json, which does not
+		// match what the mixin config declares, leaving the refmap unfound at runtime.
+		defaultRefmapName = "emitreetabs-1.21.1-common.refmap.json"
+	}
+}
+
+// Plain JUnit tests for the parts that touch neither Minecraft nor EMI. Same reasoning as the
+// 1.20.1 module: every tab bar bug so far has been arithmetic.
+test {
+	useJUnitPlatform()
+	testLogging { events "failed"; exceptionFormat "full" }
+}
+
+dependencies {
+	testImplementation platform("org.junit:junit-bom:5.10.2")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+
+	// The common module compiles against Minecraft only. EMI's own dev.emi.emi.* classes are
+	// identical across loaders, so the NeoForge jar serves purely as a compile-time reference:
+	// EMI publishes no Forge build for 1.21.1, and emi-xplat-mojmap would drag Mojang mappings
+	// in a second time.
+	modCompileOnly "dev.emi:emi-neoforge:${rootProject.emi_version_1_21_1}"
+
+	// Same arrangement for YACL: the dev.isxander.yacl3.* API is identical across loaders, so the
+	// NeoForge artifact is a compile-time reference and the settings screen lives in common
+	// rather than being written twice.
+	//
+	// Not transitive: the NeoForge artifact depends on Kotlin for NeoForge, whose maven is not
+	// published anywhere this build can reach. It does not matter here - nothing this mod calls
+	// in the YACL API has a Kotlin type in its signature, and YACL jar-jars Kotlin anyway, so
+	// players and the dev client both get it from YACL itself.
+	modCompileOnly("dev.isxander:yet-another-config-lib:${rootProject.yacl_version_1_21_1}-neoforge") {
+		transitive = false
+	}
+
+	// Loom does not put Mixin on a common module's compile classpath, so it is declared here.
+	// compileOnly because both loaders ship Mixin at runtime; the annotation processor writes the
+	// refmap.
+	compileOnly "org.spongepowered:mixin:${rootProject.mixin_version_1_21_1}"
+	annotationProcessor "org.spongepowered:mixin:${rootProject.mixin_version_1_21_1}:processor"
+}
