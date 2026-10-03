@@ -63,7 +63,7 @@ public final class SidebarLayout {
 	}
 
 	/** One laid-out row: the model row, where it is, and which parts of it are interactive. */
-	public record Slot(Row row, int index, Rect bounds, Rect marker, Rect collapse) {
+	public record Slot(Row row, int index, Rect bounds, Rect marker, Rect collapse, Rect close) {
 	}
 
 	/** The panel floats clear of every screen edge by this much. */
@@ -91,6 +91,8 @@ public final class SidebarLayout {
 	public static final int MARKER = 16;
 	/** The fold arrow at a group header's left end. */
 	public static final int COLLAPSE = 10;
+	/** The × that drops a group, just left of its marker. */
+	public static final int CLOSE = 10;
 	/** The settings and craft-all buttons in the bottom corners. */
 	public static final int BUTTON = 16;
 	/** Reserved strip at the bottom of the panel for those two buttons. */
@@ -191,8 +193,13 @@ public final class SidebarLayout {
 			Rect collapse = isGroup
 					? new Rect(bounds.x() + ROW_PAD, y + (h - COLLAPSE) / 2, COLLAPSE, COLLAPSE)
 					: null;
+			// Only a group has a close box. A tab row already closes on middle click, and its strip
+			// counterpart has its own ×.
+			Rect close = isGroup
+					? new Rect(marker.x() - 3 - CLOSE, y + (h - CLOSE) / 2, CLOSE, CLOSE)
+					: null;
 
-			out.add(new Slot(r, i, bounds, marker, collapse));
+			out.add(new Slot(r, i, bounds, marker, collapse, close));
 			y += h + ROW_GAP;
 		}
 		return out;
@@ -275,6 +282,12 @@ public final class SidebarLayout {
 				&& viewport.contains(x, y) && slot.collapse().contains(x, y);
 	}
 
+	/** True when the pointer is over a group header's ×. */
+	public boolean overClose(Slot slot, double x, double y) {
+		return slot != null && slot.close() != null
+				&& viewport.contains(x, y) && slot.close().contains(x, y);
+	}
+
 	public Rect settingsButton() {
 		return new Rect(panel.x() + PAD, panel.y() + panel.height() - PAD - BUTTON, BUTTON, BUTTON);
 	}
@@ -320,7 +333,8 @@ public final class SidebarLayout {
 		if (!showNames || slot == null) {
 			return 0;
 		}
-		int used = ROW_PAD * 2 + (slot.collapse() != null ? COLLAPSE + 4 : 0) + ICON + 5 + MARKER + 5;
+		int used = ROW_PAD * 2 + (slot.collapse() != null ? COLLAPSE + 4 : 0)
+				+ (slot.close() != null ? CLOSE + 3 : 0) + ICON + 5 + MARKER + 5;
 		return Math.max(0, slot.bounds().width() - used);
 	}
 

@@ -38,9 +38,6 @@ public final class TabBar {
 	private static final int ICON_SIZE = TabLayout.ICON_SIZE;
 	private static final int DRAG_SLOP = 4;
 
-	/** Only the strip has a close button, so this is the one colour that stays local. */
-	private static final int COLOR_CLOSE_HOVER = 0xFFD05050;
-
 	private static double scroll;
 	private static int dragIndex = -1;
 	private static double dragOriginX;
@@ -213,7 +210,7 @@ public final class TabBar {
 			int rx = r.x() + (x - l.tabX(index, scroll));
 			boolean closeHovered = mouseX >= rx && mouseX < rx + r.width()
 					&& mouseY >= r.y() && mouseY < r.y() + r.height();
-			int colour = closeHovered ? COLOR_CLOSE_HOVER : TabPalette.TEXT_DIM;
+			int colour = closeHovered ? TabPalette.CLOSE_HOVER : TabPalette.TEXT_DIM;
 			if (l.density == Density.ICON) {
 				// A badge, not an inline button: the rest of the tab has to stay selectable.
 				graphics.fill(rx, r.y(), rx + r.width(), r.y() + r.height(), 0xC0101014);

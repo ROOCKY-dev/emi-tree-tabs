@@ -131,6 +131,14 @@ public final class TreeTabs {
 			TABS.add(active + 1, new TreeTab(tree));
 			active++;
 		} else {
+			if (newTab) {
+				// Asked for a new tab but there is no room. Replacing the current one silently looked
+				// like the click had opened a tab and lost the tree that was there.
+				SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
+						SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+						Component.translatable("emi.tree_tabs.limit.title", TreeTabsConfig.maxTabs),
+						Component.translatable("emi.tree_tabs.limit.body"));
+			}
 			TreeTab tab = TABS.get(active);
 			tab.tree = tree;
 			tab.customName = null;
@@ -143,6 +151,25 @@ public final class TreeTabs {
 			if (opened != null) {
 				opened.craftingMode = true;
 				BoM.craftingMode = true;
+			}
+		}
+		markDirty();
+	}
+
+	/**
+	 * Called after EMI changes a default recipe. EMI has already rebuilt {@code BoM.tree}; every
+	 * other tab still holds nodes built from the old default until it is rebuilt here.
+	 *
+	 * <p>A tab that picked its own recipe for an ingredient keeps it: {@code MaterialTree.getRecipe}
+	 * checks the tree's own resolutions before the defaults.
+	 */
+	public static void onDefaultsChanged() {
+		if (!TreeTabsConfig.enabled || TABS.isEmpty()) {
+			return;
+		}
+		for (TreeTab tab : TABS) {
+			if (tab.tree != null && tab.tree != BoM.tree) {
+				tab.tree.recalculate();
 			}
 		}
 		markDirty();
@@ -828,7 +855,10 @@ public final class TreeTabs {
 		tab.labelVersion++;
 		markDirty();
 	}
-
+	/**
+	 * Marks the tabs as needing a write, and invalidates the progress cache.
+	 * basiclly a "something changed" flag for the whole system.
+	 */
 	public static void markDirty() {
 		structureVersion++;
 		dirty = true;

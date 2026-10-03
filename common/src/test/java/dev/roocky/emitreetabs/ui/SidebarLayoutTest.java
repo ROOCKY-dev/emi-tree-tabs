@@ -249,6 +249,14 @@ class SidebarLayoutTest {
 			assertNotNull(l.slots().get(0).collapse());
 			assertNull(l.slots().get(1).collapse(), "a tab must not offer a fold arrow");
 		}
+
+		@Test
+		@DisplayName("only a group header offers a close box")
+		void onlyGroupsClose() {
+			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
+			assertNotNull(l.slots().get(0).close());
+			assertNull(l.slots().get(1).close(), "a tab row must not offer a group's close box");
+		}
 	}
 
 	@Nested
@@ -301,6 +309,22 @@ class SidebarLayoutTest {
 			// Clicking the header's right half selects or toggles, it does not fold.
 			double farRight = header.bounds().x() + header.bounds().width() - 3.0;
 			assertFalse(l.overCollapse(header, farRight, c.y() + 1.0));
+		}
+
+		@Test
+		@DisplayName("the close box is its own target, clear of the marker and the fold arrow")
+		void closeBoxIsItsOwnTarget() {
+			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
+			Slot header = l.slots().get(0);
+			Rect x = header.close();
+			double cx = x.x() + x.width() / 2.0;
+			double cy = x.y() + x.height() / 2.0;
+			assertTrue(l.overClose(header, cx, cy));
+			assertFalse(l.overMarker(header, cx, cy), "the close box overlaps the marker");
+			assertFalse(l.overCollapse(header, cx, cy), "the close box overlaps the fold arrow");
+			Rect m = header.marker();
+			assertFalse(l.overClose(header, m.x() + m.width() / 2.0, m.y() + m.height() / 2.0),
+					"the marker answered as the close box");
 		}
 
 		@Test
@@ -404,13 +428,14 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("a label never runs under the marker or the fold arrow")
+		@DisplayName("a label never runs under the marker, the fold arrow or the close box")
 		void budgetLeavesRoomForControls() {
 			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
 			for (Slot s : l.slots()) {
 				int budget = l.labelBudget(s);
 				int controls = SidebarLayout.ROW_PAD * 2
 						+ (s.collapse() != null ? SidebarLayout.COLLAPSE + 4 : 0)
+						+ (s.close() != null ? SidebarLayout.CLOSE + 3 : 0)
 						+ SidebarLayout.ICON + 5 + SidebarLayout.MARKER + 5;
 				assertTrue(budget + controls <= s.bounds().width(),
 						"the label budget overlaps the row's controls");

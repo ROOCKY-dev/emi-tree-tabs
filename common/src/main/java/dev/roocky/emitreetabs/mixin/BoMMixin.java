@@ -10,8 +10,9 @@ import dev.emi.emi.api.recipe.EmiRecipe;
 import dev.emi.emi.bom.BoM;
 
 /**
- * EMI keeps one tree in a static field. These two hooks are the whole integration: notice when a
- * tree is created, and rebuild our tabs whenever EMI reloads and invalidates every recipe object.
+ * EMI keeps one tree in a static field. These hooks are the whole integration: notice when a tree
+ * is created, rebuild our tabs whenever EMI reloads and invalidates every recipe object, and
+ * rebuild the inactive trees when a default recipe changes.
  *
  * <p>{@code remap = false} for the whole class because none of BoM's members come from Minecraft.
  */
@@ -26,5 +27,14 @@ public class BoMMixin {
 	@Inject(method = "reload", at = @At("TAIL"))
 	private static void emitreetabs$onReload(CallbackInfo ci) {
 		TreeTabs.onEmiReload();
+	}
+
+	/**
+	 * Every change to EMI's default recipes (the heart button, the slot buttons, removing one) ends
+	 * here, and EMI only rebuilds {@code BoM.tree}. The other tabs need the same treatment.
+	 */
+	@Inject(method = "recalculate", at = @At("TAIL"))
+	private static void emitreetabs$onDefaultsChanged(CallbackInfo ci) {
+		TreeTabs.onDefaultsChanged();
 	}
 }

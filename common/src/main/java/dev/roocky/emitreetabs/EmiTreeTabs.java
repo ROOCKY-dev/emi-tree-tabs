@@ -13,7 +13,7 @@ import org.slf4j.Logger;
  * <p>EMI stores exactly one {@code MaterialTree} in the static field {@code BoM.tree}, so opening a
  * new tree throws away whatever you were looking at. This mod keeps a list of trees and swaps the
  * right one into {@code BoM.tree} when you change tab, which means EMI's own tree screen keeps
- * doing all of the drawing and editing work unchanged.
+ * doing all the drawing and editing work unchanged.
  *
  * <p>Loader-agnostic. Each loader module has its own entrypoint that calls {@link #initClient()}
  * and registers its own events.
@@ -40,6 +40,17 @@ public final class EmiTreeTabs {
 	public static void initClient() {
 		TreeTabsConfig.load();
 		CraftingSidebarType.install();
+
+		/*
+		 see if it is possible set up emi config to give the user a direct clear experience of ETT without having change EMI config manually first without missing up any custom changes the user already made
+		 
+		 This way, the user can immediately start using ETT without any additional setup. 
+		  
+		 @ROOCKY-dev
+
+		 */
+
+
 		// Before anything else can ask for it. A consumer's own init may run before or after ours
 		// depending on loader and mod order, and TreeTabsApi.registry returning null to a mod that
 		// simply loaded first would be a race nobody could reproduce.

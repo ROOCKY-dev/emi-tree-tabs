@@ -50,6 +50,8 @@ public final class TabPalette {
 
 	/** Laid over a parked tab: its tree has stopped asking for materials. */
 	public static final int PARKED = 0x66000000;
+	/** A close × under the cursor: on a strip tab, and on a sidebar group header. */
+	public static final int CLOSE_HOVER = 0xFFD05050;
 	/** A scroll arrow that cannot move. Present, so the strip does not look like it simply ends. */
 	public static final int DISABLED = 0xFF55555E;
 

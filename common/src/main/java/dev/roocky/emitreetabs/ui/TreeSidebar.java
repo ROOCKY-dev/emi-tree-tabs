@@ -324,10 +324,17 @@ public final class TreeSidebar {
 		int size = TreeTabs.groupSize(group.id);
 		boolean allCrafting = size > 0 && TreeTabs.groupCraftingCount(group.id) == size;
 		Rect m = s.marker();
+		Rect x = s.close();
+		// Shown while the header is hovered, like the × on a strip tab. Until this existed the only
+		// way to drop a phase was a middle click that only the tooltip mentioned.
+		if (hovered) {
+			Icons.centred(g, Icons.CLOSE, x.x(), x.y(), x.width(), x.height(),
+					l.overClose(s, mouseX, mouseY) ? TabPalette.CLOSE_HOVER : TabPalette.TEXT_DIM);
+		}
 		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
 		// aside for now" - and not at all on a header whose name was too long to draw.
 		if (group.parked) {
-			Icons.draw(g, Icons.PARK, m.x() - Icons.PARK.width() - 3,
+			Icons.draw(g, Icons.PARK, x.x() - Icons.PARK.width() - 3,
 					m.y() + (m.height() - Icons.PARK.height()) / 2, TabPalette.TEXT_DIM);
 		}
 		marker(g, font, m, String.valueOf(size), allCrafting,
@@ -495,10 +502,10 @@ public final class TreeSidebar {
 				TreeTabs.setGroupCrafting(id, TreeTabs.groupCraftingCount(id) < TreeTabs.groupSize(id));
 				return true;
 			}
-			// Middle click drops the phase, matching middle click closing a tab. Its trees stay
+			// The × or a middle click drops the phase, matching how a tab closes. Its trees stay
 			// open and simply become ungrouped - a phase is a label on trees, not a box holding
 			// them, so deleting it must not take them with it.
-			if (button == 2) {
+			if (button == 2 || (button == 0 && l.overClose(s, mouseX, mouseY))) {
 				click();
 				RowName.close(screen);
 				TreeTabs.removeGroup(id);
@@ -539,9 +546,11 @@ public final class TreeSidebar {
 			}
 			return true;
 		}
+		// Right click renames, as it does on the strip. Its tooltip line ("Right click or F2 to
+		// rename") is shared with the strip, and here it used to only select the row.
 		if (button == 1) {
 			click();
-			TreeTabs.select(tabIndex);
+			RowName.openTab(screen, tabIndex, s.bounds());
 			return true;
 		}
 		if (button == 2) {
