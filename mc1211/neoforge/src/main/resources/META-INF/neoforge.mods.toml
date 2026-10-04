@@ -1,0 +1,51 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+${mod_description}
+'''
+# Nothing here affects the server, so never fail a connection over a version mismatch.
+displayTest="IGNORE_ALL_VERSION"
+
+# NeoForge 20.4+ replaced Forge's "mandatory" boolean with an explicit "type". "required" is the
+# NeoForge spelling; the 1.20.1 build still says mandatory=true, which is what Forge 47 wants.
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neoforge_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="emi"
+    type="required"
+    versionRange="${emi_version_range}"
+    ordering="AFTER"
+    side="CLIENT"
+
+# Optional. Only used to draw the in-game settings screen; the json config works without it.
+# The floor is 3.7 because that is the oldest YACL published for 1.21.1. A higher floor would
+# silently exclude every build a player can actually install, and because the dependency is
+# optional that failure is invisible: no config screen, no warning.
+[[dependencies.${mod_id}]]
+    modId="yet_another_config_lib_v3"
+    type="optional"
+    versionRange="[3.7,)"
+    ordering="AFTER"
+    side="CLIENT"
+
+[[mixins]]
+    config="${mod_id}-common.mixins.json"

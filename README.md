@@ -2,7 +2,7 @@
 
 Track more than one EMI recipe tree at a time, and get a crafting list that spans all of them.
 
-**Minecraft 1.20.1 · Forge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1+ · client-side only**
+**Minecraft 1.20.1 on Forge and Fabric, and 1.21.1 on NeoForge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1+ · client-side only**
 
 [Modrinth](https://modrinth.com/mod/si3AK8q5) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs) · [Releases](https://github.com/ROOCKY-dev/emi-tree-tabs/releases)
 
@@ -209,21 +209,33 @@ returns `null` rather than a registry that would break halfway through. See [API
 ## Compatibility
 
 Hooks EMI's internals rather than a public API, because EMI exposes none for crafting trees. Pinned
-working combination: **EMI 1.1.24 · Forge 47 · MC 1.20.1**. An EMI update that renames the internals
-listed in the source will break this, most likely as a startup error rather than a silent failure.
-Tested alongside EMI++ (`emixx`) and in a 377-mod pack, where the mod measured below 0.03% of
-render-thread CPU and 0.004% of allocation.
+working combinations: **EMI 1.1.24 · Forge 47 · MC 1.20.1** and **EMI 1.1.24 · NeoForge 21.1 · MC
+1.21.1**. An EMI update that renames the internals listed in the source will break this, most likely
+as a startup error rather than a silent failure. Tested alongside EMI++ (`emixx`) and in a 377-mod
+pack, where the mod measured below 0.03% of render-thread CPU and 0.004% of allocation.
+
+**Two Minecraft versions ship from this repository.** 1.20.1 gets Forge and Fabric; 1.21.1 gets
+NeoForge and Fabric, because EMI and YACL both stopped publishing Forge builds after 1.20.x — there
+is no EMI for Forge 1.21.1 to work against. The two trees are separate copies of the shared code
+under `mc1211/`, not a shared source set, so each can track its own Minecraft version.
+
+Carrying a config across the two: tab names, groups, batch counts and viewports are plain json and
+carry over. The per-ingredient recipe resolutions are written by EMI's own serializer, whose format
+changed with 1.21's item components, so those are dropped on load and those branches fall back to
+EMI's default recipe. Tabs are not lost; a few choices inside them are.
 
 ## Building
 
-Needs a **JDK 17**.
+Needs a **JDK 21**.
 
 ```bash
 ./gradlew build
 ```
 
-Jars land in `forge/build/libs/` and `fabric/build/libs/`. `./gradlew :forge:runClient` or
-`:fabric:runClient` starts a dev client with EMI and YACL on the classpath.
+Jars land in `forge/build/libs/`, `fabric/build/libs/`, `mc1211/fabric/build/libs/` and
+`mc1211/neoforge/build/libs/`. `./gradlew :forge:runClient`, `:fabric:runClient`,
+`:mc1211-fabric:runClient` or `:mc1211-neoforge:runClient` starts a dev client with EMI and YACL
+on the classpath.
 
 ## Roadmap and contributing
 

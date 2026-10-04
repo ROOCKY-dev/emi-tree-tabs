@@ -1,0 +1,365 @@
+package dev.roocky.emitreetabs.tab;
+
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import dev.roocky.emitreetabs.TreeTabsConfig;
+import dev.roocky.emitreetabs.sidebar.CraftingGroups;
+import dev.roocky.emitreetabs.sidebar.ChoiceEntry;
+import dev.roocky.emitreetabs.sidebar.CraftingSidebarType;
+import dev.emi.emi.api.recipe.EmiPlayerInventory;
+import dev.emi.emi.api.recipe.EmiRecipe;
+import dev.emi.emi.api.stack.EmiIngredient;
+import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.bom.BoM;
+import dev.emi.emi.bom.FlatMaterialCost;
+import dev.emi.emi.bom.MaterialTree;
+import dev.emi.emi.runtime.EmiFavorite;
+import dev.emi.emi.runtime.EmiFavorites;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * Feeds EMI's crafting mode from every tracked tree instead of only the visible one.
+ *
+ * <p>EMI's {@code EmiFavorites.updateSynthetic} reads {@code BoM.tree}, so rather than
+ * reimplementing its accounting we run <em>EMI's own</em> pass once per tab with that field pointed
+ * at each tree, then merge the results. That keeps the arithmetic EMI's problem, not ours.
+ *
+ * <p>Trees are costed against a <em>shrinking</em> pool rather than each getting the whole
+ * inventory: whatever the first tree does not consume is what the second one gets. Without that,
+ * two trees each needing 10 iron with 10 in the chest would both report themselves satisfied and
+ * the merged list would ask for none. The pool carries crafting by-products forward too, so a
+ * tree's leftovers are available to the next one.
+ */
+public final class CraftingFavorites {
+	/** Set while we are driving EMI's own updateSynthetic, so our injector lets it through. */
+	private static boolean reentrant;
+
+	private CraftingFavorites() {
+	}
+
+	/**
+	 * @return true when we produced the crafting list ourselves and EMI's own body should be skipped.
+	 */
+	public static boolean aggregate(EmiPlayerInventory inventory) {
+		if (reentrant) {
+			return false;
+		}
+		// Cleared up front so every exit below leaves the sections consistent with the list. Missing
+		// this is what left the sidebar showing a tree that had already been emptied: the flat list
+		// was cleared by EMI but our sections still held the old contents.
+		CraftingGroups.begin();
+		if (!TreeTabsConfig.enabled || !TreeTabsConfig.aggregateCraftingFavorites) {
+			return false;
+		}
+		// Deliberately not gated on BoM.craftingMode: a tree being worked on should keep feeding the
+		// crafting list even while you are looking at a different tab.
+		List<TreeTab> included = new ArrayList<>();
+		for (TreeTab tab : TreeTabs.tabs()) {
+			// A parked group is set aside: its trees stay open and keep their own crafting flags,
+			// but they stop asking for materials. That is the entire point of parking a phase.
+			if (tab.craftingMode && !TreeTabs.isParked(tab)
+					&& tab.tree != null && tab.tree.goal != null) {
+				included.add(tab);
+			}
+		}
+		if (included.isEmpty()) {
+			// No tree is being worked on. Let EMI handle it.
+			return false;
+		}
+
+		// [batches, amount, total] per recipe, and [needed, total] per leftover material.
+		Map<EmiRecipe, long[]> recipeTotals = new LinkedHashMap<>();
+		Map<EmiIngredient, long[]> costTotals = new LinkedHashMap<>();
+		// Which tabs each material is for, and how much each of them wants. Free here because we are
+		// already walking every tree, and it is the only place the split is knowable: once the totals
+		// are summed the question "how much of this copper is for plates" cannot be answered.
+		Map<EmiIngredient, Map<TreeTab, long[]>> costOwners = new LinkedHashMap<>();
+		MaterialTree restore = BoM.tree;
+		boolean anything = false;
+
+		reentrant = true;
+		SubCraftCosts.beginPass();
+		try {
+			// Materials another mod says the player has elsewhere join the pool before any tree
+			// draws on it, so a chest three rooms away counts the same as a pocket - which is the
+			// point. Off until the player turns it on: see TreeTabsConfig.useExternalStock.
+			EmiPlayerInventory pool = withExternalStock(inventory);
+			for (TreeTab tab : included) {
+				BoM.tree = tab.tree;
+				BoM.craftingMode = true;
+				// Watch this tree's costing, so each raw material can be attributed to the
+				// sub-craft that wanted it. Only knowable from inside EMI's own walk.
+				SubCraftCosts.begin(tab);
+				EmiFavorites.updateSynthetic(pool);
+				SubCraftCosts.end();
+				// Costed against the pool, so whatever this tree claimed is gone for the next one.
+				// Valid even when the tree had nothing to do: it still earmarked what it consumed.
+				if (TreeTabsConfig.sharedCraftingInventory) {
+					pool = leftovers(tab.tree);
+				}
+				if (!BoM.craftingMode) {
+					// EMI turns the flag off for a tree with nothing left to do; that tab is done,
+					// so drop it back to viewing.
+					tab.craftingMode = false;
+					continue;
+				}
+				anything = true;
+				for (EmiFavorite.Synthetic entry : EmiFavorites.syntheticFavorites) {
+					if (entry.getRecipe() != null) {
+						long[] totals = recipeTotals.computeIfAbsent(entry.getRecipe(), key -> new long[3]);
+						totals[0] += entry.batches;
+						totals[1] += entry.amount;
+						totals[2] += entry.total;
+					} else {
+						long[] totals = costTotals.computeIfAbsent(entry.getStack(), key -> new long[2]);
+						totals[0] += entry.amount;
+						totals[1] += entry.total;
+						long[] mine = costOwners
+								.computeIfAbsent(entry.getStack(), key -> new LinkedHashMap<>())
+								.computeIfAbsent(tab, key -> new long[2]);
+						mine[0] += entry.amount;
+						mine[1] += entry.total;
+					}
+				}
+			}
+		} finally {
+			reentrant = false;
+			SubCraftCosts.endPass();
+			// After the pass, never during it: a listener that looks at the list must see the
+			// finished one, and one that throws must not leave BoM.tree pointing at a stray tree.
+			ApiRegistry.get().craftingListChanged();
+			BoM.tree = restore;
+			// The global flag is only about what the open screen shows, so restore the active tab's.
+			TreeTab activeTab = TreeTabs.activeTab();
+			BoM.craftingMode = activeTab != null && activeTab.craftingMode;
+		}
+
+		// Published before the early return, so a run that produced nothing also clears the old split
+		// rather than leaving a stale one to be read against the next tree.
+		ATTRIBUTION = costOwners;
+		EmiFavorites.syntheticFavorites.clear();
+		if (!anything) {
+			return true;
+		}
+		// Recipes first, then raw materials, matching the order EMI emits for a single tree.
+		CraftingGroups.Group toCraft = CraftingGroups.group("craft",
+				Component.translatable("emi.tree_tabs.group.craft"));
+		for (Map.Entry<EmiRecipe, long[]> entry : recipeTotals.entrySet()) {
+			EmiRecipe recipe = entry.getKey();
+			long[] totals = entry.getValue();
+			int state = inventory.canCraft(recipe, totals[0]) ? 2 : inventory.canCraft(recipe) ? 1 : 0;
+			EmiFavorite.Synthetic synthetic =
+					new EmiFavorite.Synthetic(recipe, totals[0], totals[1], totals[2], state);
+			EmiFavorites.syntheticFavorites.add(synthetic);
+			toCraft.entries.add(synthetic);
+		}
+
+		CraftingGroups.Group shared = CraftingGroups.group("shared",
+				Component.translatable("emi.tree_tabs.group.shared"));
+		for (Map.Entry<EmiIngredient, long[]> entry : costTotals.entrySet()) {
+			long[] totals = entry.getValue();
+			EmiFavorite.Synthetic synthetic =
+					ChoiceEntry.of(entry.getKey(), totals[0], totals[1]);
+			EmiFavorites.syntheticFavorites.add(synthetic);
+
+			Set<TreeTab> owners = costOwners.containsKey(entry.getKey())
+					? costOwners.get(entry.getKey()).keySet() : null;
+			if (owners == null || owners.size() != 1) {
+				shared.entries.add(synthetic);
+			} else {
+				TreeTab owner = owners.iterator().next();
+				CraftingGroups.group("tab:" + System.identityHashCode(owner), owner.displayName())
+						.entries.add(synthetic);
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * What a tree left unconsumed, as an inventory for the next tree to draw on.
+	 *
+	 * <p>{@code TreeCost.remainders} starts life as the inventory and is decremented as the tree
+	 * claims materials, so after a progress pass it is exactly the unclaimed remainder, plus any
+	 * by-products the tree's own recipes would produce.
+	 *
+	 * <p>Chanced remainders are deliberately ignored — a maybe-drop is not something to promise the
+	 * next tree it already has.
+	 */
+	/**
+	 * How much of a shared material each tree wants, most demanding first.
+	 *
+	 * <p>The crafting list can say "184 copper" but not what it is for, so deciding whether to spend
+	 * it on plates now or save it for pipes means doing the arithmetic by hand. This is the split,
+	 * kept from the one moment it is knowable: after the totals are summed it is gone.
+	 */
+	public static List<Attribution> attribution(EmiIngredient stack) {
+		Map<TreeTab, long[]> owners = ATTRIBUTION.get(stack);
+		if (owners == null || owners.isEmpty()) {
+			return List.of();
+		}
+		List<Attribution> out = new ArrayList<>();
+		for (Map.Entry<TreeTab, long[]> e : owners.entrySet()) {
+			out.add(new Attribution(e.getKey(), e.getValue()[0], e.getValue()[1]));
+		}
+		out.sort((a, b) -> Long.compare(b.needed(), a.needed()));
+		return out;
+	}
+
+	/** One tree's share of a shared material. */
+	public record Attribution(TreeTab tab, long needed, long total) {
+	}
+
+	private static Map<EmiIngredient, Map<TreeTab, long[]>> ATTRIBUTION = new LinkedHashMap<>();
+
+	/**
+	 * Which registered source is offering each item, from the last pass.
+	 *
+	 * <p>Kept rather than asked for, because the tooltip that wants it is rebuilt every frame the
+	 * cursor is on the item and a third-party mod should be called once per crafting-list pass, not
+	 * sixty times a second.
+	 */
+	private static Map<EmiStack, Component> STOCK_LABELS = new LinkedHashMap<>();
+
+	/**
+	 * What to call the place this material is coming from, or null when it is the player's own
+	 * inventory.
+	 *
+	 * <p>"You have it" and "you have it three rooms away" are different answers, and a crafting
+	 * list that silently stops asking for something on the strength of the second one is worse
+	 * than one that never counted it.
+	 */
+	public static Component stockLabel(EmiIngredient ingredient) {
+		if (STOCK_LABELS.isEmpty() || ingredient == null) {
+			return null;
+		}
+		for (EmiStack stack : ingredient.getEmiStacks()) {
+			Component label = STOCK_LABELS.get(stack.copy().setAmount(1));
+			if (label != null) {
+				return label;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The player's inventory plus whatever registered stock sources are offering.
+	 *
+	 * <p>Built as a copy rather than by adding to EMI's own inventory object, which belongs to EMI
+	 * and is handed back to it for its own uses.
+	 */
+	private static EmiPlayerInventory withExternalStock(EmiPlayerInventory inventory) {
+		ApiRegistry api = ApiRegistry.get();
+		if (!api.hasStock()) {
+			return inventory;
+		}
+		Map<EmiStack, Component> labels = new LinkedHashMap<>();
+		List<ItemStack> offered = api.stock((stack, label) ->
+				labels.putIfAbsent(EmiStack.of(stack).copy().setAmount(1), label));
+		STOCK_LABELS = labels;
+		if (offered.isEmpty()) {
+			return inventory;
+		}
+		EmiPlayerInventory merged = new EmiPlayerInventory(List.of());
+		merged.inventory.clear();
+		merged.inventory.putAll(inventory.inventory);
+		for (ItemStack stack : offered) {
+			EmiStack key = EmiStack.of(stack).copy().setAmount(1);
+			EmiStack existing = merged.inventory.get(key);
+			long have = existing == null ? 0 : existing.getAmount();
+			EmiStack combined = EmiStack.of(stack).copy().setAmount(have + stack.getCount());
+			merged.inventory.put(key, combined);
+		}
+		return merged;
+	}
+
+	/**
+	 * Drops everything this class remembers about the world that just went away.
+	 *
+	 * <p>Both maps are keyed or valued by {@link TreeTab}, and a TreeTab holds a
+	 * {@code MaterialTree} — which is the whole node graph, and every {@code EmiRecipe} in it. Left
+	 * alone they pin the previous world's recipes for as long as the client runs, which is the
+	 * exact leak {@code TreeTabs.releaseTrees} was written to prevent.
+	 */
+	public static void release() {
+		ATTRIBUTION = new LinkedHashMap<>();
+		STOCK_LABELS = new LinkedHashMap<>();
+	}
+
+	private static EmiPlayerInventory leftovers(MaterialTree tree) {
+		// The list constructor also folds in the cursor stack, so clear it and fill the map
+		// directly. EMI does the same thing when it needs an inventory it fully controls.
+		EmiPlayerInventory next = new EmiPlayerInventory(List.of());
+		next.inventory.clear();
+		for (Map.Entry<EmiStack, FlatMaterialCost> entry : tree.cost.remainders.entrySet()) {
+			long amount = entry.getValue().amount;
+			if (amount <= 0) {
+				continue;
+			}
+			EmiStack stack = entry.getKey().copy().setAmount(amount);
+			next.inventory.put(stack, stack);
+		}
+		return next;
+	}
+
+	/**
+	 * Swaps EMI's favourites sidebar list for one we control. {@code EmiFavorites.favoriteSidebar} is
+	 * a plain public static field that EMI reads fresh on every sidebar query, so this needs no mixin.
+	 */
+	public static void installSidebarView() {
+		if (!(EmiFavorites.favoriteSidebar instanceof SidebarView)) {
+			EmiFavorites.favoriteSidebar = new SidebarView();
+		}
+	}
+
+	/**
+	 * EMI's own compound list (favourites, then the crafting entries), with the crafting half
+	 * dropped once something else is showing it.
+	 */
+	private static final class SidebarView extends AbstractList<EmiFavorite> {
+
+		/**
+		 * Whether the favourites panel should carry the crafting list as well.
+		 *
+		 * <p>Note what this deliberately cannot do: replace favourites. Favourites either has the
+		 * crafting list appended, exactly as stock EMI does, or it has only favourites. An earlier
+		 * option swapped one for the other while crafting mode was on, which read as favourites
+		 * vanishing and fought the dedicated Crafting panel; it is gone.
+		 */
+		private boolean carriesCraftingList() {
+			if (!TreeTabsConfig.enabled) {
+				return true;
+			}
+			if (!TreeTabsConfig.craftingInFavorites) {
+				return false;
+			}
+			// A panel of our own is already showing it; showing it twice is worse than not at all.
+			if (CraftingSidebarType.TYPE == null
+					&& !"NONE".equalsIgnoreCase(TreeTabsConfig.craftingPanelSide)) {
+				return false;
+			}
+			return !CraftingSidebarType.isPlacedInSidebar();
+		}
+
+		@Override
+		public EmiFavorite get(int index) {
+			List<EmiFavorite> favorites = EmiFavorites.favorites;
+			if (carriesCraftingList() && index >= favorites.size()) {
+				return EmiFavorites.syntheticFavorites.get(index - favorites.size());
+			}
+			return favorites.get(index);
+		}
+
+		@Override
+		public int size() {
+			int size = EmiFavorites.favorites.size();
+			return carriesCraftingList() ? size + EmiFavorites.syntheticFavorites.size() : size;
+		}
+	}
+}

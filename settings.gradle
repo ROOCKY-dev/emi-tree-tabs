@@ -9,6 +9,18 @@ pluginManagement {
 
 rootProject.name = 'emi-tree-tabs'
 
+// Minecraft 1.20.1: Forge + Fabric.
 include 'common'
 include 'forge'
 include 'fabric'
+
+// Minecraft 1.21.1: NeoForge + Fabric. EMI and YACL both stopped publishing for Forge after
+// 1.20.x, so 1.21.1 cannot be a Forge build; the 1.20.1 modules above stay exactly as they are.
+// Each module says which Minecraft version it targets in its own gradle.properties.
+include 'mc1211-common'
+include 'mc1211-fabric'
+include 'mc1211-neoforge'
+
+project(':mc1211-common').projectDir = file('mc1211/common')
+project(':mc1211-fabric').projectDir = file('mc1211/fabric')
+project(':mc1211-neoforge').projectDir = file('mc1211/neoforge')

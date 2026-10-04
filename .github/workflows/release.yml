@@ -21,11 +21,13 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Set up JDK 17
+      # JDK 21 for the whole build. Minecraft 1.21 is a Java 21 game and Loom will not set it up
+      # on an older daemon, so the 1.21.1 modules cannot even be configured on 17.
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -35,6 +37,11 @@ jobs:
 
       # The tag is the source of truth. If gradle.properties disagrees the jars would be named
       # something other than what the tag claims, so fail rather than publish a mislabelled file.
+      #
+      # One release carries every Minecraft version this tag builds, so all four jars are listed:
+      # 1.20.1 on Forge and Fabric, 1.21.1 on NeoForge and Fabric. The 1.21.1 jars carry the
+      # Minecraft version in their name, which is what keeps the two Fabric jars apart on a
+      # download page.
       - name: Resolve and check version
         id: ver
         run: |
@@ -47,6 +54,8 @@ jobs:
           fi
           test -f "forge/build/libs/emitreetabs-forge-$VERSION.jar"
           test -f "fabric/build/libs/emitreetabs-fabric-$VERSION.jar"
+          test -f "mc1211/fabric/build/libs/emitreetabs-1.21.1-fabric-$VERSION.jar"
+          test -f "mc1211/neoforge/build/libs/emitreetabs-1.21.1-neoforge-$VERSION.jar"
           echo "v=$VERSION" >> "$GITHUB_OUTPUT"
 
       # Exact filenames, not globs. A glob also matches the -sources and -dev-shadow jars, which
@@ -58,5 +67,7 @@ jobs:
           files: |
             forge/build/libs/emitreetabs-forge-${{ steps.ver.outputs.v }}.jar
             fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
+            mc1211/fabric/build/libs/emitreetabs-1.21.1-fabric-${{ steps.ver.outputs.v }}.jar
+            mc1211/neoforge/build/libs/emitreetabs-1.21.1-neoforge-${{ steps.ver.outputs.v }}.jar
           generate_release_notes: true
           draft: true
