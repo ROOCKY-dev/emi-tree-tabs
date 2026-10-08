@@ -42,7 +42,7 @@ jobs:
       # The loader module produces the real mod jar; the root project is only a container and
       # emits an empty one, so it must not be what gets uploaded.
       - name: Upload jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: emitreetabs-${{ github.sha }}
           path: |
