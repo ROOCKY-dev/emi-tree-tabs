@@ -573,8 +573,8 @@ its footer. Shared tooltips wrap at 200 GUI pixels and sit beside the panel. The
 in the NeoForge playtest. The subsequent requested layout attaches the panel to its window edge,
 uses the full height and 20% width, and scales its contents by 130–145%. Rendering and input share
 SidebarScale; scissor rectangles convert explicitly because GuiGraphics ignores the pose there.
-The attached/scaled layout still needs an in-game check, including right-side mode, dragging,
-rename/batch fields and narrow windows. Fabric remains pending.
+This initial sizing was superseded by the approved 25%-width layout recorded below.
+Fabric and explicit edge-case checks (right-side mode and very narrow windows) remain pending.
 
 ### 5.0 playtest: explicit sidebar and EMI preset
 
@@ -596,8 +596,8 @@ switching page types from paging through one list.
 Build verification: both loader jars build; 111 tests pass. Fabric jar refmap contains the preset
 screen init mapping (`method_25426`). NeoForge reaches the menu without mod startup errors.
 
-Pending playtest: explicitly selecting attached sidebar at the current GUI scale, applying and
-reverting the preset, switching its three left pages, and repeating on Fabric.
+The owner approved the final NeoForge experience with no further notes. Repeat the sidebar and
+preset checks on Fabric; explicitly verify preset Revert behavior and the no-YACL case before release.
 
 ### Sidebar sizing corrected after the screenshot playtest
 
@@ -606,8 +606,14 @@ independent of content scale: rows, icons, buttons and text draw at 65% of the n
 The earlier 130–145% enlargement was a misinterpretation and made the panel crowded at the
 owner's GUI scale. The smaller contents and wider panel leave room for names and row actions.
 The width fraction and content scale are separate named constants. Build and hit-target tests
-cover the smaller coordinate system; final sizing still needs the owner's visual playtest.
+cover the smaller coordinate system. The following playtest selected the final width.
 
 The next playtest approved the smaller contents but found the 35% panel wider than necessary.
 The owner selected **25% of the full window width**, retaining the 65% content scale and full-height
 attachment. This supersedes the 35% width above.
+
+
+**Final NeoForge playtest approved (2026-10-31):** the owner reported everything good with no
+further notes at 25% window width and 65% content scale. Keep these proportions as the approved
+default. This approval covers the NeoForge session; it does not close Fabric, the no-YACL launch,
+1.20.1 save carry-over, or unexercised edge-case checks. No release tag has been created.
