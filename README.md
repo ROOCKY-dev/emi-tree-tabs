@@ -23,8 +23,8 @@ own tree screen does all the drawing and editing, so every tree behaves exactly 
 Every tree you open becomes a tab instead of replacing the last one. Hold **Shift** while opening to
 invert that for one click.
 
-The **floating sidebar** above is the default wherever the screen can host it: a panel down the left
-with room for names, batch counts and phase headers at any GUI scale. On a screen too small it falls
+The **attached sidebar** above is the default wherever the screen can host it: a full-height panel down the left, using 20% of the window width,
+with controls drawn 30–45% larger than the rest of the GUI. On a screen too small it falls
 back to a **horizontal strip** along the top, which shrinks tabs down a fixed floor and then scrolls
 rather than letting the close button vanish. `tabOrientation` forces either one.
 
@@ -60,6 +60,19 @@ Trees are costed against a **shrinking pool** rather than each getting your whol
 trees each needing 10 iron with 10 in the chest correctly report 10 still needed, instead of both
 declaring themselves satisfied. Reorder tabs to change which tree gets first claim.
 
+For a ready-made layout, open **EMI settings → Config Presets → Sidebars → EMI Tree Tabs**,
+then press **Done** in the preset screen and **Done** in EMI settings. This replaces your sidebar
+layout with **Crafting**, **Favorites** and **Craftables** as pages on the left, and the item index
+on the right. **Revert** in EMI settings restores the previous layout before you save.
+
+**Click the page icon in the left sidebar's header** (the crafting grid, star, or other page icon)
+to switch between Crafting, Favorites and Craftables. The arrow buttons turn pages *within* the
+current list; the page icon switches the *kind* of list. This recording shows the difference:
+
+[![Click the Crafting page icon to switch sidebar pages](docs/sidebar-pages.png)](docs/sidebar-pages.mp4)
+
+[Watch the short page-switching recording](docs/sidebar-pages.mp4) (11 seconds, no audio).
+
 The mod adds a **Crafting** page type to EMI's own sidebar picker, alongside Index, Craftables and
 Favourites. Add it as a *page* or a *subpanel* on any sidebar and the list lives there, split into
 **To craft**, **Shared materials** (wanted by two or more trees) and one section per tree, with
@@ -87,9 +100,9 @@ in full, and how much of the material that takes.
 Progression unlocks a cheaper way to make some intermediate part. You change it on the tree in front
 of you, and the other eight machines quietly carry on using the expensive one.
 
-**Recipe choices** finds them. It is nothing until you ask for it: a button appears in the sidebar
-only while your open trees actually disagree about how to make something, and `Ctrl+R` opens it from
-anywhere. The screen lists each contested ingredient, each way of making it, the inputs that tell
+**Recipe choices** finds them. It never acts on its own: its button in the sidebar footer lights up
+while your open trees actually disagree about how to make something, and `Ctrl+Shift+R` opens it
+from anywhere. The screen lists each contested ingredient, each way of making it, the inputs that tell
 those ways apart, and which trees use each — and every button says how many trees it would change
 before you press it. Only that one sub-craft changes; nothing else about those trees is touched.
 
@@ -125,7 +138,7 @@ All on EMI's recipe tree screen.
 | **Park a phase** | Right click its header · Shift+right click parks all the others |
 | **Fold a phase** | Left click its header |
 | **Drop a phase** | Middle click its header — its trees stay open |
-| **Recipe choices** | The fork button when it appears, or `Ctrl+R` |
+| **Recipe choices** | The fork button in the sidebar footer, or `Ctrl+Shift+R` (plain `Ctrl+R` is EMI's random tree) |
 | Scroll | Mouse wheel over the bar or panel |
 
 ---

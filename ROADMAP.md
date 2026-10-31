@@ -564,3 +564,37 @@ These are documented in the [README](README.md) with the reasoning:
 
 Open a [feature request](../../issues/new/choose). Describing the problem you are trying to solve is
 more useful than describing a solution.
+
+
+### 5.0 playtest: sidebar controls and sizing
+
+The sidebar now exposes rename, batch editing and phase actions as row buttons, plus reopen in
+its footer. Shared tooltips wrap at 200 GUI pixels and sit beside the panel. These were approved
+in the NeoForge playtest. The subsequent requested layout attaches the panel to its window edge,
+uses the full height and 20% width, and scales its contents by 130–145%. Rendering and input share
+SidebarScale; scissor rectangles convert explicitly because GuiGraphics ignores the pose there.
+The attached/scaled layout still needs an in-game check, including right-side mode, dragging,
+rename/batch fields and narrow windows. Fabric remains pending.
+
+### 5.0 playtest: explicit sidebar and EMI preset
+
+The attached sidebar selection was saved correctly but still passed through Auto's minimum-size
+check. At a large GUI scale the enlarged panel failed that check and silently became the strip.
+Only Auto now falls back; an explicit attached sidebar is honored. A regression test covers the
+narrow-window selection.
+
+EMI settings → Config Presets → Sidebars now includes **EMI Tree Tabs**. It reuses EMI's two-panel
+preset, puts Crafting/Favorites/Craftables on the left and Index on the right, and retains EMI's
+Revert/Done behavior. No mod config is changed by the preset. The integration supplies an annotated
+field to ConfigPresetScreen's existing reflection loop, verified against EMI 1.1.24 bytecode.
+
+The owner's recording at `~/Videos/Captures/2026-10-31_22-08-25.mp4` is included in the README as
+`docs/sidebar-pages.mp4`, trimmed past the capture overlay, resized and stripped of audio. Its
+thumbnail shows the Crafting page icon and the click-to-switch tooltip. The guide distinguishes
+switching page types from paging through one list.
+
+Build verification: both loader jars build; 111 tests pass. Fabric jar refmap contains the preset
+screen init mapping (`method_25426`). NeoForge reaches the menu without mod startup errors.
+
+Pending playtest: explicitly selecting attached sidebar at the current GUI scale, applying and
+reverting the preset, switching its three left pages, and repeating on Fabric.

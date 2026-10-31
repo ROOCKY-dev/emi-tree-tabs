@@ -2,6 +2,7 @@ package dev.roocky.emitreetabs.ui;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Where every part of the vertical tab sidebar is, and nothing else.
@@ -17,23 +18,28 @@ import java.util.List;
  * <h2>The shape</h2>
  *
  * <pre>
- *   ┌─ screen ─────────────────────────────────────────┐
- *   │  ┌────────────┐                                  │
- *   │  │ ▸ Phase 1 ▪│ ← group header, fills the width  │
- *   │  │ ┌────────┐ │                                  │
- *   │  │ │ ▪ Oak 4│ │ ← member tab, inside the group   │
- *   │  │ │ ▪ Iron2│ │   border                         │
- *   │  │ └────────┘ │        the focused tree gets      │
- *   │  │ ┌────────┐ │        the other four fifths      │
- *   │  │ │ ▪ Fan 1│ │ ← ungrouped tab                  │
- *   │  │ └────────┘ │                                  │
- *   │  │ [⚙]    [≡] │ ← settings / craft-all           │
- *   │  └────────────┘                                  │
- *   └──────────────────────────────────────────────────┘
+ *   ┌─ screen ────────────────────────────────────────┐
+ *   ├────────────┐                                    │
+ *   │ ▸ Phase 1 ▪│ ← group header, fills the width    │
+ *   │ ┌────────┐ │                                    │
+ *   │ │ ▪ Oak 4│ │ ← member tab, inside the group     │
+ *   │ │ ▪ Iron2│ │   border                           │
+ *   │ └────────┘ │        the focused tree gets        │
+ *   │ ┌────────┐ │        the other four fifths        │
+ *   │ │ ▪ Fan 1│ │ ← ungrouped tab                    │
+ *   │ └────────┘ │                                    │
+ *   │ [⚙]    [≡] │ ← settings / craft-all             │
+ *   └────────────┴────────────────────────────────────┘
  * </pre>
  *
- * The panel floats: it is inset from every screen edge by {@link #MARGIN}, which is what makes it
- * read as a panel over the tree rather than chrome bolted to the window.
+ * The panel is attached to the window: flush with its edge, the full height of it. It used to
+ * float, inset from every edge, to read as a panel over the tree; in play that inset was only
+ * space the rows could not use, and the panel is now drawn larger than the rest of the GUI (see
+ * {@link SidebarScale}), which needs every unit of it. Changed at the owner's request in the 5.0
+ * playtest — do not restore the float without asking.
+ *
+ * <p>Every measurement here is in <em>sidebar units</em>: the caller divides the screen by the
+ * panel's scale before building a layout, and multiplies back on the way out.
  */
 public final class SidebarLayout {
 
@@ -62,12 +68,50 @@ public final class SidebarLayout {
 		}
 	}
 
-	/** One laid-out row: the model row, where it is, and which parts of it are interactive. */
-	public record Slot(Row row, int index, Rect bounds, Rect marker, Rect collapse, Rect close) {
+	/**
+	 * A button on a row. Shown while the row is hovered, so the panel stays quiet at rest and every
+	 * gesture the tooltip used to describe in words has something to click.
+	 */
+	public enum RowAction {
+		CLOSE, RENAME, BATCH, PARK, FOCUS
 	}
 
-	/** The panel floats clear of every screen edge by this much. */
-	public static final int MARGIN = 14;
+	/** Where one of a row's buttons is. */
+	public record Action(RowAction kind, Rect bounds) {
+	}
+
+	/**
+	 * Which buttons each kind of row offers, in the order they claim space from the right.
+	 *
+	 * <p>Close comes first so it is the last to give way on a narrow panel: it is the one every
+	 * reader looks for, and on a tab it sits where the strip's × always has. Rename gives way first,
+	 * because F2 and right click both do the same thing.
+	 */
+	private static final List<RowAction> TAB_ACTIONS =
+			List.of(RowAction.CLOSE, RowAction.BATCH, RowAction.RENAME);
+	private static final List<RowAction> GROUP_ACTIONS =
+			List.of(RowAction.CLOSE, RowAction.PARK, RowAction.FOCUS, RowAction.RENAME);
+
+	/** One laid-out row: the model row, where it is, and which parts of it are interactive. */
+	public record Slot(Row row, int index, Rect bounds, Rect marker, Rect collapse,
+			List<Action> actions) {
+
+		/** Where this row's button of the given kind is, or null when the row has no room for it. */
+		public Rect action(RowAction kind) {
+			for (Action a : actions) {
+				if (a.kind() == kind) {
+					return a.bounds();
+				}
+			}
+			return null;
+		}
+
+		/** The × — kept as its own accessor because it is the button every row is sure to have. */
+		public Rect close() {
+			return action(RowAction.CLOSE);
+		}
+	}
+
 	/** Padding between the panel's edge and its contents. */
 	public static final int PAD = 7;
 	/** Padding inside a row, before its icon and after its marker. */
@@ -91,8 +135,13 @@ public final class SidebarLayout {
 	public static final int MARKER = 16;
 	/** The fold arrow at a group header's left end. */
 	public static final int COLLAPSE = 10;
-	/** The × that drops a group, just left of its marker. */
+	/** A row button: the × that closes, and the others that line up to its left. */
 	public static final int CLOSE = 10;
+	public static final int ACTION = CLOSE;
+	/** Between two row buttons. Tighter than the gap to the marker, so they read as one cluster. */
+	public static final int ACTION_GAP = 2;
+	/** Between the leftmost row button and the marker it would otherwise touch. */
+	public static final int ACTION_MARKER_GAP = 3;
 	/** The settings and craft-all buttons in the bottom corners. */
 	public static final int BUTTON = 16;
 	/** Reserved strip at the bottom of the panel for those two buttons. */
@@ -127,12 +176,11 @@ public final class SidebarLayout {
 		this.screenHeight = screenHeight;
 		this.onLeft = onLeft;
 
-		int width = Math.max(MIN_PANEL_WIDTH, (int) Math.round(screenWidth * WIDTH_FRACTION));
-		// Never let the panel eat the screen on a tiny window: it may not exceed a third.
-		width = Math.min(width, Math.max(MIN_PANEL_WIDTH, screenWidth / 3));
-		int height = Math.max(FOOTER + ROW_HEIGHT, screenHeight - MARGIN * 2);
-		int x = onLeft ? MARGIN : screenWidth - MARGIN - width;
-		this.panel = new Rect(x, MARGIN, width, height);
+		int width = (int) Math.round(screenWidth * WIDTH_FRACTION);
+		// Attached: flush with the window's edge and as tall as the window.
+		int height = Math.max(FOOTER + ROW_HEIGHT, screenHeight);
+		int x = onLeft ? 0 : screenWidth - width;
+		this.panel = new Rect(x, 0, width, height);
 
 		this.viewport = new Rect(panel.x() + PAD, panel.y() + PAD,
 				panel.width() - PAD * 2, panel.height() - PAD * 2 - FOOTER);
@@ -193,16 +241,48 @@ public final class SidebarLayout {
 			Rect collapse = isGroup
 					? new Rect(bounds.x() + ROW_PAD, y + (h - COLLAPSE) / 2, COLLAPSE, COLLAPSE)
 					: null;
-			// Only a group has a close box. A tab row already closes on middle click, and its strip
-			// counterpart has its own ×.
-			Rect close = isGroup
-					? new Rect(marker.x() - 3 - CLOSE, y + (h - CLOSE) / 2, CLOSE, CLOSE)
-					: null;
+			List<Action> actions = layOutActions(isGroup ? GROUP_ACTIONS : TAB_ACTIONS,
+					labelStart(bounds, isGroup), marker.x() - ACTION_MARKER_GAP, y, h);
 
-			out.add(new Slot(r, i, bounds, marker, collapse, close));
+			out.add(new Slot(r, i, bounds, marker, collapse, actions));
 			y += h + ROW_GAP;
 		}
 		return out;
+	}
+
+	/**
+	 * Lines a row's buttons up leftwards from its marker, dropping the ones that would run into the
+	 * start of the label.
+	 *
+	 * <p>A dropped button is not a lost feature: each has a key or a click that does the same, and
+	 * the tooltip still names it. What must never happen is a button drawn over the row's icon or
+	 * fold arrow, where a click meant for one would land on the other.
+	 */
+	private static List<Action> layOutActions(List<RowAction> wanted, int labelStart, int right,
+			int rowY, int rowHeight) {
+		List<Action> out = new ArrayList<>();
+		int x = right;
+		for (RowAction kind : wanted) {
+			int left = x - ACTION;
+			if (left < labelStart) {
+				break;
+			}
+			out.add(new Action(kind, new Rect(left, rowY + (rowHeight - ACTION) / 2, ACTION, ACTION)));
+			x = left - ACTION_GAP;
+		}
+		return out;
+	}
+
+	/** Where a tab row's icon is drawn, a little in from the progress stripe on its left edge. */
+	public static int iconX(Rect bounds) {
+		return bounds.x() + ROW_PAD + 2;
+	}
+
+	/** Where a row's label begins: past the fold arrow on a header, past the icon on a tab. */
+	public static int labelStart(Rect bounds, boolean isGroup) {
+		return isGroup
+				? bounds.x() + ROW_PAD + COLLAPSE + 4
+				: iconX(bounds) + ICON + 5;
 	}
 
 	/** Every laid-out row, in order. Rows hidden by a collapsed group are absent. */
@@ -282,10 +362,27 @@ public final class SidebarLayout {
 				&& viewport.contains(x, y) && slot.collapse().contains(x, y);
 	}
 
-	/** True when the pointer is over a group header's ×. */
+	/** True when the pointer is over a row's ×. */
 	public boolean overClose(Slot slot, double x, double y) {
-		return slot != null && slot.close() != null
-				&& viewport.contains(x, y) && slot.close().contains(x, y);
+		return actionAt(slot, x, y) == RowAction.CLOSE;
+	}
+
+	/**
+	 * The row button under the pointer, or null.
+	 *
+	 * <p>Asked of a row the pointer is already over, like {@link #overMarker}: the buttons only
+	 * exist while their row is hovered, so a point on another row must never answer for this one.
+	 */
+	public RowAction actionAt(Slot slot, double x, double y) {
+		if (slot == null || !viewport.contains(x, y) || !slot.bounds().contains(x, y)) {
+			return null;
+		}
+		for (Action a : slot.actions()) {
+			if (a.bounds().contains(x, y)) {
+				return a.kind();
+			}
+		}
+		return null;
 	}
 
 	public Rect settingsButton() {
@@ -298,17 +395,26 @@ public final class SidebarLayout {
 	}
 
 	/**
-	 * Makes a new phase out of the active tree.
-	 *
-	 * <p>Beside settings rather than in the free corner: the two corners are "change how this
-	 * behaves" and "act on every tree", and making a phase is neither — it acts on one tree.
-	 */
-	/**
-	 * Opens the recipe-choices screen. Drawn only when the trees actually disagree, so the corner
-	 * stays empty until there is something to look at.
+	 * Opens the recipe-choices screen. Always drawn, and lit while the trees actually disagree:
+	 * hiding it until then meant nobody knew the screen existed until the day it appeared.
 	 */
 	public Rect choicesButton() {
-		return new Rect(panel.x() + PAD + (BUTTON + 4) * 2, panel.y() + panel.height() - PAD - BUTTON,
+		return footerSlot(2);
+	}
+
+	/** Brings back the last closed tab. Drawn only while there is one to bring back. */
+	public Rect reopenButton() {
+		return footerSlot(3);
+	}
+
+	/**
+	 * The n-th button from the left along the footer, settings being the 0th.
+	 *
+	 * <p>Craft-all is not one of these: it owns the opposite corner, and {@link #footerFits} is how
+	 * the ones in between give way to it on a narrow panel.
+	 */
+	private Rect footerSlot(int n) {
+		return new Rect(panel.x() + PAD + (BUTTON + 4) * n, panel.y() + panel.height() - PAD - BUTTON,
 				BUTTON, BUTTON);
 	}
 
@@ -323,19 +429,47 @@ public final class SidebarLayout {
 		return r.x() + r.width() + 4 <= craftAllButton().x();
 	}
 
+	/**
+	 * Makes a new phase out of the active tree.
+	 *
+	 * <p>Beside settings rather than in the free corner: the two corners are "change how this
+	 * behaves" and "act on every tree", and making a phase is neither — it acts on one tree.
+	 */
 	public Rect newGroupButton() {
-		return new Rect(panel.x() + PAD + BUTTON + 4, panel.y() + panel.height() - PAD - BUTTON,
-				BUTTON, BUTTON);
+		return footerSlot(1);
 	}
 
-	/** How wide a label may be on this row, or 0 when this panel is too narrow for labels. */
+	/** How wide a label may be on this row at rest, with none of its buttons showing. */
 	public int labelBudget(Slot slot) {
+		return labelBudget(slot, Set.of());
+	}
+
+	/**
+	 * How wide a label may be on this row while the given buttons are drawn, or 0 when this panel is
+	 * too narrow for labels.
+	 *
+	 * <p>The label gives way to the buttons rather than the other way round: they appear under the
+	 * pointer, which is exactly when the name is already known.
+	 */
+	public int labelBudget(Slot slot, Set<RowAction> shown) {
 		if (!showNames || slot == null) {
 			return 0;
 		}
 		int used = ROW_PAD * 2 + (slot.collapse() != null ? COLLAPSE + 4 : 0)
-				+ (slot.close() != null ? CLOSE + 3 : 0) + ICON + 5 + MARKER + 5;
-		return Math.max(0, slot.bounds().width() - used);
+				+ ICON + 5 + MARKER + 5;
+		int budget = slot.bounds().width() - used;
+
+		int leftmostShown = Integer.MAX_VALUE;
+		for (Action a : slot.actions()) {
+			if (shown.contains(a.kind())) {
+				leftmostShown = Math.min(leftmostShown, a.bounds().x());
+			}
+		}
+		if (leftmostShown != Integer.MAX_VALUE) {
+			int labelLeft = labelStart(slot.bounds(), slot.collapse() != null);
+			budget = Math.min(budget, leftmostShown - ACTION_GAP - labelLeft);
+		}
+		return Math.max(0, budget);
 	}
 
 	// --------------------------------------------------------------- scroll
@@ -347,6 +481,6 @@ public final class SidebarLayout {
 	/** Whether this screen can host the sidebar at all. */
 	public static boolean fits(int screenWidth, int screenHeight) {
 		return screenWidth * WIDTH_FRACTION >= MIN_PANEL_WIDTH
-				&& screenHeight - MARGIN * 2 >= FOOTER + ROW_HEIGHT * 3;
+				&& screenHeight >= FOOTER + PAD * 2 + ROW_HEIGHT * 3 + ROW_GAP * 2;
 	}
 }
