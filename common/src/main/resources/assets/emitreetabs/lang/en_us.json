@@ -90,7 +90,7 @@
   "emi.tree_tabs.config.preview.density.comfortable": "Comfortable — %spx a tab, full names",
   "emi.tree_tabs.config.preview.density.compact": "Compact — %spx a tab, names trimmed",
   "emi.tree_tabs.config.preview.density.icon": "Icons only — %spx a tab, then it scrolls",
-  "emi.tree_tabs.config.preview.sidebar": "Attached sidebar — full height, 20% width",
+  "emi.tree_tabs.config.preview.sidebar": "Attached sidebar — full height, 35% width",
   "emi.tree_tabs.config.maxTabs.value": "%s tabs",
   "emi.tree_tabs.config.closedTabHistory.value": "Remember %s",
   "emi.tree_tabs.config.closedTabHistory.off": "Off — closing is final",

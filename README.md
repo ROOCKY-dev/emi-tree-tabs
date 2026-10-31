@@ -23,8 +23,8 @@ own tree screen does all the drawing and editing, so every tree behaves exactly 
 Every tree you open becomes a tab instead of replacing the last one. Hold **Shift** while opening to
 invert that for one click.
 
-The **attached sidebar** above is the default wherever the screen can host it: a full-height panel down the left, using 20% of the window width,
-with controls drawn 30–45% larger than the rest of the GUI. On a screen too small it falls
+The **attached sidebar** above is the default wherever the screen can host it: a full-height panel down the left, using 35% of the full window width,
+with controls drawn at 65% of the normal GUI size. On a screen too small it falls
 back to a **horizontal strip** along the top, which shrinks tabs down a fixed floor and then scrolls
 rather than letting the close button vanish. `tabOrientation` forces either one.
 

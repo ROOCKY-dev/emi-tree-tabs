@@ -45,17 +45,17 @@ class SidebarLayoutTest {
 	}
 
 	@Nested
-	@DisplayName("the floating panel")
+	@DisplayName("the attached panel")
 	class Panel {
 
 		@Test
-		@DisplayName("takes about a fifth of the width, leaving the rest for the tree")
-		void widthIsAFifth() {
+		@DisplayName("takes 35 percent of the full width, leaving the rest for the tree")
+		void widthIsThirtyFivePercent() {
 			SidebarLayout l = medium(plainTabs(3));
-			assertEquals(Math.round(960 * 0.2), l.panel.width());
+			assertEquals(Math.round(960 * 0.35), l.panel.width());
 			int leftForTree = l.screenWidth - l.panel.width();
-			assertTrue(leftForTree > l.screenWidth * 0.75,
-					"the tree should keep about four fifths, got " + leftForTree);
+			assertTrue(leftForTree > l.screenWidth * 0.64,
+					"the tree should keep about 65 percent, got " + leftForTree);
 		}
 
 		@Test
@@ -77,11 +77,11 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("never eats more than a third of a small screen")
+		@DisplayName("uses the same width fraction on small screens")
 		void doesNotEatSmallScreens() {
 			for (int w : new int[] { 320, 400, 480, 640, 960, 1920 }) {
 				SidebarLayout l = of(w, 400, plainTabs(3));
-				assertTrue(l.panel.width() <= Math.max(SidebarLayout.MIN_PANEL_WIDTH, w / 3),
+				assertEquals(Math.round(w * 0.35), l.panel.width(),
 						"panel took " + l.panel.width() + " of " + w);
 			}
 		}
@@ -104,7 +104,7 @@ class SidebarLayoutTest {
 		@DisplayName("knows when a screen is too small to host it")
 		void fitsIsHonest() {
 			assertTrue(SidebarLayout.fits(960, 540));
-			assertFalse(SidebarLayout.fits(200, 540), "200px wide cannot host a fifth-width panel");
+			assertFalse(SidebarLayout.fits(200, 540), "200px wide cannot host the minimum panel width");
 			assertFalse(SidebarLayout.fits(960, 100), "100px tall cannot host three rows");
 		}
 	}
@@ -546,7 +546,7 @@ class SidebarLayoutTest {
 	class Labels {
 
 		@Test
-		@DisplayName("a fifth of a normal screen is wide enough for names")
+		@DisplayName("a normal screen is wide enough for names")
 		void namesFitAtNormalSizes() {
 			assertTrue(medium(plainTabs(3)).showNames,
 					"960px wide should give a panel with room for names");

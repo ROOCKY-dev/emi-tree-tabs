@@ -598,3 +598,12 @@ screen init mapping (`method_25426`). NeoForge reaches the menu without mod star
 
 Pending playtest: explicitly selecting attached sidebar at the current GUI scale, applying and
 reverting the preset, switching its three left pages, and repeating on Fabric.
+
+### Sidebar sizing corrected after the screenshot playtest
+
+The attached panel stays full height and now takes **35% of the entire window width**. This is
+independent of content scale: rows, icons, buttons and text draw at 65% of the normal GUI size.
+The earlier 130–145% enlargement was a misinterpretation and made the panel crowded at the
+owner's GUI scale. The smaller contents and wider panel leave room for names and row actions.
+The width fraction and content scale are separate named constants. Build and hit-target tests
+cover the smaller coordinate system; final sizing still needs the owner's visual playtest.

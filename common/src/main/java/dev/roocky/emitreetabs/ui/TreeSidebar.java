@@ -29,7 +29,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 
 /**
- * The vertical tab panel: a floating sidebar over EMI's tree screen.
+ * The vertical tab panel, attached to the edge of EMI's tree screen.
  *
  * <p>All of the arithmetic lives in {@link SidebarLayout} and all of the ordering in
  * {@link SidebarRows}; this class draws what they describe and turns clicks back into tab
@@ -58,27 +58,27 @@ public final class TreeSidebar {
 		if (!TreeTabsConfig.enabled || TreeTabs.count() == 0) {
 			return false;
 		}
-		return scale(screen).useSidebar(TreeTabsConfig.tabOrientation, screen.width, screen.height);
+		return scale().useSidebar(TreeTabsConfig.tabOrientation, screen.width, screen.height);
 	}
 
 	private static SidebarLayout layout(Screen screen, SidebarRows.Result rows) {
-		SidebarScale scale = scale(screen);
+		SidebarScale scale = scale();
 		return new SidebarLayout(scale.toUnits(screen.width), scale.toUnits(screen.height), rows.rows(), scroll,
 				!TreeTabsConfig.barAtBottom);
 	}
 
-	private static SidebarScale scale(Screen screen) {
-		return SidebarScale.forScreen(screen.width, Minecraft.getInstance().getWindow().getGuiScale());
+	private static SidebarScale scale() {
+		return SidebarScale.standard();
 	}
 
 	/** Screen coordinates for text fields and tooltips, which render outside the panel pose. */
 	private static Rect screenRect(Screen screen, Rect rect) {
-		return scale(screen).toScreen(rect);
+		return scale().toScreen(rect);
 	}
 
 	public static boolean isOver(Screen screen, double mouseX, double mouseY) {
-		mouseX = scale(screen).toUnits(mouseX);
-		mouseY = scale(screen).toUnits(mouseY);
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -91,7 +91,7 @@ public final class TreeSidebar {
 		if (!active(screen)) {
 			return;
 		}
-		SidebarScale scale = scale(screen);
+		SidebarScale scale = scale();
 		mouseX = (int) scale.toUnits((double) mouseX);
 		mouseY = (int) scale.toUnits((double) mouseY);
 		TreeTabs.syncActiveCraftingMode();
@@ -241,7 +241,7 @@ public final class TreeSidebar {
 		TabTooltip.render(g, font, lines, screen.width, screen.height,
 				new TabTooltip.Rect(panel.x(), panel.y(), panel.width(), panel.height()),
 				l.onLeft ? panel.x() + panel.width() + 60 : panel.x() - 60,
-				scale(screen).toScreen(mouseX), scale(screen).toScreen(mouseY));
+				scale().toScreen(mouseX), scale().toScreen(mouseY));
 	}
 
 	/**
@@ -512,7 +512,7 @@ public final class TreeSidebar {
 		TabTooltip.render(g, font, lines, screen.width, screen.height,
 				new TabTooltip.Rect(panel.x(), panel.y(), panel.width(), panel.height()),
 				l.onLeft ? panel.x() + panel.width() + 60 : panel.x() - 60,
-				scale(screen).toScreen(mouseX), scale(screen).toScreen(mouseY));
+				scale().toScreen(mouseX), scale().toScreen(mouseY));
 	}
 
 	/**
@@ -547,8 +547,8 @@ public final class TreeSidebar {
 	// ----------------------------------------------------------------- input
 
 	public static boolean mouseClicked(Screen screen, double mouseX, double mouseY, int button) {
-		mouseX = scale(screen).toUnits(mouseX);
-		mouseY = scale(screen).toUnits(mouseY);
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -721,8 +721,8 @@ public final class TreeSidebar {
 	}
 
 	public static boolean mouseDragged(Screen screen, double mouseX, double mouseY, int button) {
-		mouseX = scale(screen).toUnits(mouseX);
-		mouseY = scale(screen).toUnits(mouseY);
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen) || dragTab < 0 || button != 0) {
 			return false;
 		}
@@ -804,8 +804,8 @@ public final class TreeSidebar {
 	 * opened a text box that was never painted.
 	 */
 	public static boolean renameHovered(Screen screen, double mouseX, double mouseY) {
-		mouseX = scale(screen).toUnits(mouseX);
-		mouseY = scale(screen).toUnits(mouseY);
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -837,8 +837,8 @@ public final class TreeSidebar {
 	}
 
 	public static boolean mouseScrolled(Screen screen, double mouseX, double mouseY, double amount) {
-		mouseX = scale(screen).toUnits(mouseX);
-		mouseY = scale(screen).toUnits(mouseY);
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}

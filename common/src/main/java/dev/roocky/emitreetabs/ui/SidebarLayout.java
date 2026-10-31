@@ -25,7 +25,7 @@ import java.util.Set;
  *   │ │ ▪ Oak 4│ │ ← member tab, inside the group     │
  *   │ │ ▪ Iron2│ │   border                           │
  *   │ └────────┘ │        the focused tree gets        │
- *   │ ┌────────┐ │        the other four fifths        │
+ *   │ ┌────────┐ │        the remaining width           │
  *   │ │ ▪ Fan 1│ │ ← ungrouped tab                    │
  *   │ └────────┘ │                                    │
  *   │ [⚙]    [≡] │ ← settings / craft-all             │
@@ -34,9 +34,8 @@ import java.util.Set;
  *
  * The panel is attached to the window: flush with its edge, the full height of it. It used to
  * float, inset from every edge, to read as a panel over the tree; in play that inset was only
- * space the rows could not use, and the panel is now drawn larger than the rest of the GUI (see
- * {@link SidebarScale}), which needs every unit of it. Changed at the owner's request in the 5.0
- * playtest — do not restore the float without asking.
+ * space the rows could not use. Contents draw smaller than the rest of the GUI (see
+ * {@link SidebarScale}), leaving room for names and actions. Changed during the 5.0 playtest.
  *
  * <p>Every measurement here is in <em>sidebar units</em>: the caller divides the screen by the
  * panel's scale before building a layout, and multiplies back on the way out.
@@ -148,8 +147,8 @@ public final class SidebarLayout {
 	public static final int FOOTER = 22;
 	public static final int ICON = 16;
 
-	/** The panel is this fraction of the screen width, so the tree keeps the other four fifths. */
-	public static final double WIDTH_FRACTION = 0.2;
+	/** The panel takes 35% of the full window width, independently of content scaling. */
+	public static final double WIDTH_FRACTION = 0.35;
 	/** Below this the sidebar cannot show anything useful and the caller should stay horizontal. */
 	public static final int MIN_PANEL_WIDTH = 72;
 	/** Names are dropped below this panel width; the icon and marker still fit. */
