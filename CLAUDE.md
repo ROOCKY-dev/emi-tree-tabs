@@ -2,11 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-EMI Tree Tabs: a client-side Minecraft 1.21.1 mod (NeoForge + Fabric) that lets EMI keep several recipe trees open as tabs and builds one crafting list across all of them. User-facing behaviour, controls and config keys are in `README.md`; the public API for other mods is in `API.md`; plans and decisions already taken (don't reopen them) are in `ROADMAP.md`; release steps are in `PUBLISHING.md`.
+EMI Tree Tabs: a client-side mod for Minecraft 1.20.1 (Forge + Fabric) and 1.21.1 (NeoForge + Fabric) that lets EMI keep several recipe trees open as tabs and builds one crafting list across all of them. User-facing behaviour, controls and config keys are in `README.md`; the public API for other mods is in `API.md`; plans and decisions already taken (don't reopen them) are in `ROADMAP.md`; release steps are in `PUBLISHING.md`.
+
+## Required support policy
+
+**Every shared change and normal release must cover both 1.20.1 (Forge/Fabric, Java 17) and
+1.21.1 (NeoForge/Fabric, Java 21), using the same mod version.** Do not treat an older Minecraft
+line as frozen when porting. Read `RELEASES.md`; update both branches, then use
+`python3 tools/release_all.py X.Y.Z --publish`. It gates publication on both lines. CI builds both.
 
 ## Build and test
 
-Needs **JDK 21** (`java_version` in `gradle.properties`; the `mc/1.20.1` maintenance branch uses JDK 17 and the `forge` module). If the default JDK is wrong, pass it on the command line: a `gradle.properties` in the Gradle home overrides the project one.
+Needs **JDK 21** (`java_version` in `gradle.properties`; the `mc/1.20.1` supported branch uses JDK 17 and the `forge` module). If the default JDK is wrong, pass it on the command line: a `gradle.properties` in the Gradle home overrides the project one.
 
 ```bash
 ./gradlew build -Dorg.gradle.java.home=/usr/lib/jvm/java-21-openjdk   # both loader jars
@@ -20,7 +27,7 @@ Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. The root project's
 
 ## Layout
 
-Architectury multiloader (`common`, `neoforge`, `fabric`; no Architectury API at runtime, `injectInjectables = false`). Nearly all code is in `common`. Each loader module has only an entrypoint that calls `EmiTreeTabs.initClient()` and registers its own events, plus a `PlatformHelper` implementation found by plain `ServiceLoader` (`META-INF/services`). `common` compiles against EMI's loader-neutral `emi-xplat-intermediary` jar and the Fabric YACL jar as compile-only references; their APIs are identical on both loaders. Mojang official mappings.
+Architectury multiloader (`common`, `fabric`, plus `forge` on 1.20.1 or `neoforge` on 1.21.1; no Architectury API at runtime, `injectInjectables = false`). Nearly all code is in `common`. Each loader module has only an entrypoint that calls `EmiTreeTabs.initClient()` and registers its own events, plus a `PlatformHelper` implementation found by plain `ServiceLoader` (`META-INF/services`). `common` on 1.21.1 compiles against EMI's loader-neutral `emi-xplat-intermediary` jar and the Fabric YACL jar as compile-only references (1.20.1 uses the Forge artifacts); their APIs are identical on both loaders. Mojang official mappings.
 
 Version and metadata live in root `gradle.properties` (`mod_version`, `emi_version`, `publish_game_versions`, …). They are expanded into `mods.toml`, `fabric.mod.json` and `pack.mcmeta`.
 
@@ -52,6 +59,6 @@ When touching any of this, **check signatures against the real EMI jar** (`javap
 
 - Comments explain *why*, especially EMI/Minecraft quirks and anything learned by reading bytecode. Match the existing long-form javadoc style.
 - Branches: `feat/…`, `fix/…`, `ui/…`, `ci/…` from `main`. PRs state the EMI version tested and say honestly whether it was run in game.
-- Two lines of releases: `main` is 1.21.1 (5.x), `mc/1.20.1` is the 1.20.1 maintenance branch (4.x). Fixes that apply to both are made on `main` and cherry-picked. Workflows read `java_version` and the loader modules from the checked-out branch, so the same workflow files serve both.
-- Releases: a `vX.Y.Z` tag makes a draft GitHub release. A separate `store-vX.Y.Z` tag publishes to Modrinth and CurseForge. The supported Minecraft versions come from `publish_game_versions`, not from the version range.
+- Two lines of releases: `main` is 1.21.1, `mc/1.20.1` is 1.20.1; both use the same mod version (5.x onward). Shared changes must be backported before release, preserving each line's Minecraft APIs. Workflows read `java_version` and the loader modules from the checked-out branch, so the same workflow files serve both.
+- Releases: use the coordinated command in `RELEASES.md`. Per-Minecraft `vX.Y.Z+MINECRAFT` tags stage GitHub releases and `store-vX.Y.Z+MINECRAFT` tags publish them. Legacy tags stay valid; never move them. The supported Minecraft versions come from `publish_game_versions`, not from the version range.
 - In-game check: quit Minecraft fully before replacing the jar, then look for `[emitreetabs]` lines in `latest.log`. `added sidebar page type 'tree_tabs_crafting'` confirms the enum extension worked.

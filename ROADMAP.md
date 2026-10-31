@@ -654,3 +654,12 @@ Release commit `20b36f3`; CI build, GitHub release build and both store rehearsa
 
 Cross-version 1.20.1 save migration remains a documented limitation, not a supported migration
 promise. This release does not change the maintained 1.20.1 branch or publish a new 4.x build.
+
+
+## Required paired-version support (owner correction, 2026-11-01)
+
+The 1.20.1 line is not frozen. Both 1.20.1 (Forge/Fabric, Java 17) and 1.21.1 (NeoForge/Fabric,
+Java 21) must receive shared changes and the same mod version before each normal release.
+This supersedes the earlier 4.x / 5.x split and the single-line 5.0.0 publication decision.
+See RELEASES.md. CI now builds both; the coordinated release command gates both builds and
+both rehearsals before production store tags. Existing successful releases are reused.

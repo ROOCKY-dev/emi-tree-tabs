@@ -19,39 +19,58 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.lines.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select both supported Minecraft lines
+        id: lines
+        run: |
+          python3 - <<'PYCODE'
+          import json, os
+          from pathlib import Path
+          props = dict(line.split('=', 1) for line in Path('gradle.properties').read_text().splitlines() if '=' in line and not line.startswith('#'))
+          lines = json.loads(Path('.github/release-lines.json').read_text())
+          for line in lines:
+              line['ref'] = os.environ['GITHUB_SHA'] if line['minecraft'] == props['minecraft_version'] else 'refs/heads/' + line['branch']
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('matrix=' + json.dumps({'include': lines}), file=output)
+          PYCODE
+
   build:
+    needs: plan
+    name: Build Minecraft ${{ matrix.minecraft }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out
+      - name: Check out the Minecraft line
         uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.ref }}
 
-      # The JDK the checked-out code asks for: 21 on 1.21.1, 17 on the 1.20.1 branch, which predates
-      # the property and so takes the fallback.
-      - name: Read the Java version
-        id: java
-        run: echo "v=$(grep -oP '^java_version=\K.*' gradle.properties || echo 17)" >> "$GITHUB_OUTPUT"
-
-      - name: Set up JDK ${{ steps.java.outputs.v }}
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ steps.java.outputs.v }}
+          java-version: ${{ matrix.java }}
 
-      # Caching matters disproportionately here: an uncached ForgeGradle run downloads and
-      # decompiles Minecraft, which takes minutes.
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build
+      - name: Test coordinated release gates
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/tests -v
+
+      - name: Build and test
         run: ./gradlew build --no-daemon --stacktrace
 
-      # The loader module produces the real mod jar; the root project is only a container and
-      # emits an empty one, so it must not be what gets uploaded.
-      - name: Upload jar
+      - name: Upload jars
         uses: actions/upload-artifact@v4
         with:
-          name: emitreetabs-${{ github.sha }}
-          # Every loader module, whichever ones this branch has (forge on 1.20.1, neoforge after).
+          name: emitreetabs-${{ matrix.minecraft }}-${{ github.sha }}
           path: |
             */build/libs/*.jar
             !common/build/libs/*.jar

@@ -1,4 +1,5 @@
 name: Publish to stores
+run-name: Publish ${{ inputs.version || github.ref_name }}${{ inputs.dry_run && ' (rehearsal)' || '' }}
 
 # Deliberately NOT tied to `v*` tags.
 #
@@ -23,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish, without the v (e.g. 2.2.0)'
+        description: 'Version and Minecraft line, e.g. 5.0.0+1.20.1 (legacy 5.0.0 also accepted)'
         required: true
       dry_run:
         description: 'Validate everything without publishing'
@@ -40,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       v: ${{ steps.read.outputs.v }}
+      tag: ${{ steps.ver.outputs.tag }}
       loaders: ${{ steps.read.outputs.loaders }}
       mc: ${{ steps.read.outputs.mc }}
       game_versions: ${{ steps.read.outputs.game_versions }}
@@ -47,28 +49,31 @@ jobs:
       # A store-v* tag marks a release that already exists; the code to build is the v* tag.
       - name: Work out which version to publish
         id: ver
+        env:
+          RELEASE_INPUT: ${{ inputs.version }}
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#store-v}"
+          IDENTIFIER="${RELEASE_INPUT:-${GITHUB_REF_NAME#store-v}}"
+          if ! printf '%s' "$IDENTIFIER" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+\.[0-9]+\.[0-9]+)?$'; then
+            echo "::error::Expected VERSION or VERSION+MINECRAFT"; exit 1
           fi
-          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Could not read a version from '${GITHUB_REF_NAME}${{ inputs.version }}'"
-            exit 1
-          fi
-          echo "v=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "v=${IDENTIFIER%%+*}" >> "$GITHUB_OUTPUT"
+          echo "tag=v$IDENTIFIER" >> "$GITHUB_OUTPUT"
 
       - name: Check out the matching release tag
         uses: actions/checkout@v4
         with:
-          ref: v${{ steps.ver.outputs.v }}
+          ref: ${{ steps.ver.outputs.tag }}
 
       - name: Read the loaders and Minecraft versions out of the repo
         id: read
         run: |
           V="${{ steps.ver.outputs.v }}"
           echo "v=$V" >> "$GITHUB_OUTPUT"
+          TAG="${{ steps.ver.outputs.tag }}"
+          MC="$(grep -oP '^minecraft_version=\K.*' gradle.properties)"
+          if [ "$TAG" != "v$V" ] && [ "$TAG" != "v$V+$MC" ]; then
+            echo "::error::Release tag does not match this Minecraft line"; exit 1
+          fi
 
           # Loaders are whichever modules exist besides `common`. After the 1.21.1 port that becomes
           # neoforge+fabric on its own, with no change to this file.
@@ -105,7 +110,7 @@ jobs:
       - name: Check out the matching release tag
         uses: actions/checkout@v4
         with:
-          ref: v${{ needs.plan.outputs.v }}
+          ref: ${{ needs.plan.outputs.tag }}
 
       # The JDK the checked-out code asks for: 21 on 1.21.1, 17 on the 1.20.1 branch, which predates
       # the property and so takes the fallback.
@@ -144,7 +149,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           V="${{ needs.plan.outputs.v }}"
-          if gh release view "v$V" --json body -q .body > release-notes.md 2>/dev/null \
+          if gh release view "${{ needs.plan.outputs.tag }}" --json body -q .body > release-notes.md 2>/dev/null \
              && [ -s release-notes.md ]; then
             echo "Changelog: $(wc -l < release-notes.md) lines from release v$V"
           else

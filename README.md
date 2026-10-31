@@ -2,11 +2,16 @@
 
 Track more than one EMI recipe tree at a time, and get a crafting list that spans all of them.
 
-**Minecraft 1.21.1 · NeoForge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1.22+ · client-side only**
+**Minecraft 1.20.1 and 1.21.1 · requires [EMI](https://modrinth.com/mod/emi) · client-side only**
 
-Fabric also needs [Fabric API](https://modrinth.com/mod/fabric-api). [YACL](https://modrinth.com/mod/yacl) is optional for the settings screen.
+| Minecraft | Loaders | Java | Source |
+|---|---|---|---|
+| 1.20.1 | Forge, Fabric | 17 | [`mc/1.20.1`](https://github.com/ROOCKY-dev/emi-tree-tabs/tree/mc/1.20.1) |
+| 1.21.1 | NeoForge, Fabric | 21 | [`main`](https://github.com/ROOCKY-dev/emi-tree-tabs) |
 
-On **1.20.1** (Forge and Fabric)? That line is maintained on the [`mc/1.20.1`](https://github.com/ROOCKY-dev/emi-tree-tabs/tree/mc/1.20.1) branch, with releases in the 4.x series.
+Both Minecraft lines receive the same mod version and shared updates. Fabric needs
+[Fabric API](https://modrinth.com/mod/fabric-api); [YACL](https://modrinth.com/mod/yacl) is optional
+for the settings screen. EMI 1.1.24 is the tested version on both lines.
 
 [Modrinth](https://modrinth.com/mod/si3AK8q5) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs) · [Releases](https://github.com/ROOCKY-dev/emi-tree-tabs/releases)
 
@@ -242,7 +247,8 @@ this test. It also shows the phase tooltip and crafting counters.
 ## Compatibility
 
 Hooks EMI's internals rather than a public API, because EMI exposes none for crafting trees. Pinned
-working combination: **EMI 1.1.24 · NeoForge 21.1 · MC 1.21.1**. An EMI update that renames the internals
+working combinations: **EMI 1.1.24 with Forge 47/Fabric on MC 1.20.1**, and
+**NeoForge 21.1/Fabric on MC 1.21.1**. An EMI update that renames the internals
 listed in the source will break this, most likely as a startup error rather than a silent failure.
 The 1.20.1 release was tested alongside EMI++ (`emixx`) and in a 377-mod pack, where the mod measured below 0.03% of
 render-thread CPU and 0.004% of allocation.
@@ -256,14 +262,15 @@ restored trees before relying on their totals.
 
 ## Building
 
-Needs a **JDK 21** (JDK 17 on the `mc/1.20.1` branch).
+Use **JDK 21** on `main` (1.21.1) and **JDK 17** on `mc/1.20.1`. CI builds both supported lines on every push and pull request.
 
 ```bash
 ./gradlew build
 ```
 
-Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. `./gradlew :neoforge:runClient` or
-`:fabric:runClient` starts a dev client with EMI and YACL on the classpath.
+Jars land in `forge/build/libs/` (1.20.1), `neoforge/build/libs/` (1.21.1), and
+`fabric/build/libs/`. Use `:forge:runClient`, `:neoforge:runClient`, or `:fabric:runClient`
+on the matching branch. Both Minecraft lines must be updated before a release; see [RELEASES.md](RELEASES.md).
 
 ## Roadmap and contributing
 

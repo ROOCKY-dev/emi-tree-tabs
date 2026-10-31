@@ -8,48 +8,38 @@ is opt-in: a normal release tag creates a draft on GitHub, while a separate stor
 | Branch | Minecraft | Loaders | Mod versions | JDK |
 |---|---|---|---|---|
 | `main` | 1.21.1 | NeoForge, Fabric | 5.x | 21 |
-| `mc/1.20.1` | 1.20.1 | Forge, Fabric | 4.x | 17 |
+| `mc/1.20.1` | 1.20.1 | Forge, Fabric | 5.x (same version as main) | 17 |
 
 Project IDs: Modrinth `si3AK8q5`, CurseForge `1677804`.
 
-## Verify and stage
+## Coordinated releases are required
 
-Run from a clean checkout of the branch being released. Finish the release checks in `ROADMAP.md`,
-update `mod_version` in `gradle.properties`, and commit and push the changes.
+Read [RELEASES.md](RELEASES.md). Shared changes and releases cover **both** supported Minecraft
+lines at the same mod version. CI builds both; passing CI does not copy code between branches.
 
-```bash
-./gradlew clean build -Dorg.gradle.java.home=/usr/lib/jvm/java-21-openjdk
-git tag -a vX.Y.Z -m "EMI Tree Tabs X.Y.Z"
-git push origin vX.Y.Z
-```
-
-Use JDK 17 for the maintenance branch. `release.yml` builds both loader jars and opens a draft
-GitHub release. Supply player-facing notes and publish that draft:
+After updating both branches and writing the two version-specific notes in `docs/releases/`:
 
 ```bash
-gh release edit vX.Y.Z --notes-file /path/to/notes.md --draft=false
+python3 tools/release_all.py X.Y.Z
+python3 tools/release_all.py X.Y.Z --publish
 ```
 
-Jars on the 1.21.1 line are `neoforge/build/libs/emitreetabs-neoforge-X.Y.Z.jar` and
-`fabric/build/libs/emitreetabs-fabric-X.Y.Z.jar`. Never upload `-sources` or `-dev-shadow` jars.
+The first command stages missing source tags and draft GitHub releases, then rehearses both lines.
+It does not upload to stores. The second repeats the gates and uploads only missing store releases.
+Existing successful releases are verified, not duplicated. A missing backport, mismatched version,
+failed build or failed rehearsal stops publication. Rehearsals never invoke `mc-publish` itself.
 
-## Rehearse and publish to stores
+Tags include Minecraft: `vX.Y.Z+1.20.1`, `vX.Y.Z+1.21.1`, with matching `store-` tags. Separate
+GitHub releases prevent the two identically named Fabric jars from overwriting each other.
+The original `v5.0.0` / `store-v5.0.0` still identify 1.21.1 and are never overwritten.
 
-Run **Publish to stores** in Actions with version `X.Y.Z` and `dry_run=true`. The rehearsal builds
-the release tag, checks credentials against both stores and prints the exact upload labels.
-It does not call `mc-publish`: that action's own dry-run previously uploaded files anyway.
+Jars are `forge/build/libs/emitreetabs-forge-X.Y.Z.jar` on 1.20.1,
+`neoforge/build/libs/emitreetabs-neoforge-X.Y.Z.jar` on 1.21.1, and
+`fabric/build/libs/emitreetabs-fabric-X.Y.Z.jar` on each branch. Never upload `-sources` or
+`-dev-shadow` jars. The workflows read Minecraft, loaders and Java from the checked-out source.
 
-When the rehearsal passes:
-
-```bash
-git tag store-vX.Y.Z vX.Y.Z
-git push origin store-vX.Y.Z
-```
-
-The store workflow checks out `vX.Y.Z`, reads the loaders from `settings.gradle`, the Java version
-from `java_version`, and Minecraft versions from `publish_game_versions`. Do not infer supported
-Minecraft versions from a dependency range. Verify both loader jobs and the resulting store files.
-CurseForge may queue uploads for moderation before they become public.
+Verify both loader pairs and public store visibility after uploading. CurseForge may queue
+files for moderation, and a withheld Modrinth project is separate from successful version uploads.
 
 ## Upload conventions
 
