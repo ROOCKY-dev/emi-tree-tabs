@@ -46,7 +46,7 @@ When touching any of this, **check signatures against the real EMI jar** (`javap
 
 **Public API:** `dev.roocky.emitreetabs.api` is the only stable surface. `TreeTabsApi.registry(int)` has a frozen signature and returns `null` instead of an incompatible registry. New methods can go on `TreeTabsRegistry` without bumping `VERSION`. `tab/ApiRegistry` wraps every call out to another mod; a source that throws is logged once and dropped. Everything outside `api` is internal.
 
-**Icons:** `textures/gui/icons.png` is generated from `art/icons/*.svg` by `art/make_icons.py`. Edit the SVGs, not the PNG. It's a white alpha mask, tinted when drawn.
+**Icons:** `art/make_icons.py` defines pixel patterns in `SPRITES`, exports them as `art/icons/*.svg`, then rasterizes them into `textures/gui/icons.png`. Edit the patterns and regenerate; do not hand-edit the PNG or expect direct SVG edits to survive regeneration. It's a white alpha mask, tinted when drawn.
 
 ## Conventions
 

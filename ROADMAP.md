@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** â
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **4.0.1** (Minecraft 1.20.1, Forge and Fabric). Next: **5.0.0**, Minecraft 1.21.1.
+Current release: **5.0.0** (Minecraft 1.21.1, NeoForge and Fabric). The **4.0.1** maintenance line supports 1.20.1 on Forge and Fabric.
 
 ## Decisions taken
 
@@ -37,7 +37,7 @@ The loader list is not a preference, it is dictated by what EMI itself publishes
 | Minecraft | Fabric | Forge | NeoForge |
 |---|---|---|---|
 | 1.20.1 | **supported now** | **supported now** | EMI does not build for it |
-| 1.21.1 | **ported, in testing** | EMI stopped at 1.20.2 | **ported, in testing** |
+| 1.21.1 | **supported now** | EMI stopped at 1.20.2 | **supported now** |
 
 Forge is a dead end after 1.20.2 because EMI publishes no Forge builds past that, so moving to
 newer Minecraft means moving to NeoForge. 1.20.1 is supported from its own branch,
@@ -484,7 +484,7 @@ findings above and raised the save carry-over question.
       most recipe choices should survive; a choice for an item that carried NBT (now data
       components), or for a recipe whose id changed in 1.21, cannot and falls back to EMI's default
       recipe. Check, then say so in the release notes. *Raised by GPSolo in #14.*
-- [ ] Merge `port/1.21.1` into `main`; first `store-v5.0.0` only after all of the above.
+- [x] Merge `port/1.21.1` into `main` and publish `v5.0.0` / `store-v5.0.0` after verification.
 
 Moved *after* the interface work deliberately: the UI is being rewritten anyway, and doing it once
 on the current version beats doing it twice.
@@ -634,3 +634,23 @@ default. This approval covers the NeoForge session; it does not close Fabric, th
 - README includes the supplied EMI config screenshot, the earlier sizing screenshot clearly labeled
   as a playtest capture, and the trimmed Captures recording with a clickable thumbnail.
 - Production publishing is authorized by the owner, conditional on the final build and store rehearsal.
+
+
+### 5.0.0 published â€” 2026-10-31
+
+Release commit `20b36f3`; CI build, GitHub release build and both store rehearsal jobs passed.
+111 tests pass. Both store upload jobs succeeded in run `41216285523`.
+
+- GitHub: https://github.com/ROOCKY-dev/emi-tree-tabs/releases/tag/v5.0.0
+- Modrinth Fabric: `5.0.0+1.21.1-fabric` (`uy8ESDQn`).
+- Modrinth NeoForge: `5.0.0+1.21.1-neoforge` (`r0zVu2WM`).
+- Downloaded both Modrinth uploads and compared every ZIP entry with the GitHub release artifacts:
+  identical contents. Both have only their own loader, Minecraft 1.21.1 and release status.
+- CurseForge accepted both uploads. Its public file list had not updated at verification time;
+  public availability still depends on store processing/moderation.
+- Modrinth's **project** was already `withheld` before this release and remains so, although both new
+  **versions** have `listed` status. The API supplies no moderation reason; the owner must check the
+  project's moderation dashboard. Do not describe the project as publicly available yet.
+
+Cross-version 1.20.1 save migration remains a documented limitation, not a supported migration
+promise. This release does not change the maintained 1.20.1 branch or publish a new 4.x build.
