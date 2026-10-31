@@ -135,7 +135,7 @@ public final class TreeTabs {
 				// Asked for a new tab but there is no room. Replacing the current one silently looked
 				// like the click had opened a tab and lost the tree that was there.
 				SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
-						SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+						SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 						Component.translatable("emi.tree_tabs.limit.title", TreeTabsConfig.maxTabs),
 						Component.translatable("emi.tree_tabs.limit.body"));
 			}

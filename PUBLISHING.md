@@ -80,7 +80,9 @@ without publishing.
 
 - **Two tiers, because releasing is not the same as building.** Pushing every tag to the stores
   would spam followers and bury the versions that matter.
-- **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
+- **One version per loader and Minecraft version**, e.g. `5.0.0+1.21.1-neoforge` and
+  `4.0.2+1.20.1-forge`. The Minecraft part keeps the `mc/1.20.1` branch and `main` from ever
+  claiming the same version string on a store. Releases before 4.0.2 used `X.Y.Z+loader`. Modrinth's download button serves
   only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
 - **Nothing about loaders or Minecraft versions is written in the workflow.** Both are read out of
   the tag being published, so a port needs no workflow edit:

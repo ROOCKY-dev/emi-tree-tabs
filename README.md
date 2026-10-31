@@ -2,7 +2,9 @@
 
 Track more than one EMI recipe tree at a time, and get a crafting list that spans all of them.
 
-**Minecraft 1.20.1 · Forge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1+ · client-side only**
+**Minecraft 1.21.1 · NeoForge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1.22+ · client-side only**
+
+On **1.20.1** (Forge and Fabric)? That line is maintained on the [`mc/1.20.1`](https://github.com/ROOCKY-dev/emi-tree-tabs/tree/mc/1.20.1) branch, with releases in the 4.x series.
 
 [Modrinth](https://modrinth.com/mod/si3AK8q5) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs) · [Releases](https://github.com/ROOCKY-dev/emi-tree-tabs/releases)
 
@@ -144,7 +146,7 @@ a warning from `emitreetabs`, and it will fall back to sharing the favourites pa
 
 ## Config
 
-In game: the **settings button in the tab sidebar**, or **Mods → EMI Tree Tabs → Config** on Forge.
+In game: the **settings button in the tab sidebar**, or **Mods → EMI Tree Tabs → Config** on NeoForge.
 Either needs [YACL](https://modrinth.com/mod/yacl). That is a *soft* dependency — without it the mod
 works identically and you edit `config/emitreetabs.json` by hand. Edits to that file are picked up
 within a couple of seconds without restarting.
@@ -209,20 +211,20 @@ returns `null` rather than a registry that would break halfway through. See [API
 ## Compatibility
 
 Hooks EMI's internals rather than a public API, because EMI exposes none for crafting trees. Pinned
-working combination: **EMI 1.1.24 · Forge 47 · MC 1.20.1**. An EMI update that renames the internals
+working combination: **EMI 1.1.24 · NeoForge 21.1 · MC 1.21.1**. An EMI update that renames the internals
 listed in the source will break this, most likely as a startup error rather than a silent failure.
 Tested alongside EMI++ (`emixx`) and in a 377-mod pack, where the mod measured below 0.03% of
 render-thread CPU and 0.004% of allocation.
 
 ## Building
 
-Needs a **JDK 17**.
+Needs a **JDK 21** (JDK 17 on the `mc/1.20.1` branch).
 
 ```bash
 ./gradlew build
 ```
 
-Jars land in `forge/build/libs/` and `fabric/build/libs/`. `./gradlew :forge:runClient` or
+Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. `./gradlew :neoforge:runClient` or
 `:fabric:runClient` starts a dev client with EMI and YACL on the classpath.
 
 ## Roadmap and contributing

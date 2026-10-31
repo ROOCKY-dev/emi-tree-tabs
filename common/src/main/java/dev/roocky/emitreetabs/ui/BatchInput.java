@@ -72,7 +72,7 @@ public final class BatchInput {
 		box.setMaxLength(32);
 		box.setBordered(true);
 		box.setValue(String.valueOf(tab.batches()));
-		box.moveCursorToEnd();
+		box.moveCursorToEnd(false);
 		box.setHighlightPos(0);
 		screen.setFocused(box);
 		box.setFocused(true);

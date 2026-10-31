@@ -16,7 +16,7 @@ subprojects {
 
 	dependencies {
 		minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
-		// Official Mojang mappings, matching what the single-project ForgeGradle build used.
+		// Official Mojang mappings, which is also what NeoForge runs on.
 		mappings loom.officialMojangMappings()
 	}
 }
@@ -32,30 +32,38 @@ allprojects {
 
 	repositories {
 		maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }  // EMI
+		maven { name = 'NeoForged';      url = 'https://maven.neoforged.net/releases' }
 		maven { name = 'Xander';         url = 'https://maven.isxander.dev/releases' }         // YACL
 		// YACL's json parsers, which it ships jar-in-jar. Needed only to run the dev client;
 		// see the localRuntime note in forge/build.gradle.
 		maven { name = 'QuiltMC';        url = 'https://maven.quiltmc.org/repository/release/' }
 		maven { name = 'Sponge';         url = 'https://repo.spongepowered.org/repository/maven-public/' }
+		// YACL's NeoForge pom lists Kotlin for Forge as a runtime dependency (for a Kotlin DSL this
+		// mod never calls). Without this repository Gradle cannot resolve YACL at all. Scoped to
+		// that one group so it can never serve anything else.
+		exclusiveContent {
+			forRepository { maven { name = 'KotlinForForge'; url = 'https://thedarkcolour.github.io/KotlinForForge/' } }
+			filter { includeGroup 'thedarkcolour' }
+		}
 		mavenCentral()
 	}
 
 	java {
-		toolchain.languageVersion = JavaLanguageVersion.of(17)
+		toolchain.languageVersion = JavaLanguageVersion.of(rootProject.java_version as int)
 		withSourcesJar()
 	}
 
 	tasks.withType(JavaCompile).configureEach {
 		options.encoding = 'UTF-8'
-		options.release = 17
+		options.release = rootProject.java_version as int
 	}
 
 	tasks.withType(ProcessResources).configureEach {
 		var replaceProperties = [
 				minecraft_version      : rootProject.minecraft_version,
 				minecraft_version_range: rootProject.minecraft_version_range,
-				forge_version          : rootProject.forge_version,
-				forge_version_range    : rootProject.forge_version_range,
+				neoforge_version_range : rootProject.neoforge_version_range,
+				fabric_minecraft_range : rootProject.fabric_minecraft_range,
 				loader_version_range   : rootProject.loader_version_range,
 				emi_version_range      : rootProject.emi_version_range,
 				mod_id                 : rootProject.mod_id,
@@ -66,7 +74,7 @@ allprojects {
 				mod_description        : rootProject.mod_description,
 		]
 		inputs.properties replaceProperties
-		filesMatching(['META-INF/mods.toml', 'pack.mcmeta', 'fabric.mod.json']) {
+		filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta', 'fabric.mod.json']) {
 			expand replaceProperties
 		}
 	}

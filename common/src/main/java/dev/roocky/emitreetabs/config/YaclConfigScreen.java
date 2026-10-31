@@ -255,7 +255,7 @@ public final class YaclConfigScreen {
 		}
 		return OptionDescription.createBuilder()
 				.text(text)
-				.image(new ResourceLocation("emitreetabs",
+				.image(ResourceLocation.fromNamespaceAndPath("emitreetabs",
 						"textures/gui/config/" + PICTURE_FILES.get(key) + ".png"),
 						size[0], size[1])
 				.build();

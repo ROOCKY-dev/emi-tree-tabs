@@ -5,20 +5,20 @@ about it are unusual enough to be worth reading before you start.
 
 ## What you need
 
-- **JDK 17** (JDK 21 once the 1.21.1 port lands). ForgeGradle cannot run on newer JDKs.
+- **JDK 21** for `main` (Minecraft 1.21.1), **JDK 17** for the `mc/1.20.1` branch.
 - Nothing else. The Gradle wrapper is committed.
 
 ```bash
 ./gradlew build
 ```
 
-The jar lands in `build/libs/`. `./gradlew runClient` starts a development client with EMI already
-on the classpath.
+Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. `./gradlew :neoforge:runClient` or
+`:fabric:runClient` starts a development client with EMI and YACL already on the classpath.
 
-If your default JDK is newer than 17, point Gradle at the right one explicitly:
+If your default JDK is a different one, point Gradle at the right one explicitly:
 
 ```bash
-./gradlew build -Dorg.gradle.java.home=/path/to/jdk17
+./gradlew build -Dorg.gradle.java.home=/path/to/jdk21
 ```
 
 Note that a `gradle.properties` in your Gradle home directory **outranks** the one in this project,
@@ -42,9 +42,15 @@ Two consequences:
 
 ## Testing
 
-There are no automated tests, and there is not much point pretending otherwise: almost everything
-here is a GUI that only exists while a world is loaded. **CI proves the mod compiles and packages,
-nothing more.** Every change needs to be run.
+The parts that touch neither Minecraft nor EMI — tab and sidebar geometry, drag resolution, the
+batch-expression parser, the API version gate — have plain JUnit tests:
+
+```bash
+./gradlew :common:test
+```
+
+Everything else is a GUI that only exists while a world is loaded, so **CI proves the mod compiles,
+packages and passes those tests, nothing more.** Every change that touches EMI needs to be run.
 
 When you have built a jar:
 
@@ -63,7 +69,7 @@ If your change touches the sidebar, this line is the signal the runtime enum ext
 ## Branches and pull requests
 
 - Branch from `main`, one branch per change: `feat/…`, `fix/…`, `ui/…`, `ci/…`.
-- Separate working directories help, because a fresh build directory makes ForgeGradle decompile
+- Separate working directories help, because a fresh build directory makes Loom decompile
   Minecraft again:
   ```bash
   git worktree add ../ett-my-change -b feat/my-change

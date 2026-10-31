@@ -24,7 +24,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class Icons {
 
 	private static final ResourceLocation SHEET =
-			new ResourceLocation("emitreetabs", "textures/gui/icons.png");
+			ResourceLocation.fromNamespaceAndPath("emitreetabs", "textures/gui/icons.png");
 	private static final int SHEET_WIDTH = 64;
 	private static final int SHEET_HEIGHT = 64;
 

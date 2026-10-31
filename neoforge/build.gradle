@@ -4,17 +4,13 @@ plugins {
 
 architectury {
 	platformSetupLoomIde()
-	forge()
+	neoForge()
 }
 
 loom {
-	forge {
-		mixinConfig "${mod_id}-common.mixins.json"
-	}
-
 	runs {
 		client {
-			name = 'Forge Client'
+			name = 'NeoForge Client'
 			// Deliberately small: these are throwaway test instances for verifying the mod loads
 			// and its mixins apply, not for playing a modpack.
 			vmArgs '-Xmx2G', '-Xms512M'
@@ -32,7 +28,7 @@ configurations {
 	}
 	compileClasspath.extendsFrom common
 	runtimeClasspath.extendsFrom common
-	developmentForge.extendsFrom common
+	developmentNeoForge.extendsFrom common
 
 	shadowBundle {
 		canBeResolved = true
@@ -41,13 +37,13 @@ configurations {
 }
 
 dependencies {
-	forge "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+	neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
 
-	modImplementation "dev.emi:emi-forge:${emi_version}"
+	modImplementation "dev.emi:emi-neoforge:${rootProject.emi_version}"
 	// Optional: only drives the in-game config screen, never bundled.
-	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-forge"
+	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge"
 	// ...but present in the dev client, otherwise the config screen can never be tested.
-	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-forge"
+	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge"
 
 	// YACL jar-in-jars its json parsers, and Forge's JarJar unpacks them for a real install - the
 	// published artifact's META-INF/jarjar/metadata.json lists them, so players are unaffected.
@@ -58,7 +54,7 @@ dependencies {
 	forgeRuntimeLibrary "org.quiltmc.parsers:json:${rootProject.quilt_parsers_version}"
 
 	common(project(path: ':common', configuration: 'namedElements')) { transitive false }
-	shadowBundle project(path: ':common', configuration: 'transformProductionForge')
+	shadowBundle project(path: ':common', configuration: 'transformProductionNeoForge')
 }
 
 tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
@@ -69,5 +65,5 @@ tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
 tasks.named('remapJar') {
 	inputFile.set shadowJar.archiveFile
 	archiveClassifier = null
-	archiveBaseName = "${rootProject.mod_id}-forge"
+	archiveBaseName = "${rootProject.mod_id}-neoforge"
 }

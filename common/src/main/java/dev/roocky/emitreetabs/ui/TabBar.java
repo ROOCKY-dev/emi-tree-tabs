@@ -601,7 +601,7 @@ public final class TabBar {
 		renameBox.setMaxLength(48);
 		renameBox.setBordered(true);
 		renameBox.setValue(tab.customName != null ? tab.customName : tab.goalName().getString());
-		renameBox.moveCursorToEnd();
+		renameBox.moveCursorToEnd(false);
 		renameBox.setHighlightPos(0);
 		renameIndex = index;
 		screen.setFocused(renameBox);

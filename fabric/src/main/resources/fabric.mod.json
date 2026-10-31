@@ -12,8 +12,9 @@
 	},
 	"mixins": ["${mod_id}-common.mixins.json"],
 	"depends": {
-		"minecraft": ">=1.20.1 <1.21",
-		"fabricloader": ">=0.15.0",
+		"minecraft": "${fabric_minecraft_range}",
+		"fabricloader": ">=0.16.0",
+		"fabric-api": "*",
 		"emi": "*"
 	},
 	"suggests": {

@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** �
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **2.2.0** (Minecraft 1.20.1, Forge and Fabric).
+Current release: **4.0.1** (Minecraft 1.20.1, Forge and Fabric). Next: **5.0.0**, Minecraft 1.21.1.
 
 ## Decisions taken
 
@@ -37,11 +37,11 @@ The loader list is not a preference, it is dictated by what EMI itself publishes
 | Minecraft | Fabric | Forge | NeoForge |
 |---|---|---|---|
 | 1.20.1 | **supported now** | **supported now** | EMI does not build for it |
-| 1.21.1 | planned | EMI stopped at 1.20.2 | planned |
+| 1.21.1 | **ported, in testing** | EMI stopped at 1.20.2 | **ported, in testing** |
 
 Forge is a dead end after 1.20.2 because EMI publishes no Forge builds past that, so moving to
-newer Minecraft means moving to NeoForge. 1.20.1 will keep being supported from its own branch
-after the port; it is not going to be abandoned the day 1.21.1 works.
+newer Minecraft means moving to NeoForge. 1.20.1 is supported from its own branch,
+`mc/1.20.1`, after the port; it is not going to be abandoned the day 1.21.1 works.
 
 ## 2.1 / 2.2 — done
 
@@ -439,11 +439,51 @@ compiles, not that the method returns where you think it does.
 
 ## 5.0 — Minecraft 1.21.1
 
-- [ ] NeoForge support on 1.21.1.
-- [ ] Fabric support on 1.21.1.
+- [ ] NeoForge support on 1.21.1. *Ported, builds; not yet run in game.*
+- [ ] Fabric support on 1.21.1. *Ported, builds; not yet run in game.*
+- [x] **1.20.1 kept alive on its own branch**, `mc/1.20.1`, releasing as 4.x. `main` is 1.21.1 and
+      releases as 5.x. The workflows read the JDK and the loader modules out of whichever branch
+      they build, so one set of workflow files serves both.
 
 The parts of this mod that reach into EMI's internals were checked against EMI 1.1.24 for 1.21.1
-and are unchanged, so this is mostly loader plumbing rather than a rewrite.
+and are unchanged, so this is mostly loader plumbing rather than a rewrite. Confirmed at port time
+by diffing `javap -p` of every EMI class the mod names, 1.20.1 jar against 1.21.1 jar. The only
+internal change was `BoMScreen.mouseScrolled` gaining a horizontal axis; the rest of the diff is
+EMI's public API trading NBT for data components, none of which this mod calls.
+
+What the port actually changed, so nobody has to rediscover it:
+
+| Change | Why |
+|---|---|
+| `forge` module became `neoforge`, `mods.toml` became `neoforge.mods.toml` | EMI publishes no Forge build past 1.20.2. NeoForge spells dependencies `type="required"`, not `mandatory=true`. |
+| `@Mod(dist = CLIENT)`, `ClientTickEvent.Post`, `IConfigScreenFactory` | NeoForge's replacements for the dist check, `TickEvent.Phase.END` and `ConfigScreenFactory`. |
+| `ResourceLocation.fromNamespaceAndPath` / `parse` | The constructors went private in 1.21. |
+| `RecipeChoicesScreen` draws its own background, once | `Screen.render` paints the background itself since 1.20.2, and in 1.21 it is a blur that throws if run twice in a frame. |
+| `common` compiles against `emi-xplat-intermediary` | A loader-neutral EMI jar, rather than borrowing one loader's. |
+| YACL held at 3.6.6 | 3.8 pulls in Kotlin; 3.6.6 has a 1.21.1 build and is the API the screen was written against. |
+| `fabric.mod.json` now declares `fabric-api` | It always used Fabric API's events and never said so. |
+| Fabric range `>=1.21.1 <1.21.2`, not `~1.21.1` or `[1.21.1,1.22)` | `~` means "below 1.22" to Fabric, and Fabric does not read Maven ranges at all. |
+| Kotlin for Forge's maven, scoped to its own group | YACL's NeoForge pom lists it; without the repository YACL does not resolve. |
+
+PR #14 (GPSolo) ported 1.21.1 independently, as a second source tree on the same branch. It was
+not merged because the project keeps one Minecraft version per branch, but it confirmed the EMI
+findings above and raised the save carry-over question.
+
+### Checklist before 5.0.0 ships
+
+- [ ] `runClient` on both loaders: log shows `added sidebar page type 'tree_tabs_crafting'` (the
+      `Unsafe` enum extension, now on Java 21), no mixin apply failures.
+- [ ] Open, switch, fork, close and reopen tabs; restart and check they come back.
+- [ ] Scroll the tab sidebar and the strip (the changed injection).
+- [ ] Recipe choices screen opens, scrolls, and its background is drawn under the rows, once.
+- [ ] Crafting page appears in EMI's sidebar picker; sections, tag frames and the Shift breakdown.
+- [ ] Settings screen from the sidebar button and from NeoForge's Mods list.
+- [ ] Without YACL installed: loads, settings button absent.
+- [ ] Tabs saved on 1.20.1 load on 1.21.1. Plain items and tags serialize the same on both, so
+      most recipe choices should survive; a choice for an item that carried NBT (now data
+      components), or for a recipe whose id changed in 1.21, cannot and falls back to EMI's default
+      recipe. Check, then say so in the release notes. *Raised by GPSolo in #14.*
+- [ ] Merge `port/1.21.1` into `main`; first `store-v5.0.0` only after all of the above.
 
 Moved *after* the interface work deliberately: the UI is being rewritten anyway, and doing it once
 on the current version beats doing it twice.

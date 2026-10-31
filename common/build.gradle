@@ -1,5 +1,5 @@
 architectury {
-	common('forge', 'fabric')
+	common('neoforge', 'fabric')
 	// No Architectury API at runtime, so its injected helper class is just dead weight.
 	injectInjectables = false
 }
@@ -25,17 +25,18 @@ dependencies {
 	testImplementation "org.junit.jupiter:junit-jupiter"
 	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 
-	// The common module compiles against Minecraft only. EMI's own dev.emi.emi.* classes are
-	// identical across loaders, so the Forge jar serves purely as a compile-time reference here.
-	modCompileOnly "dev.emi:emi-forge:${rootProject.emi_version}"
+	// The common module compiles against Minecraft only. EMI publishes a loader-neutral jar, which
+	// is exactly what a common module wants; the intermediary one, because modCompileOnly remaps
+	// from intermediary like any other Fabric-side mod jar.
+	modCompileOnly "dev.emi:emi-xplat-intermediary:${rootProject.emi_version}"
 
-	// Same arrangement for YACL: the dev.isxander.yacl3.* API is identical across loaders, so the
-	// Forge artifact is a compile-time reference and the settings screen lives in common rather
-	// than being written twice.
-	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-forge"
+	// YACL: the dev.isxander.yacl3.* API is identical across loaders, so the Fabric artifact is a
+	// compile-time reference and the settings screen lives in common rather than being written
+	// twice. (Fabric, not NeoForge, because a common module is remapped with Fabric's tooling.)
+	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-fabric"
 
 	// Loom does not put Mixin on a common module's compile classpath, so it is declared here.
-	// compileOnly because Forge ships Mixin at runtime; the annotation processor writes the refmap.
+	// compileOnly because both loaders ship Mixin at runtime; the annotation processor writes the refmap.
 	compileOnly "org.spongepowered:mixin:${rootProject.mixin_version}"
 	annotationProcessor "org.spongepowered:mixin:${rootProject.mixin_version}:processor"
 }

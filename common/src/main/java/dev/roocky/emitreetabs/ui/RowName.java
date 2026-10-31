@@ -75,7 +75,7 @@ public final class RowName {
 		box.setMaxLength(32);
 		box.setBordered(true);
 		box.setValue(value);
-		box.moveCursorToEnd();
+		box.moveCursorToEnd(false);
 		box.setHighlightPos(0);
 		screen.setFocused(box);
 		box.setFocused(true);
