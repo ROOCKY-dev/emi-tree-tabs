@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** â
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **2.2.0** (Minecraft 1.20.1, Forge and Fabric).
+Current shared version: **5.0.0** â€” Minecraft 1.20.1 (Forge/Fabric) and 1.21.1 (NeoForge/Fabric). Both lines receive shared updates together.
 
 ## Decisions taken
 
@@ -537,3 +537,10 @@ RELEASES.md is the required policy. CI builds both supported lines. tools/releas
 shared versions, waits for both release builds and rehearsals, then uploads only missing releases.
 Tags include Minecraft so Fabric jars from different versions can never overwrite each other.
 The original v5.0.0 remains 1.21.1; this counterpart is v5.0.0+1.20.1.
+
+
+1.20.1 backport verification: 111 JUnit tests pass; both jars contain Java 17 classes and the
+nine expected mixins/refmaps. Isolated Forge and Fabric clients opened the real EMI preset
+screen, found exactly one EMI Tree Tabs entry, clicked it twice without duplicate pages, and
+restored the prior configuration. Checked that 1.20.1 scissor clipping ignores the pose just as
+1.21.1 does. Four release-coordinator gate tests and actionlint also pass.
