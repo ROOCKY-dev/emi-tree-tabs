@@ -4,6 +4,8 @@ Track more than one EMI recipe tree at a time, and get a crafting list that span
 
 **Minecraft 1.20.1 · Forge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1+ · client-side only**
 
+This is the **1.20.1 maintenance branch** (4.x releases). Current development, for Minecraft 1.21.1 on NeoForge and Fabric, is on [`main`](https://github.com/ROOCKY-dev/emi-tree-tabs).
+
 [Modrinth](https://modrinth.com/mod/si3AK8q5) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs) · [Releases](https://github.com/ROOCKY-dev/emi-tree-tabs/releases)
 
 EMI keeps exactly one crafting tree in memory, so opening a second one silently throws away the

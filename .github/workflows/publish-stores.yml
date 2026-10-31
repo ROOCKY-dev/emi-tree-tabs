@@ -103,11 +103,17 @@ jobs:
         with:
           ref: v${{ needs.plan.outputs.v }}
 
-      - name: Set up JDK 17
+      # The JDK the checked-out code asks for: 21 on 1.21.1, 17 on the 1.20.1 branch, which predates
+      # the property and so takes the fallback.
+      - name: Read the Java version
+        id: java
+        run: echo "v=$(grep -oP '^java_version=\K.*' gradle.properties || echo 17)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK ${{ steps.java.outputs.v }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.java.outputs.v }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -194,6 +200,6 @@ jobs:
           version-type: release
           loaders: ${{ matrix.loader }}
           game-versions: ${{ needs.plan.outputs.game_versions }}
-          java: '17'
+          java: ${{ steps.java.outputs.v }}
           dependencies: emi(required)
           changelog-file: release-notes.md

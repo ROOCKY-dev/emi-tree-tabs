@@ -21,11 +21,17 @@ jobs:
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Set up JDK 17
+      # The JDK the checked-out code asks for: 21 on 1.21.1, 17 on the 1.20.1 branch, which predates
+      # the property and so takes the fallback.
+      - name: Read the Java version
+        id: java
+        run: echo "v=$(grep -oP '^java_version=\K.*' gradle.properties || echo 17)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK ${{ steps.java.outputs.v }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.java.outputs.v }}
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -45,9 +51,16 @@ jobs:
             echo "::error::Tag $TAG does not match mod_version $VERSION in gradle.properties"
             exit 1
           fi
-          test -f "forge/build/libs/emitreetabs-forge-$VERSION.jar"
-          test -f "fabric/build/libs/emitreetabs-fabric-$VERSION.jar"
+          # Loaders are whichever modules settings.gradle includes besides common, as in
+          # publish-stores.yml, so this file serves the forge and the neoforge branches alike.
+          FILES=""
+          for L in $(grep -oP "^include '\K[^']+" settings.gradle | grep -v '^common$'); do
+            F="$L/build/libs/emitreetabs-$L-$VERSION.jar"
+            test -f "$F" || { echo "::error::$F was not built"; exit 1; }
+            FILES="$FILES$F"$'\n'
+          done
           echo "v=$VERSION" >> "$GITHUB_OUTPUT"
+          { echo "files<<EOF"; printf '%s' "$FILES"; echo "EOF"; } >> "$GITHUB_OUTPUT"
 
       # Exact filenames, not globs. A glob also matches the -sources and -dev-shadow jars, which
       # leaves a release page where nobody can tell which file to download.
@@ -55,8 +68,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: |
-            forge/build/libs/emitreetabs-forge-${{ steps.ver.outputs.v }}.jar
-            fabric/build/libs/emitreetabs-fabric-${{ steps.ver.outputs.v }}.jar
+          files: ${{ steps.ver.outputs.files }}
           generate_release_notes: true
           draft: true
