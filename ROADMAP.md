@@ -439,7 +439,7 @@ compiles, not that the method returns where you think it does.
 
 ## 5.0 — Minecraft 1.21.1
 
-- [ ] NeoForge support on 1.21.1. *Ported, builds; not yet run in game.*
+- [x] NeoForge support on 1.21.1. *Run in game 2026-10-31: loads, all 8 mixins apply, checklist below passed.*
 - [ ] Fabric support on 1.21.1. *Ported, builds; not yet run in game.*
 - [x] **1.20.1 kept alive on its own branch**, `mc/1.20.1`, releasing as 4.x. `main` is 1.21.1 and
       releases as 5.x. The workflows read the JDK and the loader modules out of whichever branch
@@ -463,7 +463,8 @@ What the port actually changed, so nobody has to rediscover it:
 | YACL held at 3.6.6 | 3.8 pulls in Kotlin; 3.6.6 has a 1.21.1 build and is the API the screen was written against. |
 | `fabric.mod.json` now declares `fabric-api` | It always used Fabric API's events and never said so. |
 | Fabric range `>=1.21.1 <1.21.2`, not `~1.21.1` or `[1.21.1,1.22)` | `~` means "below 1.22" to Fabric, and Fabric does not read Maven ranges at all. |
-| Kotlin for Forge's maven, scoped to its own group | YACL's NeoForge pom lists it; without the repository YACL does not resolve. |
+| Mixin config `JAVA_21`, `minVersion` 0.8.7 | Left at `JAVA_17`, every mixin logs "class version 65 required is higher than … JAVA_17 supports". Caught in the first dev-client run; #14 had it right. |
+| YACL's dependency on Kotlin for Forge excluded | YACL's NeoForge pom lists it, though its `neoforge.mods.toml` does not require it. Resolving it needed an extra repository, and in the dev client it crashed startup with `kfflang.neoforge reads more than one module named fml_loader`. |
 
 PR #14 (GPSolo) ported 1.21.1 independently, as a second source tree on the same branch. It was
 not merged because the project keeps one Minecraft version per branch, but it confirmed the EMI
@@ -471,12 +472,12 @@ findings above and raised the save carry-over question.
 
 ### Checklist before 5.0.0 ships
 
-- [ ] `runClient` on both loaders: log shows `added sidebar page type 'tree_tabs_crafting'` (the
+- [ ] `runClient` on both loaders (NeoForge done; Fabric pending): log shows `added sidebar page type 'tree_tabs_crafting'` (the
       `Unsafe` enum extension, now on Java 21), no mixin apply failures.
-- [ ] Open, switch, fork, close and reopen tabs; restart and check they come back.
-- [ ] Scroll the tab sidebar and the strip (the changed injection).
-- [ ] Recipe choices screen opens, scrolls, and its background is drawn under the rows, once.
-- [ ] Crafting page appears in EMI's sidebar picker; sections, tag frames and the Shift breakdown.
+- [x] Open, switch, fork, close and reopen tabs; restart and check they come back. *(NeoForge)*
+- [x] Scroll the tab sidebar and the strip (the changed injection). *(NeoForge)*
+- [x] Recipe choices screen opens, scrolls, and its background is drawn under the rows, once. *(NeoForge)*
+- [x] Crafting page appears in EMI's sidebar picker; sections, tag frames and the Shift breakdown. *(NeoForge)*
 - [ ] Settings screen from the sidebar button and from NeoForge's Mods list.
 - [ ] Without YACL installed: loads, settings button absent.
 - [ ] Tabs saved on 1.20.1 load on 1.21.1. Plain items and tags serialize the same on both, so

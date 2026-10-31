@@ -41,9 +41,17 @@ dependencies {
 
 	modImplementation "dev.emi:emi-neoforge:${rootProject.emi_version}"
 	// Optional: only drives the in-game config screen, never bundled.
-	modCompileOnly "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge"
+	modCompileOnly("dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge") {
+		// YACL's pom lists Kotlin for Forge as a dependency, for a Kotlin DSL this mod never calls.
+		// Its own neoforge.mods.toml does not require it, so players never need it either. In the
+		// dev client it is actively harmful: KFF 5.6 drags in a second fml_loader module and the
+		// game dies at startup with "kfflang.neoforge reads more than one module named fml_loader".
+		exclude group: 'thedarkcolour'
+	}
 	// ...but present in the dev client, otherwise the config screen can never be tested.
-	modLocalRuntime "dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge"
+	modLocalRuntime("dev.isxander:yet-another-config-lib:${rootProject.yacl_version}-neoforge") {
+		exclude group: 'thedarkcolour'
+	}
 
 	// YACL jar-in-jars its json parsers, and Forge's JarJar unpacks them for a real install - the
 	// published artifact's META-INF/jarjar/metadata.json lists them, so players are unaffected.

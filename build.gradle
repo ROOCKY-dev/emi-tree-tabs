@@ -38,13 +38,6 @@ allprojects {
 		// see the localRuntime note in forge/build.gradle.
 		maven { name = 'QuiltMC';        url = 'https://maven.quiltmc.org/repository/release/' }
 		maven { name = 'Sponge';         url = 'https://repo.spongepowered.org/repository/maven-public/' }
-		// YACL's NeoForge pom lists Kotlin for Forge as a runtime dependency (for a Kotlin DSL this
-		// mod never calls). Without this repository Gradle cannot resolve YACL at all. Scoped to
-		// that one group so it can never serve anything else.
-		exclusiveContent {
-			forRepository { maven { name = 'KotlinForForge'; url = 'https://thedarkcolour.github.io/KotlinForForge/' } }
-			filter { includeGroup 'thedarkcolour' }
-		}
 		mavenCentral()
 	}
 
