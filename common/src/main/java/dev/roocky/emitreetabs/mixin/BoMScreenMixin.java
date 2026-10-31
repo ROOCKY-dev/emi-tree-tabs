@@ -138,8 +138,9 @@ public abstract class BoMScreenMixin extends Screen implements TreeScreenHooks {
 		}
 	}
 
-	@Inject(method = "mouseScrolled(DDD)Z", at = @At("HEAD"), cancellable = true)
-	private void emitreetabs$mouseScrolled(double mouseX, double mouseY, double amount,
+	/** 1.20.2 added a horizontal axis ahead of the vertical one; only the vertical is used. */
+	@Inject(method = "mouseScrolled(DDDD)Z", at = @At("HEAD"), cancellable = true)
+	private void emitreetabs$mouseScrolled(double mouseX, double mouseY, double scrollX, double amount,
 			CallbackInfoReturnable<Boolean> cir) {
 		if (TabUi.mouseScrolled(this, mouseX, mouseY, amount)) {
 			cir.setReturnValue(true);

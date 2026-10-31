@@ -2,10 +2,10 @@ name: Build
 
 on:
   push:
-    # dev as well as main: dev is where the interface overhaul is being assembled, and a branch
-    # carrying weeks of unreleased work is exactly the one that should not be building only on a
-    # developer's machine.
-    branches: [main, dev]
+    # dev as well as main: a branch carrying weeks of unreleased work is exactly the one that
+    # should not be building only on a developer's machine. mc/* are the maintenance branches for
+    # older Minecraft versions, port/* the work towards newer ones.
+    branches: [main, dev, 'mc/**', 'port/**']
   pull_request:
   workflow_dispatch:
 
@@ -25,11 +25,17 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      # The JDK the checked-out code asks for: 21 on 1.21.1, 17 on the 1.20.1 branch, which predates
+      # the property and so takes the fallback.
+      - name: Read the Java version
+        id: java
+        run: echo "v=$(grep -oP '^java_version=\K.*' gradle.properties || echo 17)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK ${{ steps.java.outputs.v }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ steps.java.outputs.v }}
 
       # Caching matters disproportionately here: an uncached ForgeGradle run downloads and
       # decompiles Minecraft, which takes minutes.
@@ -45,9 +51,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: emitreetabs-${{ github.sha }}
+          # Every loader module, whichever ones this branch has (forge on 1.20.1, neoforge after).
           path: |
-            forge/build/libs/*.jar
-            fabric/build/libs/*.jar
+            */build/libs/*.jar
+            !common/build/libs/*.jar
             !**/*-sources.jar
             !**/*-dev-shadow.jar
           if-no-files-found: error

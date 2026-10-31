@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** �
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current release: **2.2.0** (Minecraft 1.20.1, Forge and Fabric).
+Current release: **4.0.1** (Minecraft 1.20.1, Forge and Fabric). Next: **5.0.0**, Minecraft 1.21.1.
 
 ## Decisions taken
 
@@ -37,11 +37,11 @@ The loader list is not a preference, it is dictated by what EMI itself publishes
 | Minecraft | Fabric | Forge | NeoForge |
 |---|---|---|---|
 | 1.20.1 | **supported now** | **supported now** | EMI does not build for it |
-| 1.21.1 | planned | EMI stopped at 1.20.2 | planned |
+| 1.21.1 | **ported, in testing** | EMI stopped at 1.20.2 | **ported, in testing** |
 
 Forge is a dead end after 1.20.2 because EMI publishes no Forge builds past that, so moving to
-newer Minecraft means moving to NeoForge. 1.20.1 will keep being supported from its own branch
-after the port; it is not going to be abandoned the day 1.21.1 works.
+newer Minecraft means moving to NeoForge. 1.20.1 is supported from its own branch,
+`mc/1.20.1`, after the port; it is not going to be abandoned the day 1.21.1 works.
 
 ## 2.1 / 2.2 — done
 
@@ -439,11 +439,52 @@ compiles, not that the method returns where you think it does.
 
 ## 5.0 — Minecraft 1.21.1
 
-- [ ] NeoForge support on 1.21.1.
-- [ ] Fabric support on 1.21.1.
+- [x] NeoForge support on 1.21.1. *Run in game 2026-10-31: loads, all 8 mixins apply, checklist below passed.*
+- [x] Fabric support on 1.21.1. *Playtested with EMI 1.1.24; all 9 mixins apply, including the preset screen.*
+- [x] **1.20.1 kept alive on its own branch**, `mc/1.20.1`, releasing as 4.x. `main` is 1.21.1 and
+      releases as 5.x. The workflows read the JDK and the loader modules out of whichever branch
+      they build, so one set of workflow files serves both.
 
 The parts of this mod that reach into EMI's internals were checked against EMI 1.1.24 for 1.21.1
-and are unchanged, so this is mostly loader plumbing rather than a rewrite.
+and are unchanged, so this is mostly loader plumbing rather than a rewrite. Confirmed at port time
+by diffing `javap -p` of every EMI class the mod names, 1.20.1 jar against 1.21.1 jar. The only
+internal change was `BoMScreen.mouseScrolled` gaining a horizontal axis; the rest of the diff is
+EMI's public API trading NBT for data components, none of which this mod calls.
+
+What the port actually changed, so nobody has to rediscover it:
+
+| Change | Why |
+|---|---|
+| `forge` module became `neoforge`, `mods.toml` became `neoforge.mods.toml` | EMI publishes no Forge build past 1.20.2. NeoForge spells dependencies `type="required"`, not `mandatory=true`. |
+| `@Mod(dist = CLIENT)`, `ClientTickEvent.Post`, `IConfigScreenFactory` | NeoForge's replacements for the dist check, `TickEvent.Phase.END` and `ConfigScreenFactory`. |
+| `ResourceLocation.fromNamespaceAndPath` / `parse` | The constructors went private in 1.21. |
+| `RecipeChoicesScreen` draws its own background, once | `Screen.render` paints the background itself since 1.20.2, and in 1.21 it is a blur that throws if run twice in a frame. |
+| `common` compiles against `emi-xplat-intermediary` | A loader-neutral EMI jar, rather than borrowing one loader's. |
+| YACL held at 3.6.6 | 3.8 pulls in Kotlin; 3.6.6 has a 1.21.1 build and is the API the screen was written against. |
+| `fabric.mod.json` now declares `fabric-api` | It always used Fabric API's events and never said so. |
+| Fabric range `>=1.21.1 <1.21.2`, not `~1.21.1` or `[1.21.1,1.22)` | `~` means "below 1.22" to Fabric, and Fabric does not read Maven ranges at all. |
+| Mixin config `JAVA_21`, `minVersion` 0.8.7 | Left at `JAVA_17`, every mixin logs "class version 65 required is higher than … JAVA_17 supports". Caught in the first dev-client run; #14 had it right. |
+| YACL's dependency on Kotlin for Forge excluded | YACL's NeoForge pom lists it, though its `neoforge.mods.toml` does not require it. Resolving it needed an extra repository, and in the dev client it crashed startup with `kfflang.neoforge reads more than one module named fml_loader`. |
+
+PR #14 (GPSolo) ported 1.21.1 independently, as a second source tree on the same branch. It was
+not merged because the project keeps one Minecraft version per branch, but it confirmed the EMI
+findings above and raised the save carry-over question.
+
+### Checklist before 5.0.0 ships
+
+- [x] `runClient` on both loaders: log shows `added sidebar page type 'tree_tabs_crafting'` (the
+      `Unsafe` enum extension, now on Java 21), no mixin apply failures.
+- [x] Open, switch, fork, close and reopen tabs; restart and check they come back. *(NeoForge)*
+- [x] Scroll the tab sidebar and the strip (the changed injection). *(NeoForge)*
+- [x] Recipe choices screen opens, scrolls, and its background is drawn under the rows, once. *(NeoForge)*
+- [x] Crafting page appears in EMI's sidebar picker; sections, tag frames and the Shift breakdown. *(NeoForge)*
+- [x] Settings screen from the sidebar button and from NeoForge's Mods list.
+- [x] Without YACL installed: isolated smoke launches on both loaders reach GUI resource loading without class linkage errors. The settings hook stays unregistered.
+- [ ] Tabs saved on 1.20.1 load on 1.21.1. Plain items and tags serialize the same on both, so
+      most recipe choices should survive; a choice for an item that carried NBT (now data
+      components), or for a recipe whose id changed in 1.21, cannot and falls back to EMI's default
+      recipe. Check, then say so in the release notes. *Raised by GPSolo in #14.*
+- [ ] Merge `port/1.21.1` into `main`; first `store-v5.0.0` only after all of the above.
 
 Moved *after* the interface work deliberately: the UI is being rewritten anyway, and doing it once
 on the current version beats doing it twice.
@@ -523,3 +564,73 @@ These are documented in the [README](README.md) with the reasoning:
 
 Open a [feature request](../../issues/new/choose). Describing the problem you are trying to solve is
 more useful than describing a solution.
+
+
+### 5.0 playtest: sidebar controls and sizing
+
+The sidebar now exposes rename, batch editing and phase actions as row buttons, plus reopen in
+its footer. Shared tooltips wrap at 200 GUI pixels and sit beside the panel. These were approved
+in the NeoForge playtest. The subsequent requested layout attaches the panel to its window edge,
+uses the full height and 20% width, and scales its contents by 130–145%. Rendering and input share
+SidebarScale; scissor rectangles convert explicitly because GuiGraphics ignores the pose there.
+This initial sizing was superseded by the approved 25%-width layout recorded below.
+Fabric and explicit edge-case checks (right-side mode and very narrow windows) remain pending.
+
+### 5.0 playtest: explicit sidebar and EMI preset
+
+The attached sidebar selection was saved correctly but still passed through Auto's minimum-size
+check. At a large GUI scale the enlarged panel failed that check and silently became the strip.
+Only Auto now falls back; an explicit attached sidebar is honored. A regression test covers the
+narrow-window selection.
+
+EMI settings → Config Presets → Sidebars now includes **EMI Tree Tabs**. It reuses EMI's two-panel
+preset, puts Crafting/Favorites/Craftables on the left and Index on the right, and retains EMI's
+Revert/Done behavior. No mod config is changed by the preset. The integration supplies an annotated
+field to ConfigPresetScreen's existing reflection loop, verified against EMI 1.1.24 bytecode.
+
+The owner's recording at `~/Videos/Captures/2026-10-31_22-08-25.mp4` is included in the README as
+`docs/sidebar-pages.mp4`, trimmed past the capture overlay, resized and stripped of audio. Its
+thumbnail shows the Crafting page icon and the click-to-switch tooltip. The guide distinguishes
+switching page types from paging through one list.
+
+Build verification: both loader jars build; 111 tests pass. Fabric jar refmap contains the preset
+screen init mapping (`method_25426`). NeoForge reaches the menu without mod startup errors.
+
+The owner approved the final NeoForge experience with no further notes. Repeat the sidebar and
+preset checks on Fabric; explicitly verify preset Revert behavior and the no-YACL case before release.
+
+### Sidebar sizing corrected after the screenshot playtest
+
+The attached panel stays full height and now takes **35% of the entire window width**. This is
+independent of content scale: rows, icons, buttons and text draw at 65% of the normal GUI size.
+The earlier 130–145% enlargement was a misinterpretation and made the panel crowded at the
+owner's GUI scale. The smaller contents and wider panel leave room for names and row actions.
+The width fraction and content scale are separate named constants. Build and hit-target tests
+cover the smaller coordinate system. The following playtest selected the final width.
+
+The next playtest approved the smaller contents but found the 35% panel wider than necessary.
+The owner selected **25% of the full window width**, retaining the 65% content scale and full-height
+attachment. This supersedes the 35% width above.
+
+
+**Final NeoForge playtest approved (2026-10-31):** the owner reported everything good with no
+further notes at 25% window width and 65% content scale. Keep these proportions as the approved
+default. This approval covers the NeoForge session; it does not close Fabric, the no-YACL launch,
+1.20.1 save carry-over, or unexercised edge-case checks. No release tag has been created.
+
+
+### 5.0.0 final release review
+
+- NeoForge and Fabric were playtested and approved, including the final 25%/65% sidebar sizing.
+- The preset handler ran in the last Fabric test. The earlier missing Crafting page came from
+  choosing a different EMI preset; no preset code change was needed.
+- A final sweep corrected the phase rename hint (right-click parks a phase), stale sizing comments,
+  and Fabric's EMI/Java dependency minimums. Layout preview edges now match the attached panel.
+- Fresh isolated no-YACL launches on both loaders reached GUI resource loading with the expected
+  "not present" message and no missing-class failure.
+- Compared EMI's 1.20.1/1.21.1 ingredient serializer sources. Plain item and tag forms are unchanged;
+  NBT-bearing choices can fail or fall back after the component transition. Cross-version saved
+  tabs are not promised: backup paths and this limitation are documented in README and release notes.
+- README includes the supplied EMI config screenshot, the earlier sizing screenshot clearly labeled
+  as a playtest capture, and the trimmed Captures recording with a clickable thumbnail.
+- Production publishing is authorized by the owner, conditional on the final build and store rehearsal.

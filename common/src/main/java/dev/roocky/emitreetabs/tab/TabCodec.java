@@ -215,7 +215,7 @@ public final class TabCodec {
 
 	private static ResourceLocation tryId(String raw) {
 		try {
-			return new ResourceLocation(raw);
+			return ResourceLocation.parse(raw);
 		} catch (Exception e) {
 			return null;
 		}

@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 /**
  * Routes the tree screen's events to whichever tab layout is in use.
  *
- * <p>There are two: the horizontal strip ({@link TabBar}) and the floating sidebar
+ * <p>There are two: the horizontal strip ({@link TabBar}) and the attached sidebar
  * ({@link TreeSidebar}). Exactly one is live at a time, decided by config and by whether the screen
  * can actually host a sidebar.
  *

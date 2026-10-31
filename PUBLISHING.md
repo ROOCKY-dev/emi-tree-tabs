@@ -1,126 +1,72 @@
 # Publishing a release
 
-GitHub is automated. Modrinth and CurseForge are not, yet — this file is the checklist for doing
-them by hand, and the plan for automating them.
+The GitHub Actions workflows build releases and upload to Modrinth and CurseForge. Store publishing
+is opt-in: a normal release tag creates a draft on GitHub, while a separate store tag publishes it.
 
-## Coordinates
+## Release lines
 
-| | |
-|---|---|
-| Modrinth project | `si3AK8q5` — https://modrinth.com/mod/ett-emi-tree-taps |
-| CurseForge project | `1677804` — https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs |
-| CurseForge author area | https://legacy.curseforge.com/ → **Dashboard** → **Projects** → **Edit** → **Files** |
+| Branch | Minecraft | Loaders | Mod versions | JDK |
+|---|---|---|---|---|
+| `main` | 1.21.1 | NeoForge, Fabric | 5.x | 21 |
+| `mc/1.20.1` | 1.20.1 | Forge, Fabric | 4.x | 17 |
 
-> The Modrinth slug is spelled **`ett-emi-tree-taps`** — "taps", not "tabs". Worth correcting in
-> project settings while the download count is still low; it changes the public URL.
+Project IDs: Modrinth `si3AK8q5`, CurseForge `1677804`.
 
-## 1. GitHub (automated)
+## Verify and stage
 
-```bash
-./gradlew clean build -Dorg.gradle.java.home=/usr/lib/jvm/java-17-openjdk
-git tag -a vX.Y.Z -m "EMI Tree Tabs X.Y.Z" && git push origin vX.Y.Z
-```
-
-`release.yml` builds both jars and opens a **draft** release. Fill in the notes, then
-`gh release edit vX.Y.Z --draft=false`. Nothing is public until that command runs.
-
-## 2. Modrinth (manual)
-
-**Versions → Create version.** A three-step wizard: **Files → Metadata → Details**.
-
-Step 1 is a hard gate: Metadata and Details are inert until a file is attached, so there is no way
-to fill the form out first and add the jar last.
-
-Attach **both** `emitreetabs-forge-X.Y.Z.jar` and `emitreetabs-fabric-X.Y.Z.jar` — Modrinth takes
-several files per version, so one version covers both loaders. Loaders: Forge **and** Fabric. Game
-versions: 1.20.1. Release channel: **Release** for a stable build.
-
-## 3. CurseForge (manual)
-
-**Files → Add File.** One file per upload, so Forge and Fabric are two separate uploads.
-
-The form is: Display name · Environment\* · Modloader\* · Java · Minecraft\* · Release Type ·
-Changelog (WYSIWYG or markdown).
-
-Get these right — the 2.0.1 upload got all three wrong:
-
-- **Modloader** — the Forge jar is tagged `NeoForge, Forge`. NeoForge does not exist for 1.20.1, so
-  that tag matches nobody. Tag the Forge jar `Forge` and the Fabric jar `Fabric`, nothing else.
-- **Release Type** — 2.0.1 is marked **Beta**. Launchers set to "release only" will not offer it.
-  Use **Release** unless the build really is a beta.
-- **Changelog** — 2.0.1 still reads `## Initial release`. Paste the GitHub release notes.
-- **Java** is 17 on 1.20.1, and 21 after the 1.21.1 port.
-
-## 4. Automated, in two tiers — as of 2026-09-07
-
-**A `v*` tag does not reach players.** Development moves faster than anyone wants releases, so the
-stores are opt in and every ordinary tag stays internal.
-
-| You push | What happens |
-|---|---|
-| `v2.3.0` | Builds both jars, opens a **draft GitHub release**. Nothing else. |
-| `store-v2.3.0` | Builds that same tag and publishes it to **Modrinth and CurseForge**. |
+Run from a clean checkout of the branch being released. Finish the release checks in `ROADMAP.md`,
+update `mod_version` in `gradle.properties`, and commit and push the changes.
 
 ```bash
-# every version — cheap, private, no noise
-git tag -a v2.3.0 -m "EMI Tree Tabs 2.3.0" && git push origin v2.3.0
-
-# write the notes on the GitHub release, then publish it
-gh release edit v2.3.0 --notes-file notes.md --draft=false
-
-# only the ones players should actually get
-git tag store-v2.3.0 && git push origin store-v2.3.0
+./gradlew clean build -Dorg.gradle.java.home=/usr/lib/jvm/java-21-openjdk
+git tag -a vX.Y.Z -m "EMI Tree Tabs X.Y.Z"
+git push origin vX.Y.Z
 ```
 
-Rehearse from the **Actions tab → Publish to stores → Run workflow**, with `dry_run` ticked (it
-defaults to ticked). That validates the credentials, the jars and every field against both stores
-without publishing.
+Use JDK 17 for the maintenance branch. `release.yml` builds both loader jars and opens a draft
+GitHub release. Supply player-facing notes and publish that draft:
 
-### Why it is built this way
+```bash
+gh release edit vX.Y.Z --notes-file /path/to/notes.md --draft=false
+```
 
-- **Two tiers, because releasing is not the same as building.** Pushing every tag to the stores
-  would spam followers and bury the versions that matter.
-- **One version per loader**, `X.Y.Z+forge` and `X.Y.Z+fabric`. Modrinth's download button serves
-  only the *primary* file, so a single version carrying both jars hands Fabric users the Forge jar.
-- **Nothing about loaders or Minecraft versions is written in the workflow.** Both are read out of
-  the tag being published, so a port needs no workflow edit:
-  - **loaders** — the modules in `settings.gradle` besides `common`. Today `forge` + `fabric`; after
-    the 1.21.1 port that branch will say `neoforge` + `fabric` and publishing follows automatically.
-  - **Minecraft versions** — `publish_game_versions` in `gradle.properties`. Comma separated, so a
-    build that genuinely covers several (`1.21.1,1.21.2`) says so in one place.
+Jars on the 1.21.1 line are `neoforge/build/libs/emitreetabs-neoforge-X.Y.Z.jar` and
+`fabric/build/libs/emitreetabs-fabric-X.Y.Z.jar`. Never upload `-sources` or `-dev-shadow` jars.
 
-  It is a separate property rather than `minecraft_version_range`, because the range says
-  `[1.20.1,1.21)` and auto-detecting from it claims 1.20.1 through 1.20.6 — which is what Modrinth
-  guessed, and it is wrong. EMI publishes no Forge build past 1.20.2, so those extra versions
-  advertise installs that cannot work. Widen the list only when a build has actually been run on
-  each version in it.
-- **EMI declared as a required dependency** on both stores.
-- **Release type `release`, not beta.** 2.0.1 was marked beta by hand, so launchers set to
-  "release only" skipped it.
-- **Changelog read back from the GitHub release** for that tag. One source of truth, already
-  reviewed by the time you decide to push to stores. A file in the repo cannot serve, because the
-  publish job checks out the *release tag* — anything added to `main` afterwards is not there.
+## Rehearse and publish to stores
 
-### Credentials
+Run **Publish to stores** in Actions with version `X.Y.Z` and `dry_run=true`. The rehearsal builds
+the release tag, checks credentials against both stores and prints the exact upload labels.
+It does not call `mc-publish`: that action's own dry-run previously uploaded files anyway.
 
-Repository secrets `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN`; local copies in
-`~/.config/ett-publish/*.token`, mode 600.
+When the rehearsal passes:
 
-The Modrinth token is scoped to **read projects** and **create / read / write versions**, nothing
-else — no account data, no deletes, no payouts. CurseForge's upload token has no scope selector.
+```bash
+git tag store-vX.Y.Z vX.Y.Z
+git push origin store-vX.Y.Z
+```
 
-Rotate at [modrinth.com/settings/pats](https://modrinth.com/settings/pats) or CurseForge → account →
-API Tokens, then `gh secret set MODRINTH_TOKEN < newfile`.
+The store workflow checks out `vX.Y.Z`, reads the loaders from `settings.gradle`, the Java version
+from `java_version`, and Minecraft versions from `publish_game_versions`. Do not infer supported
+Minecraft versions from a dependency range. Verify both loader jobs and the resulting store files.
+CurseForge may queue uploads for moderation before they become public.
 
-## Appendix: doing it by hand
+## Upload conventions
 
+- One version per loader and Minecraft line, e.g. `5.0.0+1.21.1-neoforge` and
+  `5.0.0+1.21.1-fabric`. Modrinth serves only the primary file of a version; combining loader jars
+  in one version can hand a Fabric player the NeoForge jar.
+- Release type is `release`. Each jar is tagged with only its own loader and tested Minecraft
+  version. The required EMI dependency is declared on both stores; YACL remains optional.
+- Notes come from the corresponding GitHub release. Check they are present before the store tag.
+- Store version numbers before the 1.21.1 port used `X.Y.Z+loader`.
 
+## Credentials
 
-Neither platform needs the browser. Both have upload APIs, and
-[`Kir-Antipov/mc-publish`](https://github.com/Kir-Antipov/mc-publish) drives both from the existing
-tag workflow. It would need two repository secrets — a Modrinth PAT scoped to *create versions*, and
-a CurseForge API token — after which `release.yml` publishes everywhere from one `git push --tags`.
+Repository secrets are `MODRINTH_TOKEN` and `CURSEFORGE_TOKEN`. Local copies, when needed, live in
+`~/.config/ett-publish/*.token` with mode 600. Never print, commit or put them in release notes.
+The Modrinth token is scoped to reading projects and creating/reading/writing versions.
+CurseForge upload tokens have no scope selector.
 
-Deliberately not done yet: it puts credentials that can publish under this name into GitHub, and
-the loader/version/release-type mapping should be verified by hand once more first. Tokens are the
-user's to create; do not generate or store them without being asked.
+Rotate tokens through the stores' own account settings, then update the corresponding repository
+secret with `gh secret set NAME < /path/to/token`.

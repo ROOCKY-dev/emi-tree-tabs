@@ -2,7 +2,11 @@
 
 Track more than one EMI recipe tree at a time, and get a crafting list that spans all of them.
 
-**Minecraft 1.20.1 · Forge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1+ · client-side only**
+**Minecraft 1.21.1 · NeoForge and Fabric · requires [EMI](https://modrinth.com/mod/emi) 1.1.22+ · client-side only**
+
+Fabric also needs [Fabric API](https://modrinth.com/mod/fabric-api). [YACL](https://modrinth.com/mod/yacl) is optional for the settings screen.
+
+On **1.20.1** (Forge and Fabric)? That line is maintained on the [`mc/1.20.1`](https://github.com/ROOCKY-dev/emi-tree-tabs/tree/mc/1.20.1) branch, with releases in the 4.x series.
 
 [Modrinth](https://modrinth.com/mod/si3AK8q5) · [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ett-emi-tree-tabs) · [Releases](https://github.com/ROOCKY-dev/emi-tree-tabs/releases)
 
@@ -21,8 +25,8 @@ own tree screen does all the drawing and editing, so every tree behaves exactly 
 Every tree you open becomes a tab instead of replacing the last one. Hold **Shift** while opening to
 invert that for one click.
 
-The **floating sidebar** above is the default wherever the screen can host it: a panel down the left
-with room for names, batch counts and phase headers at any GUI scale. On a screen too small it falls
+The **attached sidebar** is the default wherever the screen can host it: a full-height panel down the left, using 25% of the full window width,
+with controls drawn at 65% of the normal GUI size. On a screen too small it falls
 back to a **horizontal strip** along the top, which shrinks tabs down a fixed floor and then scrolls
 rather than letting the close button vanish. `tabOrientation` forces either one.
 
@@ -58,6 +62,21 @@ Trees are costed against a **shrinking pool** rather than each getting your whol
 trees each needing 10 iron with 10 in the chest correctly report 10 still needed, instead of both
 declaring themselves satisfied. Reorder tabs to change which tree gets first claim.
 
+For a ready-made layout, open **EMI settings → Config Presets → Sidebars → EMI Tree Tabs**,
+Choose the preset labeled **EMI Tree Tabs**, then press **Done** in the preset screen and **Done** in EMI settings. EMI's other presets replace this layout and may remove its Crafting page. This replaces your sidebar
+layout with **Crafting**, **Favorites** and **Craftables** as pages on the left, and the item index
+on the right. **Revert** in EMI settings restores the previous layout before you save.
+
+<img src="docs/emi-config-presets.png" alt="EMI settings with the Config Presets button at the bottom" width="900">
+
+**Click the page icon in the left sidebar's header** (the crafting grid, star, or other page icon)
+to switch between Crafting, Favorites and Craftables. The arrow buttons turn pages *within* the
+current list; the page icon switches the *kind* of list. This recording shows the difference:
+
+[![Click the Crafting page icon to switch sidebar pages](docs/sidebar-pages.png)](docs/sidebar-pages.mp4)
+
+[Watch the short page-switching recording](docs/sidebar-pages.mp4) (11 seconds, no audio).
+
 The mod adds a **Crafting** page type to EMI's own sidebar picker, alongside Index, Craftables and
 Favourites. Add it as a *page* or a *subpanel* on any sidebar and the list lives there, split into
 **To craft**, **Shared materials** (wanted by two or more trees) and one section per tree, with
@@ -85,9 +104,9 @@ in full, and how much of the material that takes.
 Progression unlocks a cheaper way to make some intermediate part. You change it on the tree in front
 of you, and the other eight machines quietly carry on using the expensive one.
 
-**Recipe choices** finds them. It is nothing until you ask for it: a button appears in the sidebar
-only while your open trees actually disagree about how to make something, and `Ctrl+R` opens it from
-anywhere. The screen lists each contested ingredient, each way of making it, the inputs that tell
+**Recipe choices** finds them. It never acts on its own: its button in the sidebar footer lights up
+while your open trees actually disagree about how to make something, and `Ctrl+Shift+R` opens it
+from anywhere. The screen lists each contested ingredient, each way of making it, the inputs that tell
 those ways apart, and which trees use each — and every button says how many trees it would change
 before you press it. Only that one sub-craft changes; nothing else about those trees is touched.
 
@@ -111,24 +130,27 @@ All on EMI's recipe tree screen.
 | Switch tab | Left click, or `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Jump to tab 1–8, or last | `Ctrl+1` … `Ctrl+8`, `Ctrl+9` |
 | Reorder, or move into a phase | Drag a tab |
-| Rename a tab or phase | `F2`, or right click a tab on the strip |
+| Rename a tab or phase | Hover its sidebar row and click the pencil, or `F2`; right click also renames tabs |
 | View ⇄ craft mode | `Ctrl+click` a tab on the strip, or click its marker in the sidebar |
-| Set how many to make | `Ctrl+click` the batch marker |
+| Set how many to make | Hover a sidebar tab and click `#`, or `Ctrl+click` its batch marker |
 | Close | Middle click, the `×`, or `Ctrl+W` |
-| Reopen closed tab | `Ctrl+Shift+T` |
+| Reopen closed tab | Reopen button in the sidebar footer, or `Ctrl+Shift+T` |
 | Fork the current tree | `Ctrl+D`, or the `+` button on the strip |
 | Craft every tab at once | The craft-all button, or `Ctrl+A` |
 | Open a tree already crafting | `Ctrl+click` a recipe's tree button |
 | **New phase** | The phase button, or `Ctrl+G` |
-| **Park a phase** | Right click its header · Shift+right click parks all the others |
+| **Park a phase** | Pause button on its hovered header, or right click; the target button or Shift+right click parks all others |
 | **Fold a phase** | Left click its header |
-| **Drop a phase** | Middle click its header — its trees stay open |
-| **Recipe choices** | The fork button when it appears, or `Ctrl+R` |
+| **Drop a phase** | `×` on its hovered header, or middle click — its trees stay open |
+| **Recipe choices** | The fork button in the sidebar footer, or `Ctrl+Shift+R` (plain `Ctrl+R` is EMI's random tree) |
 | Scroll | Mouse wheel over the bar or panel |
 
 ---
 
 ## Setting up the crafting panel
+
+Use **EMI settings → Config Presets → Sidebars → EMI Tree Tabs** for the ready-made layout above.
+To keep your existing layout instead:
 
 1. In **EMI's** settings, add a page or subpanel to a sidebar
 2. Choose **Crafting** from the picker
@@ -144,7 +166,7 @@ a warning from `emitreetabs`, and it will fall back to sharing the favourites pa
 
 ## Config
 
-In game: the **settings button in the tab sidebar**, or **Mods → EMI Tree Tabs → Config** on Forge.
+In game: the **settings button in the tab sidebar**, or **Mods → EMI Tree Tabs → Config** on NeoForge.
 Either needs [YACL](https://modrinth.com/mod/yacl). That is a *soft* dependency — without it the mod
 works identically and you edit `config/emitreetabs.json` by hand. Edits to that file are picked up
 within a couple of seconds without restarting.
@@ -206,23 +228,41 @@ returns `null` rather than a registry that would break halfway through. See [API
   the strip does not reorder tabs into runs the way the sidebar does — that needs non-uniform tab
   widths, which the hit tests and drag arithmetic currently assume away.
 
+<details>
+<summary>Sidebar sizing playtest screenshot</summary>
+
+This screenshot supplied during the 1.21.1 playtest shows the earlier oversized controls. The
+released layout uses **25% of the window width** and **65% GUI-sized contents**, approved after
+this test. It also shows the phase tooltip and crafting counters.
+
+<img src="docs/sidebar-sizing-playtest.png" alt="Earlier sidebar sizing test with phase tooltip and crafting counters; final controls are smaller" width="900">
+
+</details>
+
 ## Compatibility
 
 Hooks EMI's internals rather than a public API, because EMI exposes none for crafting trees. Pinned
-working combination: **EMI 1.1.24 · Forge 47 · MC 1.20.1**. An EMI update that renames the internals
+working combination: **EMI 1.1.24 · NeoForge 21.1 · MC 1.21.1**. An EMI update that renames the internals
 listed in the source will break this, most likely as a startup error rather than a silent failure.
-Tested alongside EMI++ (`emixx`) and in a 377-mod pack, where the mod measured below 0.03% of
+The 1.20.1 release was tested alongside EMI++ (`emixx`) and in a 377-mod pack, where the mod measured below 0.03% of
 render-thread CPU and 0.004% of allocation.
+
+### Moving saved tabs from 1.20.1
+
+Back up `config/emitreetabs-tabs.json` and `config/emitreetabs.json` before copying them between Minecraft
+versions. Goals whose recipe IDs no longer exist cannot be restored. Recipe choices for items with
+old NBT may fall back to EMI defaults because Minecraft 1.21 uses data components instead. Check
+restored trees before relying on their totals.
 
 ## Building
 
-Needs a **JDK 17**.
+Needs a **JDK 21** (JDK 17 on the `mc/1.20.1` branch).
 
 ```bash
 ./gradlew build
 ```
 
-Jars land in `forge/build/libs/` and `fabric/build/libs/`. `./gradlew :forge:runClient` or
+Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. `./gradlew :neoforge:runClient` or
 `:fabric:runClient` starts a dev client with EMI and YACL on the classpath.
 
 ## Roadmap and contributing
@@ -232,7 +272,7 @@ What is planned, and what is deliberately not, is in [ROADMAP.md](ROADMAP.md).
 Pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) covers the build and the couple of
 things about this mod that are unusual enough to trip you up. The parts that can be tested without
 launching the game — tab and sidebar geometry, drag resolution, the expression parser, the API
-version gate — have 99 tests; everything that touches EMI has to be run in game.
+version gate — have automated tests; everything that touches EMI has to be run in game.
 
 ## AI disclosure
 

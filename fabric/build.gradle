@@ -11,7 +11,7 @@ loom {
 	runs {
 		client {
 			name = 'Fabric Client'
-			// Throwaway verification instance, same budget as the Forge one.
+			// Throwaway verification instance, same budget as the NeoForge one.
 			vmArgs '-Xmx2G', '-Xms512M'
 			property 'mixin.debug', 'true'
 			property 'mixin.checks', 'true'

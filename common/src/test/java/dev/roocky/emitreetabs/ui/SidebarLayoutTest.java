@@ -7,13 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import dev.roocky.emitreetabs.ui.SidebarLayout.Action;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Row;
+import dev.roocky.emitreetabs.ui.SidebarLayout.RowAction;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Rect;
 import dev.roocky.emitreetabs.ui.SidebarLayout.RowKind;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Slot;
@@ -42,46 +45,43 @@ class SidebarLayoutTest {
 	}
 
 	@Nested
-	@DisplayName("the floating panel")
+	@DisplayName("the attached panel")
 	class Panel {
 
 		@Test
-		@DisplayName("takes about a fifth of the width, leaving the rest for the tree")
-		void widthIsAFifth() {
+		@DisplayName("takes 25 percent of the full width, leaving the rest for the tree")
+		void widthIsTwentyFivePercent() {
 			SidebarLayout l = medium(plainTabs(3));
-			assertEquals(Math.round(960 * 0.2), l.panel.width());
-			int leftForTree = l.screenWidth - l.panel.width() - SidebarLayout.MARGIN;
-			assertTrue(leftForTree > l.screenWidth * 0.75,
-					"the tree should keep about four fifths, got " + leftForTree);
+			assertEquals(Math.round(960 * 0.25), l.panel.width());
+			int leftForTree = l.screenWidth - l.panel.width();
+			assertTrue(leftForTree > l.screenWidth * 0.74,
+					"the tree should keep about 75 percent, got " + leftForTree);
 		}
 
 		@Test
-		@DisplayName("floats clear of every screen edge")
-		void floats() {
+		@DisplayName("is attached to the window's left edge, full height")
+		void attached() {
 			SidebarLayout l = medium(plainTabs(3));
-			assertEquals(SidebarLayout.MARGIN, l.panel.x(), "gap on the left");
-			assertEquals(SidebarLayout.MARGIN, l.panel.y(), "gap on the top");
-			assertEquals(SidebarLayout.MARGIN, l.screenHeight - (l.panel.y() + l.panel.height()),
-					"gap on the bottom");
-			assertTrue(l.panel.x() + l.panel.width() < l.screenWidth - SidebarLayout.MARGIN / 2,
-					"gap on the right");
+			assertEquals(0, l.panel.x(), "gap on the left");
+			assertEquals(0, l.panel.y(), "gap on the top");
+			assertEquals(l.screenHeight, l.panel.height(), "not the full height");
 		}
 
 		@Test
-		@DisplayName("sits on the right when asked, with the same gaps")
+		@DisplayName("is attached to the right edge when asked")
 		void rightHanded() {
 			SidebarLayout l = new SidebarLayout(960, 540, plainTabs(3), 0, false);
-			assertEquals(SidebarLayout.MARGIN,
-					l.screenWidth - (l.panel.x() + l.panel.width()), "gap on the right");
-			assertTrue(l.panel.x() > l.screenWidth / 2);
+			assertEquals(l.screenWidth, l.panel.x() + l.panel.width(), "gap on the right");
+			assertEquals(0, l.panel.y());
+			assertEquals(l.screenHeight, l.panel.height());
 		}
 
 		@Test
-		@DisplayName("never eats more than a third of a small screen")
+		@DisplayName("uses the same width fraction on small screens")
 		void doesNotEatSmallScreens() {
 			for (int w : new int[] { 320, 400, 480, 640, 960, 1920 }) {
 				SidebarLayout l = of(w, 400, plainTabs(3));
-				assertTrue(l.panel.width() <= Math.max(SidebarLayout.MIN_PANEL_WIDTH, w / 3),
+				assertEquals(Math.round(w * 0.25), l.panel.width(),
 						"panel took " + l.panel.width() + " of " + w);
 			}
 		}
@@ -104,7 +104,7 @@ class SidebarLayoutTest {
 		@DisplayName("knows when a screen is too small to host it")
 		void fitsIsHonest() {
 			assertTrue(SidebarLayout.fits(960, 540));
-			assertFalse(SidebarLayout.fits(200, 540), "200px wide cannot host a fifth-width panel");
+			assertFalse(SidebarLayout.fits(200, 540), "200px wide cannot host the minimum panel width");
 			assertFalse(SidebarLayout.fits(960, 100), "100px tall cannot host three rows");
 		}
 	}
@@ -251,11 +251,146 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("only a group header offers a close box")
-		void onlyGroupsClose() {
+		@DisplayName("every row offers a close box, a tab as well as a phase")
+		void everyRowCloses() {
 			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
 			assertNotNull(l.slots().get(0).close());
-			assertNull(l.slots().get(1).close(), "a tab row must not offer a group's close box");
+			assertNotNull(l.slots().get(1).close(), "a tab row should close from a button too");
+		}
+
+		@Test
+		@DisplayName("a tab offers rename and batch; only a phase offers park and focus")
+		void eachRowOffersItsOwnActions() {
+			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
+			Slot header = l.slots().get(0);
+			Slot tab = l.slots().get(1);
+			assertNotNull(header.action(RowAction.PARK));
+			assertNotNull(header.action(RowAction.FOCUS));
+			assertNotNull(header.action(RowAction.RENAME));
+			assertNull(header.action(RowAction.BATCH), "a phase has no batch count of its own");
+			assertNotNull(tab.action(RowAction.RENAME));
+			assertNotNull(tab.action(RowAction.BATCH));
+			assertNull(tab.action(RowAction.PARK), "a tab cannot be parked on its own");
+			assertNull(tab.action(RowAction.FOCUS));
+		}
+	}
+
+	@Nested
+	@DisplayName("row buttons")
+	class RowButtons {
+
+		private static List<Row> mixed() {
+			return List.of(Row.group(0, false), Row.tab(0), Row.tab());
+		}
+
+		@Test
+		@DisplayName("never overlap each other, the marker, or the fold arrow")
+		void neverOverlap() {
+			for (int width : new int[] { 360, 480, 640, 960, 1280 }) {
+				SidebarLayout l = of(width, 540, mixed());
+				for (Slot s : l.slots()) {
+					List<Action> actions = s.actions();
+					for (int i = 0; i < actions.size(); i++) {
+						Rect a = actions.get(i).bounds();
+						assertFalse(overlaps(a, s.marker()), "a button overlaps the marker at " + width);
+						if (s.collapse() != null) {
+							assertFalse(overlaps(a, s.collapse()), "a button overlaps the fold arrow");
+						}
+						for (int j = i + 1; j < actions.size(); j++) {
+							assertFalse(overlaps(a, actions.get(j).bounds()),
+									"two buttons overlap at width " + width);
+						}
+					}
+				}
+			}
+		}
+
+		@Test
+		@DisplayName("never start left of the label, where the icon or fold arrow is")
+		void stayRightOfTheLabelStart() {
+			for (int width : new int[] { 360, 480, 640, 960 }) {
+				SidebarLayout l = of(width, 540, mixed());
+				for (Slot s : l.slots()) {
+					int start = SidebarLayout.labelStart(s.bounds(), s.collapse() != null);
+					for (Action a : s.actions()) {
+						assertTrue(a.bounds().x() >= start,
+								a.kind() + " runs over the icon at width " + width);
+					}
+				}
+			}
+		}
+
+		@Test
+		@DisplayName("give way from the left on a narrow panel, keeping the ×")
+		void narrowPanelKeepsClose() {
+			SidebarLayout wide = medium(mixed());
+			SidebarLayout narrow = of(400, 540, mixed());
+			for (int i = 0; i < wide.slots().size(); i++) {
+				Slot w = wide.slots().get(i);
+				Slot n = narrow.slots().get(i);
+				assertTrue(n.actions().size() <= w.actions().size());
+				if (!n.actions().isEmpty()) {
+					assertEquals(RowAction.CLOSE, n.actions().get(0).kind(),
+							"the × must be the last button to give way");
+				}
+			}
+		}
+
+		@Test
+		@DisplayName("a button only answers while its own row is under the pointer")
+		void buttonNeedsItsRow() {
+			SidebarLayout l = medium(plainTabs(3));
+			Slot first = l.slots().get(0);
+			Rect close = first.close();
+			double cx = close.x() + close.width() / 2.0;
+			assertEquals(RowAction.CLOSE, l.actionAt(first, cx, close.y() + close.height() / 2.0));
+			Slot second = l.slots().get(1);
+			assertNull(l.actionAt(first, cx, second.bounds().y() + 2.0),
+					"the first row's × answered for a point on the second row");
+		}
+
+		@Test
+		@DisplayName("a label shown with the buttons stops before the leftmost one")
+		void labelStopsBeforeButtons() {
+			SidebarLayout l = medium(mixed());
+			for (Slot s : l.slots()) {
+				if (s.actions().isEmpty()) {
+					continue;
+				}
+				int budget = l.labelBudget(s, EnumSet.allOf(RowAction.class));
+				int labelEnd = SidebarLayout.labelStart(s.bounds(), s.collapse() != null) + budget;
+				int leftmost = s.actions().get(s.actions().size() - 1).bounds().x();
+				assertTrue(labelEnd <= leftmost, "the label runs under a button");
+				assertTrue(budget <= l.labelBudget(s), "showing buttons gave the label more room");
+			}
+		}
+
+		private static boolean overlaps(Rect a, Rect b) {
+			return a.x() < b.x() + b.width() && b.x() < a.x() + a.width()
+					&& a.y() < b.y() + b.height() && b.y() < a.y() + a.height();
+		}
+	}
+
+	@Nested
+	@DisplayName("footer")
+	class Footer {
+
+		@Test
+		@DisplayName("buttons sit left to right without touching, and give way to craft-all")
+		void footerButtonsInOrder() {
+			SidebarLayout l = medium(plainTabs(3));
+			Rect[] inOrder = { l.settingsButton(), l.newGroupButton(), l.choicesButton(), l.reopenButton() };
+			for (int i = 1; i < inOrder.length; i++) {
+				assertTrue(inOrder[i].x() >= inOrder[i - 1].x() + inOrder[i - 1].width(),
+						"footer button " + i + " overlaps the one before it");
+			}
+			SidebarLayout narrow = of(360, 540, plainTabs(3));
+			for (Rect r : new Rect[] { narrow.choicesButton(), narrow.reopenButton() }) {
+				if (narrow.footerFits(r)) {
+					assertTrue(r.x() + r.width() <= narrow.craftAllButton().x(),
+							"a footer button that 'fits' still overlaps craft-all");
+				}
+			}
 		}
 	}
 
@@ -411,7 +546,7 @@ class SidebarLayoutTest {
 	class Labels {
 
 		@Test
-		@DisplayName("a fifth of a normal screen is wide enough for names")
+		@DisplayName("a normal screen is wide enough for names")
 		void namesFitAtNormalSizes() {
 			assertTrue(medium(plainTabs(3)).showNames,
 					"960px wide should give a panel with room for names");
@@ -428,14 +563,13 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("a label never runs under the marker, the fold arrow or the close box")
+		@DisplayName("a label at rest never runs under the marker or the fold arrow")
 		void budgetLeavesRoomForControls() {
 			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0)));
 			for (Slot s : l.slots()) {
 				int budget = l.labelBudget(s);
 				int controls = SidebarLayout.ROW_PAD * 2
 						+ (s.collapse() != null ? SidebarLayout.COLLAPSE + 4 : 0)
-						+ (s.close() != null ? SidebarLayout.CLOSE + 3 : 0)
 						+ SidebarLayout.ICON + 5 + SidebarLayout.MARKER + 5;
 				assertTrue(budget + controls <= s.bounds().width(),
 						"the label budget overlaps the row's controls");

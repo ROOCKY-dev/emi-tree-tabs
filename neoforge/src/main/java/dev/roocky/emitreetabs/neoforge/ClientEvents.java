@@ -1,19 +1,22 @@
-package dev.roocky.emitreetabs.forge;
+package dev.roocky.emitreetabs.neoforge;
 
 import dev.roocky.emitreetabs.EmiTreeTabs;
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.TreeTabs;
 import dev.roocky.emitreetabs.ui.TabUi;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 /**
  * Client lifecycle glue: retry deferred tab restores, and drop world-scoped state on disconnect.
+ *
+ * <p>No {@code bus} argument: on NeoForge the game bus is the default, which is where both of these
+ * events are posted.
  */
-@Mod.EventBusSubscriber(modid = EmiTreeTabs.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(modid = EmiTreeTabs.MOD_ID, value = Dist.CLIENT)
 public final class ClientEvents {
 
 	private ClientEvents() {
@@ -25,11 +28,9 @@ public final class ClientEvents {
 	 */
 	private static int tickCounter;
 
+	/** {@code Post} is the old {@code TickEvent.Phase.END}; NeoForge split the phases into classes. */
 	@SubscribeEvent
-	public static void onClientTick(TickEvent.ClientTickEvent event) {
-		if (event.phase != TickEvent.Phase.END) {
-			return;
-		}
+	public static void onClientTick(ClientTickEvent.Post event) {
 		TreeTabs.tryRestore();
 		// Pick up hand edits to the json. Two seconds is often enough to feel live while keeping
 		// this to one file stat rather than one per tick.

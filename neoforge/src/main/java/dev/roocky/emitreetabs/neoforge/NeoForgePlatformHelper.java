@@ -1,13 +1,13 @@
-package dev.roocky.emitreetabs.forge;
+package dev.roocky.emitreetabs.neoforge;
 
 import java.nio.file.Path;
 
 import dev.roocky.emitreetabs.platform.PlatformHelper;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.loading.FMLPaths;
+import net.neoforged.fml.ModList;
+import net.neoforged.fml.loading.FMLPaths;
 
 /** Found by ServiceLoader; see META-INF/services. */
-public class ForgePlatformHelper implements PlatformHelper {
+public class NeoForgePlatformHelper implements PlatformHelper {
 
 	@Override
 	public Path configDir() {

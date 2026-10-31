@@ -86,9 +86,21 @@ public final class RecipeChoicesScreen extends Screen {
 		rebuild();
 	}
 
+	/**
+	 * Drawn by {@link #render} itself, first, rather than by {@code super.render}.
+	 *
+	 * <p>Since 1.20.2 {@code Screen.render} paints the background on its own, and this screen calls
+	 * {@code super.render} <em>last</em> so the buttons land on top of the rows. Left alone that
+	 * would paint the background over everything already drawn — and in 1.21 the background is a
+	 * blur, which throws "Can only blur once per frame" the second time it runs in one frame.
+	 */
+	@Override
+	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float delta) {
+	}
+
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
-		renderBackground(g);
+		super.renderBackground(g, mouseX, mouseY, delta);
 		g.drawCenteredString(font, title, width / 2, MARGIN, TabPalette.TEXT);
 
 		if (conflicts.isEmpty()) {
@@ -191,7 +203,7 @@ public final class RecipeChoicesScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double amount) {
 		scroll = Math.max(0, scroll - (int) (amount * 20));
 		rebuild();
 		return true;

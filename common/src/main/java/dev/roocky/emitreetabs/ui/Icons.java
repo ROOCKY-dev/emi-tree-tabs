@@ -24,7 +24,7 @@ import net.minecraft.resources.ResourceLocation;
 public final class Icons {
 
 	private static final ResourceLocation SHEET =
-			new ResourceLocation("emitreetabs", "textures/gui/icons.png");
+			ResourceLocation.fromNamespaceAndPath("emitreetabs", "textures/gui/icons.png");
 	private static final int SHEET_WIDTH = 64;
 	private static final int SHEET_HEIGHT = 64;
 
@@ -46,6 +46,15 @@ public final class Icons {
 	public static final Sprite CLOSE = new Sprite(48, 0, 8, 8);
 	/** Two bars. A parked group is set aside, not switched off. */
 	public static final Sprite PARK = new Sprite(56, 0, 8, 8);
+	/** A pencil: rename the row. */
+	public static final Sprite RENAME = new Sprite(28, 16, 8, 8);
+	/** A hash: set how many of the tree to make. */
+	public static final Sprite BATCH = new Sprite(36, 16, 8, 8);
+	/** A target: work on this phase only, setting every other one aside. */
+	public static final Sprite FOCUS = new Sprite(44, 16, 8, 8);
+	/** An arrow turning back: reopen the last closed tab. */
+	public static final Sprite REOPEN = new Sprite(32, 44, 12, 12);
+
 	public static final Sprite ARROW_LEFT = new Sprite(0, 16, 5, 8);
 	public static final Sprite ARROW_RIGHT = new Sprite(6, 16, 5, 8);
 	public static final Sprite CARET_RIGHT = new Sprite(12, 16, 4, 7);
