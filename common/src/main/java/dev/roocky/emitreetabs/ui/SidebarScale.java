@@ -13,6 +13,7 @@ public final class SidebarScale {
 
 	/** Text, icons, buttons and spacing are 35% smaller than the normal GUI. */
 	public static final double CONTENT_SCALE = 0.65;
+	private static final SidebarScale STANDARD = new SidebarScale(CONTENT_SCALE);
 
 	public final double factor;
 
@@ -21,7 +22,7 @@ public final class SidebarScale {
 	}
 
 	public static SidebarScale standard() {
-		return new SidebarScale(CONTENT_SCALE);
+		return STANDARD;
 	}
 
 	/** A fixed factor for coordinate conversion tests. */
@@ -72,5 +73,4 @@ public final class SidebarScale {
 	public boolean fits(int screenWidth, int screenHeight) {
 		return SidebarLayout.fits(toUnits(screenWidth), toUnits(screenHeight));
 	}
-
 }

@@ -16,7 +16,7 @@ Needs **JDK 21** (`java_version` in `gradle.properties`; the `mc/1.20.1` mainten
 ./gradlew :neoforge:runClient  # or :fabric:runClient — dev client with EMI + YACL, mixin.debug/checks on
 ```
 
-Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. The root project's jar is disabled on purpose: it would be empty and named like the real one. Ignore `*-dev-shadow.jar` and `*-sources.jar`. CI (`.github/workflows/build.yml`) only checks that it compiles and packages. There is no lint step.
+Jars land in `neoforge/build/libs/` and `fabric/build/libs/`. The root project's jar is disabled on purpose: it would be empty and named like the real one. Ignore `*-dev-shadow.jar` and `*-sources.jar`. CI (`.github/workflows/build.yml`) builds, runs the common JUnit suite and packages both jars. There is no lint step.
 
 ## Layout
 
@@ -40,7 +40,7 @@ When touching any of this, **check signatures against the real EMI jar** (`javap
 
 **Persistence:** `tab/TabCodec` stores a tab as goal recipe + chosen resolutions + batch + folded branches, not the node graph. That's why tabs survive restarts and resource reloads. `TreeTabsConfig` is a hand-rolled JSON config (`config/emitreetabs.json`), hot-reloaded.
 
-**UI:** there are two layouts, the horizontal strip (`ui/TabBar`) and the floating sidebar (`ui/TreeSidebar`), chosen by `tabOrientation`. Geometry lives in pure classes that **import nothing from Minecraft or EMI**: `TabLayout`, `SidebarLayout`, `SidebarRows`, `SidebarDrag`, plus `tab/Formula` (batch-expression parser). These are the classes covered by tests under `common/src/test`. Keep new layout/drag arithmetic in that style so it stays testable. Everything that touches EMI must be checked in game.
+**UI:** the sidebar occupies 25% of the window at 65% normal GUI scale (`SidebarScale`). Explicit sidebar selection is honored; only Auto uses size fallback. There are two layouts, the horizontal strip (`ui/TabBar`) and the attached sidebar (`ui/TreeSidebar`), chosen by `tabOrientation`. Geometry lives in pure classes that **import nothing from Minecraft or EMI**: `TabLayout`, `SidebarLayout`, `SidebarRows`, `SidebarDrag`, plus `tab/Formula` (batch-expression parser). These are the classes covered by tests under `common/src/test`. Keep new layout/drag arithmetic in that style so it stays testable. Everything that touches EMI must be checked in game.
 
 **Optional YACL:** every `dev.isxander.yacl3.*` reference stays in `config/YaclConfigScreen` and `config/BarPreview`. They're reached only when `yet_another_config_lib_v3` is loaded, so a missing YACL means a class that never resolves, not a crash. Keep it that way.
 

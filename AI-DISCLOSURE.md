@@ -4,13 +4,15 @@ Modrinth requires projects to disclose the use of generative AI. This is that di
 
 ## Short version
 
-**The code in this mod was written by an AI assistant (Anthropic's Claude), working from my
-direction, in a back-and-forth over a single day.** I set the goals, tested every build in a real
-293-mod GregTech pack, reported the bugs and rejected the designs I did not want. I did not write
-the Java by hand.
+**This mod is developed with AI assistants, including Anthropic's Claude and OpenAI's Codex,
+working from the maintainer's direction.** The maintainer sets the goals, tests the builds in
+Minecraft, reports bugs, and accepts or rejects interface changes. The original 1.20.1 work was
+checked in a GregTech pack; the 1.21.1 port was playtested separately on NeoForge and Fabric.
 
-No AI-generated art, textures, sounds or translations are included. The mod ships no assets beyond
-a single English language file, which is also AI-written.
+The pixel icons and English language file were also made during AI-assisted development. Icons
+are small pixel patterns exported to SVG and PNG by `art/make_icons.py`. There are no generated
+sounds or illustrations. README screenshots and the page-switching recording are real captures
+supplied by the maintainer.
 
 ## What that means in practice
 

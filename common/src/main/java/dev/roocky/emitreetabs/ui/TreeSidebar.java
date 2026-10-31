@@ -184,7 +184,7 @@ public final class TreeSidebar {
 	}
 
 	/**
-	 * The row under a y coordinate, or {@code rows.size()} for the empty space past the last one.
+	 * The row under a y coordinate, or {@link Integer#MAX_VALUE} past the last visible row.
 	 *
 	 * <p>By y alone, not by the slot's rectangle: a drag is allowed to wander outside the panel
 	 * horizontally, and cancelling the drop because the pointer drifted sideways would be a worse
@@ -536,7 +536,7 @@ public final class TreeSidebar {
 		lines.add(Component.translatable(key));
 		String hint = switch (action) {
 			case CLOSE -> isGroup ? "emi.tree_tabs.action.drop_phase.hint" : "emi.tree_tabs.action.close.hint";
-			case RENAME -> "emi.tree_tabs.action.rename.hint";
+			case RENAME -> isGroup ? "emi.tree_tabs.group.rename.hint" : "emi.tree_tabs.action.rename.hint";
 			case BATCH -> "emi.tree_tabs.action.batch.hint";
 			case PARK -> "emi.tree_tabs.action.park.hint";
 			case FOCUS -> "emi.tree_tabs.action.focus.hint";

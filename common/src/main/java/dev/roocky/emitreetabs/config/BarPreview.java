@@ -148,14 +148,13 @@ public final class BarPreview implements ImageRenderer {
 	}
 
 	private void drawSidebar(GuiGraphics g, Font font, int x, int y, int width) {
-		// A fifth in game, a third here. The box is far wider than it is tall compared with a
-		// screen, so a literal fifth of it is a strip too narrow to draw a name in - which is the
-		// one thing this layout exists to have room for.
+		// The preview is much wider than it is tall, so it exaggerates the panel's width enough
+		// to show a name. In game the panel takes 25% of the full window with smaller contents.
 		int panelWidth = Math.max(SidebarLayout.MIN_PANEL_WIDTH, width / 3);
 		// Same rule the real sidebar uses: barAtBottom doubles as "put it on the right".
-		int panelX = barAtBottom.getAsBoolean() ? x + width - panelWidth - 4 : x + 4;
-		int panelY = y + 4;
-		int panelHeight = PREVIEW_HEIGHT - 22;
+		int panelX = barAtBottom.getAsBoolean() ? x + width - panelWidth : x;
+		int panelY = y;
+		int panelHeight = PREVIEW_HEIGHT - 18;
 
 		g.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, TabPalette.PANEL);
 		g.fill(panelX, panelY, panelX + panelWidth, panelY + 1, TabPalette.PANEL_HI);

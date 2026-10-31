@@ -205,5 +205,7 @@ jobs:
           loaders: ${{ matrix.loader }}
           game-versions: ${{ needs.plan.outputs.game_versions }}
           java: ${{ steps.java.outputs.v }}
-          dependencies: emi(required)
+          dependencies: |
+            emi(required)
+            ${{ matrix.loader == 'fabric' && 'fabric-api(required)' || '' }}
           changelog-file: release-notes.md
