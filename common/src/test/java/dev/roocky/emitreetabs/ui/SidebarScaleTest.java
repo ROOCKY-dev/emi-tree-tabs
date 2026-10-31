@@ -34,7 +34,7 @@ class SidebarScaleTest {
 				assertEquals(SidebarLayout.RowAction.CLOSE, layout.actionAt(slot,
 						scale.toUnits(button.x() + button.width() / 2.0),
 						scale.toUnits(button.y() + button.height() / 2.0)));
-				assertEquals(336, scale.toScreen(layout.panel.width()), 1);
+				assertEquals(240, scale.toScreen(layout.panel.width()), 1);
 				assertEquals(540, scale.toScreen(layout.panel.height()), 2);
 			}
 		}

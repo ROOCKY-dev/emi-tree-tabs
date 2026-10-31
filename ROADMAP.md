@@ -607,3 +607,7 @@ The earlier 130–145% enlargement was a misinterpretation and made the panel cr
 owner's GUI scale. The smaller contents and wider panel leave room for names and row actions.
 The width fraction and content scale are separate named constants. Build and hit-target tests
 cover the smaller coordinate system; final sizing still needs the owner's visual playtest.
+
+The next playtest approved the smaller contents but found the 35% panel wider than necessary.
+The owner selected **25% of the full window width**, retaining the 65% content scale and full-height
+attachment. This supersedes the 35% width above.

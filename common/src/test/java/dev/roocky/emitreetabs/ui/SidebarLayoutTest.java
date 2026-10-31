@@ -49,13 +49,13 @@ class SidebarLayoutTest {
 	class Panel {
 
 		@Test
-		@DisplayName("takes 35 percent of the full width, leaving the rest for the tree")
-		void widthIsThirtyFivePercent() {
+		@DisplayName("takes 25 percent of the full width, leaving the rest for the tree")
+		void widthIsTwentyFivePercent() {
 			SidebarLayout l = medium(plainTabs(3));
-			assertEquals(Math.round(960 * 0.35), l.panel.width());
+			assertEquals(Math.round(960 * 0.25), l.panel.width());
 			int leftForTree = l.screenWidth - l.panel.width();
-			assertTrue(leftForTree > l.screenWidth * 0.64,
-					"the tree should keep about 65 percent, got " + leftForTree);
+			assertTrue(leftForTree > l.screenWidth * 0.74,
+					"the tree should keep about 75 percent, got " + leftForTree);
 		}
 
 		@Test
@@ -81,7 +81,7 @@ class SidebarLayoutTest {
 		void doesNotEatSmallScreens() {
 			for (int w : new int[] { 320, 400, 480, 640, 960, 1920 }) {
 				SidebarLayout l = of(w, 400, plainTabs(3));
-				assertEquals(Math.round(w * 0.35), l.panel.width(),
+				assertEquals(Math.round(w * 0.25), l.panel.width(),
 						"panel took " + l.panel.width() + " of " + w);
 			}
 		}

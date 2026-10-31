@@ -147,8 +147,8 @@ public final class SidebarLayout {
 	public static final int FOOTER = 22;
 	public static final int ICON = 16;
 
-	/** The panel takes 35% of the full window width, independently of content scaling. */
-	public static final double WIDTH_FRACTION = 0.35;
+	/** The panel takes 25% of the full window width, independently of content scaling. */
+	public static final double WIDTH_FRACTION = 0.25;
 	/** Below this the sidebar cannot show anything useful and the caller should stay horizontal. */
 	public static final int MIN_PANEL_WIDTH = 72;
 	/** Names are dropped below this panel width; the icon and marker still fit. */
