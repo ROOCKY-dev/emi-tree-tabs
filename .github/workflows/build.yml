@@ -48,7 +48,7 @@ jobs:
       # The loader module produces the real mod jar; the root project is only a container and
       # emits an empty one, so it must not be what gets uploaded.
       - name: Upload jar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: emitreetabs-${{ github.sha }}
           # Every loader module, whichever ones this branch has (forge on 1.20.1, neoforge after).
