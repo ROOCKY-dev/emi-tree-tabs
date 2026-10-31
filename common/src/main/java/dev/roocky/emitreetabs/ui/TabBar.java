@@ -494,8 +494,14 @@ public final class TabBar {
 		}
 		switch (keyCode) {
 			case GLFW.GLFW_KEY_R -> {
+				// Ctrl+Shift+R, not Ctrl+R: EMI's tree screen hard-codes Ctrl+R to show a random
+				// tree. Taking it meant EMI's shortcut worked only while no tab was open, and
+				// silently did something else the moment one was. Plain Ctrl+R stays EMI's.
+				if (!Screen.hasShiftDown()) {
+					return false;
+				}
 				// The footer button is the discoverable way in; this is the one that still works
-				// on the strip, which has no footer, and on a panel too narrow for a third button.
+				// on the strip, which has no footer, and on a panel too narrow for the button.
 				click();
 				TreeSidebar.openChoices(screen);
 				return true;

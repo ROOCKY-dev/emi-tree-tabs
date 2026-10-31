@@ -11,7 +11,8 @@
 		"EmiScreenManagerMixin",
 		"TreeCostMixin",
 		"EmiSidebarsMixin",
-		"SyntheticTooltipMixin"
+		"SyntheticTooltipMixin",
+		"ConfigPresetScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

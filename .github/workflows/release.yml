@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build a release from'
+        description: 'Release tag, e.g. v5.0.0+1.20.1'
         required: true
 
 permissions:
@@ -47,7 +47,8 @@ jobs:
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           VERSION="$(grep -oP '^mod_version=\K.*' gradle.properties)"
           echo "tag=$TAG mod_version=$VERSION"
-          if [ "$TAG" != "v$VERSION" ]; then
+          MC="$(grep -oP '^minecraft_version=\K.*' gradle.properties)"
+          if [ "$TAG" != "v$VERSION" ] && [ "$TAG" != "v$VERSION+$MC" ]; then
             echo "::error::Tag $TAG does not match mod_version $VERSION in gradle.properties"
             exit 1
           fi

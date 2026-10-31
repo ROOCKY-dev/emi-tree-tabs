@@ -35,3 +35,4 @@ art/icons/*.png
 # One-off sprite previews written while drawing an icon; preview.png is the real one.
 art/ch.png
 art/ng.png
+PROTOCOLS.md

@@ -172,6 +172,56 @@ SPRITES = {
 ############
 .....##.....
 """),
+    # Row buttons, 8px like the close badge they line up beside.
+    # A pencil, point down-left: rename. The universal mark for "edit this text".
+    "rename": (8, 8, """
+......##
+.....###
+....###.
+...###..
+..###...
+.###....
+.##.....
+#.......
+"""),
+    # A hash: set how many. The marker beside it already shows the number this edits.
+    "batch": (8, 8, """
+..#..#..
+..#..#..
+########
+..#..#..
+..#..#..
+########
+..#..#..
+..#..#..
+"""),
+    # A target: work on this phase only. Everything else is set aside, this one is in the middle.
+    "focus": (8, 8, """
+..####..
+.#....#.
+#......#
+#..##..#
+#..##..#
+#......#
+.#....#.
+..####..
+"""),
+    # A footer button, 12px: bring back the last closed tab. An arrow turning back on itself is
+    # what every editor draws for undo, which is what reopening is.
+    "reopen": (12, 12, """
+............
+...#........
+..##........
+.#########..
+..##......#.
+...#.......#
+...........#
+...........#
+..........#.
+...#######..
+............
+............
+"""),
 }
 
 # Where each sprite lands on the sheet. Kept explicit rather than a uniform grid, because the
@@ -185,6 +235,10 @@ PLACEMENT = {
     "park": (56, 0),
     "new_group": (0, 44),
     "choices": (16, 44),
+    "rename": (28, 16),
+    "batch": (36, 16),
+    "focus": (44, 16),
+    "reopen": (32, 44),
     "arrow_left": (0, 16),
     "arrow_right": (6, 16),
     "caret_right": (12, 16),

@@ -1,14 +1,18 @@
 package dev.roocky.emitreetabs.ui;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.tab.RecipeChoices;
 import dev.roocky.emitreetabs.tab.TabGroup;
 import dev.roocky.emitreetabs.tab.TreeTab;
 import dev.roocky.emitreetabs.tab.TreeTabs;
+import dev.roocky.emitreetabs.ui.SidebarLayout.Action;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Rect;
+import dev.roocky.emitreetabs.ui.SidebarLayout.RowAction;
 import dev.roocky.emitreetabs.ui.SidebarLayout.RowKind;
 import dev.roocky.emitreetabs.ui.SidebarLayout.Slot;
 import dev.emi.emi.api.stack.EmiIngredient;
@@ -25,7 +29,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 
 /**
- * The vertical tab panel: a floating sidebar over EMI's tree screen.
+ * The vertical tab panel, attached to the edge of EMI's tree screen.
  *
  * <p>All of the arithmetic lives in {@link SidebarLayout} and all of the ordering in
  * {@link SidebarRows}; this class draws what they describe and turns clicks back into tab
@@ -54,23 +58,27 @@ public final class TreeSidebar {
 		if (!TreeTabsConfig.enabled || TreeTabs.count() == 0) {
 			return false;
 		}
-		String mode = TreeTabsConfig.tabOrientation;
-		if ("horizontal".equalsIgnoreCase(mode)) {
-			return false;
-		}
-		if ("vertical".equalsIgnoreCase(mode)) {
-			// Even when asked for explicitly, a screen too small to draw it is still too small.
-			return SidebarLayout.fits(screen.width, screen.height);
-		}
-		return SidebarLayout.fits(screen.width, screen.height);
+		return scale().useSidebar(TreeTabsConfig.tabOrientation, screen.width, screen.height);
 	}
 
 	private static SidebarLayout layout(Screen screen, SidebarRows.Result rows) {
-		return new SidebarLayout(screen.width, screen.height, rows.rows(), scroll,
+		SidebarScale scale = scale();
+		return new SidebarLayout(scale.toUnits(screen.width), scale.toUnits(screen.height), rows.rows(), scroll,
 				!TreeTabsConfig.barAtBottom);
 	}
 
+	private static SidebarScale scale() {
+		return SidebarScale.standard();
+	}
+
+	/** Screen coordinates for text fields and tooltips, which render outside the panel pose. */
+	private static Rect screenRect(Screen screen, Rect rect) {
+		return scale().toScreen(rect);
+	}
+
 	public static boolean isOver(Screen screen, double mouseX, double mouseY) {
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -83,6 +91,9 @@ public final class TreeSidebar {
 		if (!active(screen)) {
 			return;
 		}
+		SidebarScale scale = scale();
+		mouseX = (int) scale.toUnits((double) mouseX);
+		mouseY = (int) scale.toUnits((double) mouseY);
 		TreeTabs.syncActiveCraftingMode();
 
 		SidebarRows.Result rows = TreeTabs.sidebarRows();
@@ -106,10 +117,13 @@ public final class TreeSidebar {
 			TreeTabs.pollProgress(first, last);
 		}
 
+		graphics.pose().pushPose();
+		graphics.pose().scale((float) scale.factor, (float) scale.factor, 1f);
 		panel(graphics, l.panel);
 
-		graphics.enableScissor(l.viewport.x(), l.viewport.y(),
-				l.viewport.x() + l.viewport.width(), l.viewport.y() + l.viewport.height());
+		// GuiGraphics scissor coordinates ignore the pose on 1.21.1.
+		Rect clip = scale.toScreen(l.viewport);
+		graphics.enableScissor(clip.x(), clip.y(), clip.x() + clip.width(), clip.y() + clip.height());
 
 		// Group boxes first, so rows draw on top of their own enclosing border.
 		for (TabGroup g : TreeTabs.groups()) {
@@ -131,6 +145,7 @@ public final class TreeSidebar {
 		graphics.disableScissor();
 
 		drawFooter(graphics, l, mouseX, mouseY);
+		graphics.pose().popPose();
 
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
@@ -169,7 +184,7 @@ public final class TreeSidebar {
 	}
 
 	/**
-	 * The row under a y coordinate, or {@code rows.size()} for the empty space past the last one.
+	 * The row under a y coordinate, or {@link Integer#MAX_VALUE} past the last visible row.
 	 *
 	 * <p>By y alone, not by the slot's rectangle: a drag is allowed to wander outside the panel
 	 * horizontally, and cancelling the drop because the pointer drifted sideways would be a worse
@@ -204,22 +219,29 @@ public final class TreeSidebar {
 			lines.add(Component.translatable("emi.tree_tabs.all.title"));
 			lines.add(Component.translatable("emi.tree_tabs.all.state",
 					TreeTabs.craftingCount(), TreeTabs.count()).withStyle(ChatFormatting.GRAY));
-		} else if (choiceCount() > 0 && l.footerFits(l.choicesButton())
-				&& l.choicesButton().contains(mouseX, mouseY)) {
+		} else if (l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.choices.button"));
-			lines.add(Component.translatable("emi.tree_tabs.choices.button.desc", choiceCount())
+			lines.add((choiceCount() > 0
+					? Component.translatable("emi.tree_tabs.choices.button.desc", choiceCount())
+					: Component.translatable("emi.tree_tabs.choices.button.none"))
 					.withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("emi.tree_tabs.choices.button.hint")
+					.withStyle(ChatFormatting.DARK_GRAY));
+		} else if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+				&& l.reopenButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable("emi.tree_tabs.reopen.button"));
+			lines.add(Component.translatable("emi.tree_tabs.reopen.button.hint")
 					.withStyle(ChatFormatting.DARK_GRAY));
 		} else if (ConfigScreenHook.available() && l.settingsButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.config.title"));
 		} else {
 			return;
 		}
+		Rect panel = screenRect(screen, l.panel);
 		TabTooltip.render(g, font, lines, screen.width, screen.height,
-				new TabTooltip.Rect(l.panel.x(), l.panel.y(), l.panel.width(), l.panel.height()),
-				l.onLeft ? l.panel.x() + l.panel.width() + 60 : l.panel.x() - 60,
-				mouseX, mouseY);
+				new TabTooltip.Rect(panel.x(), panel.y(), panel.width(), panel.height()),
+				l.onLeft ? panel.x() + panel.width() + 60 : panel.x() - 60,
+				scale().toScreen(mouseX), scale().toScreen(mouseY));
 	}
 
 	/**
@@ -272,19 +294,20 @@ public final class TreeSidebar {
 			outline(g, b, TabPalette.ACCENT);
 		}
 
-		int iconX = b.x() + SidebarLayout.ROW_PAD + 2;
 		EmiIngredient icon = tab.icon();
 		if (!icon.isEmpty()) {
-			icon.render(g, iconX, b.y() + (b.height() - SidebarLayout.ICON) / 2, 0f,
+			icon.render(g, SidebarLayout.iconX(b), b.y() + (b.height() - SidebarLayout.ICON) / 2, 0f,
 					EmiIngredient.RENDER_ICON);
 		}
 
-		int budget = l.labelBudget(s);
+		Set<RowAction> shown = hovered ? EnumSet.allOf(RowAction.class) : EnumSet.noneOf(RowAction.class);
+		int budget = l.labelBudget(s, shown);
 		if (budget > 6 && !RowName.editingTab(tabIndex)) {
 			g.drawString(font, tab.trimmedLabel(font, budget),
-					iconX + SidebarLayout.ICON + 5, b.y() + (b.height() - 8) / 2,
+					SidebarLayout.labelStart(b, false), b.y() + (b.height() - 8) / 2,
 					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
 		}
+		drawActions(g, l, s, shown, Set.of(), mouseX, mouseY);
 
 		marker(g, font, s.marker(), String.valueOf(tab.batches()), tab.craftingMode,
 				hovered && l.overMarker(s, mouseX, mouseY));
@@ -314,31 +337,65 @@ public final class TreeSidebar {
 				c.x(), c.y(), c.width(), c.height(),
 				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
 
-		int budget = l.labelBudget(s);
+		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
+		// aside for now". Now the park button stays up on a parked header: the state and the control
+		// that changes it are one icon, the way the marker is both a count and the crafting toggle.
+		Set<RowAction> shown = groupActionsShown(group, hovered);
+		Set<RowAction> lit = group.parked ? Set.of(RowAction.PARK) : Set.of();
+
+		int budget = l.labelBudget(s, shown);
 		if (budget > 6 && !RowName.editingGroup(group.id)) {
 			g.drawString(font, trim(font, group.name, budget),
-					c.x() + SidebarLayout.COLLAPSE + 4, b.y() + (b.height() - 8) / 2,
+					SidebarLayout.labelStart(b, true), b.y() + (b.height() - 8) / 2,
 					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
 		}
+		drawActions(g, l, s, shown, lit, mouseX, mouseY);
 
 		int size = TreeTabs.groupSize(group.id);
 		boolean allCrafting = size > 0 && TreeTabs.groupCraftingCount(group.id) == size;
-		Rect m = s.marker();
-		Rect x = s.close();
-		// Shown while the header is hovered, like the × on a strip tab. Until this existed the only
-		// way to drop a phase was a middle click that only the tooltip mentioned.
-		if (hovered) {
-			Icons.centred(g, Icons.CLOSE, x.x(), x.y(), x.width(), x.height(),
-					l.overClose(s, mouseX, mouseY) ? TabPalette.CLOSE_HOVER : TabPalette.TEXT_DIM);
-		}
-		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
-		// aside for now" - and not at all on a header whose name was too long to draw.
-		if (group.parked) {
-			Icons.draw(g, Icons.PARK, x.x() - Icons.PARK.width() - 3,
-					m.y() + (m.height() - Icons.PARK.height()) / 2, TabPalette.TEXT_DIM);
-		}
-		marker(g, font, m, String.valueOf(size), allCrafting,
+		marker(g, font, s.marker(), String.valueOf(size), allCrafting,
 				hovered && l.overMarker(s, mouseX, mouseY));
+	}
+
+	/** Every button while the header is hovered; at rest, only the park state if it is parked. */
+	private static Set<RowAction> groupActionsShown(TabGroup group, boolean hovered) {
+		if (hovered) {
+			return EnumSet.allOf(RowAction.class);
+		}
+		return group.parked ? EnumSet.of(RowAction.PARK) : EnumSet.noneOf(RowAction.class);
+	}
+
+	/**
+	 * Draws a row's buttons: plain icons rather than boxed buttons, so a row full of them still reads
+	 * as one row and not as a toolbar. The one under the pointer brightens; × turns red, as on the
+	 * strip.
+	 */
+	private static void drawActions(GuiGraphics g, SidebarLayout l, Slot s, Set<RowAction> shown,
+			Set<RowAction> lit, int mouseX, int mouseY) {
+		RowAction pointed = l.actionAt(s, mouseX, mouseY);
+		for (Action a : s.actions()) {
+			if (!shown.contains(a.kind())) {
+				continue;
+			}
+			int ink;
+			if (a.kind() == pointed) {
+				ink = a.kind() == RowAction.CLOSE ? TabPalette.CLOSE_HOVER : TabPalette.TEXT;
+			} else {
+				ink = lit.contains(a.kind()) ? TabPalette.TEXT : TabPalette.TEXT_DIM;
+			}
+			Rect r = a.bounds();
+			Icons.centred(g, actionIcon(a.kind()), r.x(), r.y(), r.width(), r.height(), ink);
+		}
+	}
+
+	private static Icons.Sprite actionIcon(RowAction kind) {
+		return switch (kind) {
+			case CLOSE -> Icons.CLOSE;
+			case RENAME -> Icons.RENAME;
+			case BATCH -> Icons.BATCH;
+			case PARK -> Icons.PARK;
+			case FOCUS -> Icons.FOCUS;
+		};
 	}
 
 	/** The square at a row's right end: a count at rest, the crafting toggle under the cursor. */
@@ -371,11 +428,15 @@ public final class TreeSidebar {
 			Rect group = l.newGroupButton();
 			button(g, group, Icons.NEW_GROUP, group.contains(mouseX, mouseY), false);
 		}
-		// Lit, because it is a thing to attend to rather than a thing to do - and absent entirely
-		// when the trees agree, which is most of the time.
-		if (choiceCount() > 0 && l.footerFits(l.choicesButton())) {
+		// Always there, so the screen can be found before it is needed. Lit while the trees
+		// disagree, because then it is a thing to attend to rather than a thing to do.
+		if (l.footerFits(l.choicesButton())) {
 			Rect choices = l.choicesButton();
-			button(g, choices, Icons.CHOICES, choices.contains(mouseX, mouseY), true);
+			button(g, choices, Icons.CHOICES, choices.contains(mouseX, mouseY), choiceCount() > 0);
+		}
+		if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())) {
+			Rect reopen = l.reopenButton();
+			button(g, reopen, Icons.REOPEN, reopen.contains(mouseX, mouseY), false);
 		}
 		button(g, all, Icons.CRAFT_ALL, all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
 	}
@@ -392,7 +453,10 @@ public final class TreeSidebar {
 	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
 			SidebarRows.Result rows, Slot s, int mouseX, int mouseY) {
 		List<Component> lines = new ArrayList<>();
-		if (s.row().kind() == RowKind.GROUP) {
+		RowAction pointed = l.actionAt(s, mouseX, mouseY);
+		if (pointed != null) {
+			actionTooltip(lines, s.row().kind() == RowKind.GROUP, pointed, s.row().groupIndex());
+		} else if (s.row().kind() == RowKind.GROUP) {
 			TabGroup group = TreeTabs.group(s.row().groupIndex());
 			if (group == null) {
 				return;
@@ -444,15 +508,47 @@ public final class TreeSidebar {
 		}
 		// Anchored beside the panel, never over it: the sidebar occupies a whole screen edge, so a
 		// cursor-relative tooltip would sit on top of the rows it is describing.
+		Rect panel = screenRect(screen, l.panel);
 		TabTooltip.render(g, font, lines, screen.width, screen.height,
-				new TabTooltip.Rect(l.panel.x(), l.panel.y(), l.panel.width(), l.panel.height()),
-				l.onLeft ? l.panel.x() + l.panel.width() + 60 : l.panel.x() - 60,
-				mouseX, mouseY);
+				new TabTooltip.Rect(panel.x(), panel.y(), panel.width(), panel.height()),
+				l.onLeft ? panel.x() + panel.width() + 60 : panel.x() - 60,
+				scale().toScreen(mouseX), scale().toScreen(mouseY));
+	}
+
+	/**
+	 * What a row button does, and the key or click that does the same.
+	 *
+	 * <p>The shortcut line is what makes the button a way to <em>learn</em> the gesture rather than
+	 * only a replacement for it.
+	 */
+	private static void actionTooltip(List<Component> lines, boolean isGroup, RowAction action,
+			int groupId) {
+		String key = switch (action) {
+			case CLOSE -> isGroup ? "emi.tree_tabs.action.drop_phase" : "emi.tree_tabs.action.close";
+			case RENAME -> "emi.tree_tabs.action.rename";
+			case BATCH -> "emi.tree_tabs.action.batch";
+			case PARK -> {
+				TabGroup group = TreeTabs.group(groupId);
+				yield group != null && group.parked ? "emi.tree_tabs.group.unpark" : "emi.tree_tabs.group.park";
+			}
+			case FOCUS -> "emi.tree_tabs.group.only";
+		};
+		lines.add(Component.translatable(key));
+		String hint = switch (action) {
+			case CLOSE -> isGroup ? "emi.tree_tabs.action.drop_phase.hint" : "emi.tree_tabs.action.close.hint";
+			case RENAME -> isGroup ? "emi.tree_tabs.group.rename.hint" : "emi.tree_tabs.action.rename.hint";
+			case BATCH -> "emi.tree_tabs.action.batch.hint";
+			case PARK -> "emi.tree_tabs.action.park.hint";
+			case FOCUS -> "emi.tree_tabs.action.focus.hint";
+		};
+		lines.add(Component.translatable(hint).withStyle(ChatFormatting.DARK_GRAY));
 	}
 
 	// ----------------------------------------------------------------- input
 
 	public static boolean mouseClicked(Screen screen, double mouseX, double mouseY, int button) {
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -478,10 +574,16 @@ public final class TreeSidebar {
 			newGroup(screen);
 			return true;
 		}
-		if (button == 0 && choiceCount() > 0 && l.footerFits(l.choicesButton())
-				&& l.choicesButton().contains(mouseX, mouseY)) {
+		if (button == 0 && l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			click();
 			openChoices(screen);
+			return true;
+		}
+		if (button == 0 && TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+				&& l.reopenButton().contains(mouseX, mouseY)) {
+			click();
+			TreeTabs.reopenClosed();
+			ensureVisible(screen, TreeTabs.activeIndex());
 			return true;
 		}
 
@@ -502,13 +604,16 @@ public final class TreeSidebar {
 				TreeTabs.setGroupCrafting(id, TreeTabs.groupCraftingCount(id) < TreeTabs.groupSize(id));
 				return true;
 			}
-			// The × or a middle click drops the phase, matching how a tab closes. Its trees stay
-			// open and simply become ungrouped - a phase is a label on trees, not a box holding
-			// them, so deleting it must not take them with it.
-			if (button == 2 || (button == 0 && l.overClose(s, mouseX, mouseY))) {
+			RowAction action = button == 0 ? l.actionAt(s, mouseX, mouseY) : null;
+			if (action != null) {
 				click();
-				RowName.close(screen);
-				TreeTabs.removeGroup(id);
+				runGroupAction(screen, action, group, s);
+				return true;
+			}
+			// A middle click drops the phase, matching how a tab closes.
+			if (button == 2) {
+				click();
+				runGroupAction(screen, RowAction.CLOSE, group, s);
 				return true;
 			}
 			if (button == 1) {
@@ -539,18 +644,23 @@ public final class TreeSidebar {
 			// The marker shows the batch count, so control-clicking it edits that number, while a
 			// plain click toggles crafting. One square, and the modifier acts on what it displays.
 			if (Screen.hasControlDown()) {
-				Rect m = s.marker();
-				BatchInput.open(screen, tabIndex, m.x() + m.width() + 4, m.y());
+				openBatchInput(screen, tabIndex, s);
 			} else {
 				TreeTabs.toggleCrafting(tabIndex);
 			}
+			return true;
+		}
+		RowAction action = button == 0 ? l.actionAt(s, mouseX, mouseY) : null;
+		if (action != null) {
+			click();
+			runTabAction(screen, action, tabIndex, s);
 			return true;
 		}
 		// Right click renames, as it does on the strip. Its tooltip line ("Right click or F2 to
 		// rename") is shared with the strip, and here it used to only select the row.
 		if (button == 1) {
 			click();
-			RowName.openTab(screen, tabIndex, s.bounds());
+			RowName.openTab(screen, tabIndex, screenRect(screen, s.bounds()));
 			return true;
 		}
 		if (button == 2) {
@@ -570,7 +680,49 @@ public final class TreeSidebar {
 		return true;
 	}
 
+	/** What a tab row's buttons do. Each is the same operation its gesture already performed. */
+	private static void runTabAction(Screen screen, RowAction action, int tabIndex, Slot s) {
+		switch (action) {
+			case CLOSE -> TreeTabs.close(tabIndex);
+			case RENAME -> RowName.openTab(screen, tabIndex, screenRect(screen, s.bounds()));
+			case BATCH -> openBatchInput(screen, tabIndex, s);
+			// A tab row never lays these out; nothing to do if one ever arrives.
+			case PARK, FOCUS -> {
+			}
+		}
+	}
+
+	/**
+	 * What a phase header's buttons do.
+	 *
+	 * <p>Dropping a phase leaves its trees open and simply ungrouped: a phase is a label on trees,
+	 * not a box holding them, so deleting it must not take them with it.
+	 */
+	private static void runGroupAction(Screen screen, RowAction action, TabGroup group, Slot s) {
+		switch (action) {
+			case CLOSE -> {
+				RowName.close(screen);
+				TreeTabs.removeGroup(group.id);
+			}
+			case RENAME -> RowName.openGroup(screen, group.id, screenRect(screen, s.bounds()));
+			case PARK -> TreeTabs.setParked(group.id, !group.parked);
+			case FOCUS -> TreeTabs.parkAllExcept(group.id);
+			// A header never lays this out; its trees each have their own batch count.
+			case BATCH -> {
+			}
+		}
+	}
+
+	/** Opens the batch box beside the row's marker, which is the number it edits. */
+	private static void openBatchInput(Screen screen, int tabIndex, Slot s) {
+		Rect m = s.marker();
+		Rect marker = screenRect(screen, m);
+		BatchInput.open(screen, tabIndex, marker.x() + marker.width() + 4, marker.y());
+	}
+
 	public static boolean mouseDragged(Screen screen, double mouseX, double mouseY, int button) {
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen) || dragTab < 0 || button != 0) {
 			return false;
 		}
@@ -632,7 +784,7 @@ public final class TreeSidebar {
 		SidebarLayout l = layout(screen, rows);
 		for (Slot s : l.slots()) {
 			if (s.row().kind() == RowKind.GROUP && s.row().groupIndex() == group.id) {
-				RowName.openGroup(screen, group.id, s.bounds());
+				RowName.openGroup(screen, group.id, screenRect(screen, s.bounds()));
 				return;
 			}
 		}
@@ -652,6 +804,8 @@ public final class TreeSidebar {
 	 * opened a text box that was never painted.
 	 */
 	public static boolean renameHovered(Screen screen, double mouseX, double mouseY) {
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}
@@ -671,18 +825,20 @@ public final class TreeSidebar {
 			return false;
 		}
 		if (s.row().kind() == RowKind.GROUP) {
-			RowName.openGroup(screen, s.row().groupIndex(), s.bounds());
+			RowName.openGroup(screen, s.row().groupIndex(), screenRect(screen, s.bounds()));
 			return true;
 		}
 		int tab = rows.tabAt(s.index());
 		if (tab < 0) {
 			return false;
 		}
-		RowName.openTab(screen, tab, s.bounds());
+		RowName.openTab(screen, tab, screenRect(screen, s.bounds()));
 		return true;
 	}
 
 	public static boolean mouseScrolled(Screen screen, double mouseX, double mouseY, double amount) {
+		mouseX = scale().toUnits(mouseX);
+		mouseY = scale().toUnits(mouseY);
 		if (!active(screen)) {
 			return false;
 		}

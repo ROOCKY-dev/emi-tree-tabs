@@ -523,3 +523,17 @@ These are documented in the [README](README.md) with the reasoning:
 
 Open a [feature request](../../issues/new/choose). Describing the problem you are trying to solve is
 more useful than describing a solution.
+
+
+## 5.0.0 shared update for Minecraft 1.20.1
+
+The owner requires feature parity and coordinated releases for both 1.20.1 and 1.21.1. This
+supersedes the earlier 4.x-maintenance / 5.x-port version split. Shared version 5.0.0 includes:
+attached 25%-width sidebar, contents at 65% GUI size, row action buttons, reopen, wrapped tooltips,
+and the EMI Tree Tabs sidebar preset. Minecraft 1.20.1 keeps Java 17, Forge/Fabric, its original
+mouse-scroll signature, ResourceLocation constructors and EditBox APIs. Saved-tab format is unchanged.
+
+RELEASES.md is the required policy. CI builds both supported lines. tools/release_all.py checks
+shared versions, waits for both release builds and rehearsals, then uploads only missing releases.
+Tags include Minecraft so Fabric jars from different versions can never overwrite each other.
+The original v5.0.0 remains 1.21.1; this counterpart is v5.0.0+1.20.1.
