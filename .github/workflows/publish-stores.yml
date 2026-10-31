@@ -41,6 +41,7 @@ jobs:
     outputs:
       v: ${{ steps.read.outputs.v }}
       loaders: ${{ steps.read.outputs.loaders }}
+      mc: ${{ steps.read.outputs.mc }}
       game_versions: ${{ steps.read.outputs.game_versions }}
     steps:
       # A store-v* tag marks a release that already exists; the code to build is the v* tag.
@@ -86,6 +87,9 @@ jobs:
             echo "::warning::publish_game_versions unset; falling back to minecraft_version=$GV"
           fi
           echo "game_versions=$GV" >> "$GITHUB_OUTPUT"
+          # The first listed version names the line in store version numbers, so the 1.20.1 branch
+          # and main can never publish the same version string, whatever their mod versions.
+          echo "mc=${GV%%,*}" >> "$GITHUB_OUTPUT"
 
           echo "Publishing $V | loaders: $(echo $LOADERS | tr '\n' ' ')| Minecraft: $GV"
 
@@ -178,7 +182,7 @@ jobs:
                         || { echo "::error::missing $JAR"; fail=1; }
 
           echo "changelog: $(wc -c < release-notes.md) bytes"
-          echo "WOULD PUBLISH: $V+$L | loader $L | Minecraft ${{ needs.plan.outputs.game_versions }} | release"
+          echo "WOULD PUBLISH: $V+${{ needs.plan.outputs.mc }}-$L | loader $L | Minecraft ${{ needs.plan.outputs.game_versions }} | release"
           exit $fail
 
       # mc-publish's own dry-run cannot be trusted: it logged `dry-run: true` and uploaded to both
@@ -195,8 +199,8 @@ jobs:
           curseforge-id: '1677804'
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           files: ${{ matrix.loader }}/build/libs/emitreetabs-${{ matrix.loader }}-${{ needs.plan.outputs.v }}.jar
-          name: EMI Tree Tabs ${{ needs.plan.outputs.v }} (${{ matrix.loader }})
-          version: ${{ needs.plan.outputs.v }}+${{ matrix.loader }}
+          name: EMI Tree Tabs ${{ needs.plan.outputs.v }} (${{ matrix.loader }} ${{ needs.plan.outputs.mc }})
+          version: ${{ needs.plan.outputs.v }}+${{ needs.plan.outputs.mc }}-${{ matrix.loader }}
           version-type: release
           loaders: ${{ matrix.loader }}
           game-versions: ${{ needs.plan.outputs.game_versions }}
