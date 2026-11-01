@@ -6,6 +6,11 @@ looked.
 
 Current shared version: **5.0.0** — Minecraft 1.20.1 (Forge/Fabric) and 1.21.1 (NeoForge/Fabric). Both lines receive shared updates together.
 
+Next improvement planning: [HTA, GOMS and reliability reports](docs/reports/README.md).
+Prioritize save/recovery safety, trustworthy status and clearer workflows on both supported lines.
+The reports distinguish source findings from proposed UX changes and pending in-game checks;
+26.x remains deferred until EMI supports a compatible target.
+
 ## Decisions taken
 
 Three things were settled after a research pass on 2026-09-03, so they stop being reopened:
