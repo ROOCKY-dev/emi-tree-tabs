@@ -4,7 +4,7 @@ What is planned for EMI Tree Tabs, roughly in order. **No dates are promised** �
 spare-time project, and items move or get dropped when they turn out to be worse ideas than they
 looked.
 
-Current shared version: **5.0.0** — Minecraft 1.20.1 (Forge/Fabric) and 1.21.1 (NeoForge/Fabric). Both lines receive shared updates together.
+Current shared version: **5.0.1** (unreleased; last release 5.0.0) — Minecraft 1.20.1 (Forge/Fabric) and 1.21.1 (NeoForge/Fabric). Both lines receive shared updates together.
 
 Next improvement planning: [HTA, GOMS and reliability reports](docs/reports/README.md).
 Prioritize save/recovery safety, trustworthy status and clearer workflows on both supported lines.
