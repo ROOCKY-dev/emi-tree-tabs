@@ -7,6 +7,14 @@ The supported branch, loader and Java matrix is `.github/release-lines.json`. CI
 on each push or pull request, using the proposed commit for its own line and the supported branch
 for the other. Passing that matrix does not backport changes automatically: update both branches.
 
+## Every merge bumps the version
+
+Every merge into a release branch (`main` or `mc/1.20.1`) raises `mod_version` by **at least a
+patch**, on both lines, in the same push, whether or not a release follows right away. A jar
+built from either branch must never carry the same version number as a different, earlier jar.
+Add or update `docs/releases/VERSION+1.20.1.md` and `VERSION+1.21.1.md` with the bump, and mark
+the verification section as pending until the in-game checks are done.
+
 ## Release both lines together
 
 1. Backport shared behavior to both branches; keep Minecraft/loader API differences local.

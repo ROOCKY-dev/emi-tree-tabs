@@ -11,6 +11,9 @@ EMI Tree Tabs: a client-side mod for Minecraft 1.20.1 (Forge + Fabric) and 1.21.
 line as frozen when porting. Read `RELEASES.md`; update both branches, then use
 `python3 tools/release_all.py X.Y.Z --publish`. It gates publication on both lines. CI builds both.
 
+**Every merge into `main` or `mc/1.20.1` bumps `mod_version` by at least a patch on both lines**,
+not only when releasing. Bump it in the same push as the merge (see `RELEASES.md`).
+
 ## Build and test
 
 This branch needs **JDK 17** (`java_version` in `gradle.properties`); `main` needs JDK 21. If the default JDK is wrong, pass it on the command line: a `gradle.properties` in the Gradle home overrides the project one.
