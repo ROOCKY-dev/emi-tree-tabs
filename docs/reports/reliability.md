@@ -6,6 +6,31 @@ features; **P2** = correct misleading state, recovery or integration behavior; *
 runtime failure was reproduced. Reproduction cases below are future acceptance tests using isolated
 config directories, never the player's real saves.
 
+## Implementation status — 2026-11-06
+
+R1–R8 are implemented in source on both lines: branch `fix/reliability` from `main` and
+`fix/reliability-1.20.1` from `mc/1.20.1`. Automated coverage was added for the pure parts only: `SafeFilesTest` (failure
+before/during write, retry, stale temporary file, corrupt file set aside) and `TreeTabsConfigTest`
+(mixed valid/invalid keys, unreadable file, wrong root, legacy lenient values, clamping).
+**Nothing below has been run in game yet**; every EMI-facing acceptance check in this report is
+still open.
+
+| Finding | What changed | Decision taken |
+|---|---|---|
+| R1 | `SafeFiles`: temporary file, flush, atomic move (plain move where unsupported), `.bak` kept; unreadable tabs file moved to `.corrupt` and the backup read instead | Backup is read only when the main file exists but is broken, never when it is missing |
+| R2 | `flush` clears `dirty` only after a successful write; one warning + toast per run of failures | Retry is event-driven (screen close, world leave), no timer |
+| R3 | `TabCodec.load` type-checks every field, clamps batches to `Formula.MAX`, rejects non-finite offsets; restore isolates each tab; config reads key by key | Unrestorable tabs are kept in `emitreetabs-tabs-rejected.json` (deduplicated, last 64), **not** re-imported automatically — that remains a product choice |
+| R4 | At `maxTabs`, a new-tab request restores `BoM.tree`/`craftingMode` and changes nothing | Owner chose **refuse** over replace-with-undo (2026-11-06). Deliberate Shift replacement unchanged |
+| R5 | Reopen checks the limit first and peeks; a failed entry moves to the back of history with a toast | — |
+| R6 | Per-tab `progressGeneration` instead of a single poll-wide cache key | — |
+| R7 | Listeners notified after the list, sections and attribution are published; not on a failed pass; once on the change to empty; re-entrant rebuilds from a listener are ignored | The empty case is now produced by this mod (when the active tree belongs to a tab), so a parked active tree no longer feeds EMI's own pass |
+| R8 | Provider and listener loops iterate copies; throwing listeners are dropped as the API guide says | One failure still drops every capability under that id (documented) |
+
+Also done: `refreshCraftingList` warns once per distinct cause; `craftingTreeCount` javadoc states
+it includes parked trees (semantics unchanged); duplicated/misplaced javadocs in `TreeTabs` and
+`CraftingFavorites` fixed. Not done: the other P3 comment fixes (`ConfigScreenHook`,
+`RecipeChoicesScreen`, `RecipeChoices`) and the rebuild-cost measurement.
+
 ## Source-confirmed findings
 
 ### R1 — P1: saving truncates the destination without atomic replacement

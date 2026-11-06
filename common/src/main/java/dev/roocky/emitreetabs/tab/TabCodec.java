@@ -92,81 +92,133 @@ public final class TabCodec {
 		return obj;
 	}
 
-	/** @return the rebuilt tab, or null if the goal recipe no longer exists in this world. */
+	/**
+	 * The goal recipe id a snapshot names, for messages. Never null and never throws, so it is safe
+	 * to call on exactly the snapshots that just failed to load.
+	 */
+	public static String goalId(JsonObject obj) {
+		String goal = obj == null ? null : string(obj, "goal");
+		return goal == null ? "(no recipe id)" : goal;
+	}
+
+	/**
+	 * Rebuilds a tab from its snapshot.
+	 *
+	 * <p>Every field is checked for the shape it should have before it is read. The file is plain
+	 * json a player can edit, and Gson throws on a value of the wrong type, so one hand-edited or
+	 * damaged entry used to throw out of here and stop every tab after it from being restored. Now
+	 * a missing or malformed goal rejects the tab, and anything else that is malformed (one
+	 * resolution, one fold, the viewport) is skipped on its own and the rest of the tab still loads.
+	 *
+	 * <p>Numbers are held to the same bounds as interactive edits: batches to
+	 * 1..{@link Formula#MAX}, as {@code TreeTabs.setBatches} does, and viewport offsets to finite
+	 * values, since an infinite offset would draw the tree nowhere. Zoom needs no check here; EMI
+	 * clamps it when drawing.
+	 *
+	 * @return the rebuilt tab, or null if the snapshot has no usable goal or its recipe is not
+	 *     loaded in this world.
+	 */
 	public static TreeTab load(JsonObject obj) {
-		if (obj == null || !obj.has("goal")) {
+		if (obj == null) {
 			return null;
 		}
-		ResourceLocation goalId = tryId(obj.get("goal").getAsString());
+		String rawGoal = string(obj, "goal");
+		ResourceLocation goalId = rawGoal == null ? null : tryId(rawGoal);
 		if (goalId == null) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] a saved tab has no valid goal recipe: {}", obj.get("goal"));
 			return null;
 		}
 		EmiRecipe goal = EmiApi.getRecipeManager().getRecipe(goalId);
 		if (goal == null) {
-			EmiTreeTabs.LOGGER.info("[emitreetabs] dropping tab, recipe {} is gone", goalId);
+			EmiTreeTabs.LOGGER.info("[emitreetabs] cannot rebuild a tab, recipe {} is not loaded", goalId);
 			return null;
 		}
 
 		MaterialTree tree = new MaterialTree(goal);
-		if (obj.has("resolutions")) {
-			for (JsonElement element : obj.getAsJsonArray("resolutions")) {
-				if (!element.isJsonObject()) {
-					continue;
-				}
-				JsonObject resolution = element.getAsJsonObject();
-				EmiIngredient ingredient = EmiIngredientSerializer.getDeserialized(resolution.get("ingredient"));
-				if (ingredient == null || ingredient.isEmpty()) {
-					continue;
-				}
-				if (resolution.has("recipe")) {
-					ResourceLocation id = tryId(resolution.get("recipe").getAsString());
-					EmiRecipe recipe = id == null ? null : EmiApi.getRecipeManager().getRecipe(id);
-					if (recipe == null) {
-						// Recipe vanished; leave this branch on EMI's default rather than blanking it.
-						continue;
-					}
-					tree.resolutions.put(ingredient, recipe);
-				} else {
-					tree.resolutions.put(ingredient, null);
-				}
+		JsonArray resolutions = array(obj, "resolutions");
+		if (resolutions != null) {
+			for (JsonElement element : resolutions) {
+				loadResolution(tree, element);
 			}
 		}
-		if (obj.has("batches")) {
-			tree.batches = Math.max(1, obj.get("batches").getAsLong());
+		Long batches = whole(obj, "batches");
+		if (batches != null) {
+			tree.batches = Math.max(1, Math.min(batches, Formula.MAX));
 		}
 		tree.recalculate();
 
-		if (obj.has("folds")) {
-			for (JsonElement element : obj.getAsJsonArray("folds")) {
-				if (!element.isJsonObject()) {
-					continue;
-				}
-				JsonObject fold = element.getAsJsonObject();
-				MaterialNode node = walk(tree.goal, fold.getAsJsonArray("path"));
-				if (node != null) {
-					node.state = parseFold(fold.get("state").getAsString());
-				}
+		JsonArray folds = array(obj, "folds");
+		if (folds != null) {
+			for (JsonElement element : folds) {
+				loadFold(tree, element);
 			}
 		}
 
 		TreeTab tab = new TreeTab(tree);
-		if (obj.has("name")) {
-			tab.customName = obj.get("name").getAsString();
+		tab.customName = string(obj, "name");
+		tab.craftingMode = "craft".equals(string(obj, "mode"));
+		Long group = whole(obj, "group");
+		if (group != null && group >= 0 && group <= Integer.MAX_VALUE) {
+			tab.groupId = group.intValue();
 		}
-		if (obj.has("mode")) {
-			tab.craftingMode = "craft".equals(obj.get("mode").getAsString());
-		}
-		if (obj.has("group")) {
-			tab.groupId = obj.get("group").getAsInt();
-		}
-		if (obj.has("offX") && obj.has("offY")) {
-			tab.offX = obj.get("offX").getAsDouble();
-			tab.offY = obj.get("offY").getAsDouble();
-			tab.zoom = obj.has("zoom") ? obj.get("zoom").getAsInt() : 0;
+		Double offX = finite(obj, "offX");
+		Double offY = finite(obj, "offY");
+		if (offX != null && offY != null) {
+			tab.offX = offX;
+			tab.offY = offY;
+			Long zoom = whole(obj, "zoom");
+			// No range check needed: BoMScreen.getScale clamps zoom to -6..4 itself.
+			tab.zoom = zoom == null ? 0 : (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, zoom));
 			tab.viewportSet = true;
 		}
 		tab.snapshot = obj;
 		return tab;
+	}
+
+	/**
+	 * One saved resolution. A malformed one is skipped and the branch falls back to EMI's default
+	 * recipe, exactly as it does when the chosen recipe has vanished.
+	 */
+	private static void loadResolution(MaterialTree tree, JsonElement element) {
+		if (!element.isJsonObject()) {
+			return;
+		}
+		JsonObject resolution = element.getAsJsonObject();
+		EmiIngredient ingredient;
+		try {
+			ingredient = EmiIngredientSerializer.getDeserialized(resolution.get("ingredient"));
+		} catch (RuntimeException e) {
+			// EMI's deserialiser trusts its input; a damaged ingredient must not cost the whole tab.
+			return;
+		}
+		if (ingredient == null || ingredient.isEmpty()) {
+			return;
+		}
+		if (!resolution.has("recipe")) {
+			// A missing "recipe" is meaningful: the player explicitly cleared this branch.
+			tree.resolutions.put(ingredient, null);
+			return;
+		}
+		String rawRecipe = string(resolution, "recipe");
+		ResourceLocation id = rawRecipe == null ? null : tryId(rawRecipe);
+		EmiRecipe recipe = id == null ? null : EmiApi.getRecipeManager().getRecipe(id);
+		if (recipe == null) {
+			// Recipe vanished; leave this branch on EMI's default rather than blanking it.
+			return;
+		}
+		tree.resolutions.put(ingredient, recipe);
+	}
+
+	private static void loadFold(MaterialTree tree, JsonElement element) {
+		if (!element.isJsonObject()) {
+			return;
+		}
+		JsonObject fold = element.getAsJsonObject();
+		MaterialNode node = walk(tree.goal, array(fold, "path"));
+		String state = string(fold, "state");
+		if (node != null && state != null) {
+			node.state = parseFold(state);
+		}
 	}
 
 	private static void collectFolds(MaterialNode node, List<Integer> path, JsonArray out) {
@@ -196,6 +248,9 @@ public final class TabCodec {
 		}
 		MaterialNode node = root;
 		for (JsonElement step : path) {
+			if (!step.isJsonPrimitive() || !step.getAsJsonPrimitive().isNumber()) {
+				return null;
+			}
 			int index = step.getAsInt();
 			if (node.children == null || index < 0 || index >= node.children.size()) {
 				return null;
@@ -219,5 +274,39 @@ public final class TabCodec {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+
+	// Typed reads that answer null instead of throwing when a key is missing or has the wrong shape.
+
+	private static String string(JsonObject obj, String key) {
+		JsonElement element = obj.get(key);
+		if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+			return null;
+		}
+		return element.getAsString();
+	}
+
+	private static JsonArray array(JsonObject obj, String key) {
+		JsonElement element = obj.get(key);
+		return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
+	}
+
+	private static Double finite(JsonObject obj, String key) {
+		JsonElement element = obj.get(key);
+		if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+			return null;
+		}
+		double value = element.getAsDouble();
+		return Double.isFinite(value) ? value : null;
+	}
+
+	/** A whole number, or null. Fractions are truncated, as Gson's own getAsLong did. */
+	private static Long whole(JsonObject obj, String key) {
+		Double value = finite(obj, key);
+		if (value == null) {
+			return null;
+		}
+		// Clamped through double so an absurd number saturates instead of wrapping.
+		return (long) Math.max(Long.MIN_VALUE, Math.min(Long.MAX_VALUE, value));
 	}
 }

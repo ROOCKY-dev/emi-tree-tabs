@@ -79,7 +79,11 @@ rest.
 ### `CraftingListListener` — the list changed
 
 Fires after the list is rebuilt from every tree being worked on. That happens whenever anything
-feeding it moves, so it fires often.
+feeding it moves, so it fires often. When it fires, the rebuilt list is already complete. It also
+fires once when the list becomes empty, but not for each further pass that stays empty. A rebuild
+that failed is not announced.
+
+Listeners have no id. Adding the same listener twice means it is called twice.
 
 ## Rules for all three
 

@@ -2,7 +2,6 @@ package dev.roocky.emitreetabs.tab;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,6 +20,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import dev.roocky.emitreetabs.EmiTreeTabs;
+import dev.roocky.emitreetabs.SafeFiles;
 import dev.roocky.emitreetabs.TreeTabsConfig;
 import dev.roocky.emitreetabs.ui.SidebarRows;
 import dev.roocky.emitreetabs.ui.TreeScreenHooks;
@@ -68,8 +68,15 @@ public final class TreeTabs {
 	private static long lastProgressPoll;
 	private static EmiPlayerInventory lastPollInventory;
 	private static int lastPolledStructure = -1;
+	/** Bumped when the inventory or tab structure changes; a tab's marker is fresh if it matches. */
+	private static int progressGeneration;
+	/** Something changed that has not been written to disk yet. Only a successful write clears it. */
 	private static boolean dirty;
+	/** The last save failed, so the next success is worth saying out loud. */
+	private static boolean saveFailing;
 	private static boolean refreshing;
+	/** The last crafting-list refresh failure, so the same cause is warned about only once. */
+	private static String lastRefreshFailure;
 	/** Bumped whenever tabs are added, removed, reordered or re-costed, to invalidate the poll. */
 	private static int structureVersion;
 
@@ -130,15 +137,12 @@ public final class TreeTabs {
 			captureViewport();
 			TABS.add(active + 1, new TreeTab(tree));
 			active++;
+		} else if (newTab) {
+			refuseNewTabAtLimit();
+			return;
 		} else {
-			if (newTab) {
-				// Asked for a new tab but there is no room. Replacing the current one silently looked
-				// like the click had opened a tab and lost the tree that was there.
-				SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
-						SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
-						Component.translatable("emi.tree_tabs.limit.title", TreeTabsConfig.maxTabs),
-						Component.translatable("emi.tree_tabs.limit.body"));
-			}
+			// Deliberate replacement: the player asked for this tab to be overwritten (Shift, or
+			// openInNewTab turned off), so the old tree is meant to go.
 			TreeTab tab = TABS.get(active);
 			tab.tree = tree;
 			tab.customName = null;
@@ -154,6 +158,46 @@ public final class TreeTabs {
 			}
 		}
 		markDirty();
+	}
+
+	/**
+	 * A new tab was asked for and there is no room: put EMI back on the tree it was showing and
+	 * change nothing.
+	 *
+	 * <p>This used to overwrite the current tab instead, with a toast saying so. The toast was
+	 * accurate but came too late: the tree, its name, its resolutions and its batch count were
+	 * already gone, with nothing to bring them back. Refusing loses nothing; the toast says how to
+	 * make room.
+	 *
+	 * <p>EMI's {@code setGoal} has already run by now, and all it did was replace {@code BoM.tree}
+	 * and clear {@code BoM.craftingMode} (checked against the 1.1.24 bytecode), so restoring those
+	 * two fields undoes it completely. The viewport is captured first because EMI's own tree screen
+	 * re-runs {@code init()} after a goal change, and that re-applies the stored viewport.
+	 */
+	private static void refuseNewTabAtLimit() {
+		TreeTab current = activeTab();
+		captureViewport();
+		BoM.tree = current.tree;
+		BoM.craftingMode = current.craftingMode;
+		showTabLimitToast();
+	}
+
+	private static void showTabLimitToast() {
+		toast(Component.translatable("emi.tree_tabs.limit.title", TreeTabsConfig.maxTabs),
+				Component.translatable("emi.tree_tabs.limit.body"));
+	}
+
+	/**
+	 * Shows one of this mod's notices.
+	 *
+	 * <p>The only place a toast is built, because the toast id enum is spelled differently on
+	 * Minecraft 1.20.1 ({@code SystemToastIds}) and 1.21.1 ({@code SystemToastId}); keeping it here
+	 * keeps that difference to one line between the two branches. One id for every notice: a newer
+	 * one replaces the older rather than queueing behind it.
+	 */
+	private static void toast(Component title, Component body) {
+		SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
+				SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, body);
 	}
 
 	/**
@@ -240,16 +284,34 @@ public final class TreeTabs {
 		markDirty();
 	}
 
-	/** Ctrl+Shift+T. Rebuilds the most recently closed tab from its snapshot. */
+	/**
+	 * Ctrl+Shift+T. Rebuilds the most recently closed tab from its snapshot.
+	 *
+	 * <p>The snapshot only leaves the history once the tab is actually back. It used to be taken off
+	 * first, so a reopen that failed (its recipe gone after a datapack change) threw the entry away,
+	 * and a reopen at the tab limit went past {@code maxTabs}.
+	 *
+	 * <p>An entry that cannot be rebuilt is moved behind the others instead of blocking them: the
+	 * next press reaches the older history, and the entry is still there if its recipe comes back.
+	 */
 	public static void reopenClosed() {
-		JsonObject snapshot = CLOSED.poll();
+		JsonObject snapshot = CLOSED.peek();
 		if (snapshot == null) {
 			return;
 		}
-		TreeTab tab = TabCodec.load(snapshot);
-		if (tab == null) {
+		if (TABS.size() >= TreeTabsConfig.maxTabs) {
+			showTabLimitToast();
 			return;
 		}
+		TreeTab tab = tryLoad(snapshot);
+		if (tab == null) {
+			CLOSED.poll();
+			CLOSED.addLast(snapshot);
+			toast(Component.translatable("emi.tree_tabs.reopen_failed.title"),
+					Component.translatable("emi.tree_tabs.reopen_failed.body", TabCodec.goalId(snapshot)));
+			return;
+		}
+		CLOSED.poll();
 		captureViewport();
 		int at = active < 0 ? TABS.size() : Math.min(active + 1, TABS.size());
 		TABS.add(at, tab);
@@ -264,14 +326,18 @@ public final class TreeTabs {
 	 */
 	public static void duplicate(int index) {
 		TreeTab source = tab(index);
-		if (source == null || TABS.size() >= TreeTabsConfig.maxTabs) {
+		if (source == null) {
+			return;
+		}
+		if (TABS.size() >= TreeTabsConfig.maxTabs) {
+			showTabLimitToast();
 			return;
 		}
 		JsonObject snapshot = TabCodec.save(source);
 		if (snapshot == null) {
 			return;
 		}
-		TreeTab copy = TabCodec.load(snapshot.deepCopy());
+		TreeTab copy = tryLoad(snapshot.deepCopy());
 		if (copy == null) {
 			return;
 		}
@@ -431,20 +497,20 @@ public final class TreeTabs {
 	// -------------------------------------------------------------- progress
 
 	/**
-	 * Recomputes how far along each tree is against the player's inventory. The active tree is left
-	 * alone because EMI already computed it this frame, and recomputing it would clobber the cost
-	 * list the screen is about to draw.
-	 */
-	/**
 	 * Recomputes how far along each tree is against the player's inventory.
 	 *
 	 * <p>Costed carefully, because this walks whole material graphs: it runs at most every
-	 * {@code progressIntervalMs}, only for the tabs actually on screen, and only when either the
-	 * inventory or the tab structure has actually changed since last time. A player standing still
-	 * with the screen open does no work at all.
+	 * {@code progressIntervalMs}, only for the tabs actually on screen, and only for a tab whose
+	 * marker is older than the current inventory and tab structure. A player standing still with
+	 * the screen open does no work at all.
 	 *
-	 * <p>The active tree is skipped because EMI already computed it this frame, and recomputing
-	 * would clobber the cost list the screen is about to draw.
+	 * <p>Freshness is tracked per tab ({@link TreeTab#progressGeneration}) rather than for the poll
+	 * as a whole. With a single "nothing changed" check, scrolling a tab into view that had been
+	 * off screen when the inventory last changed left its marker stale until the inventory changed
+	 * again, because nothing the check looked at had moved.
+	 *
+	 * <p>The active tree is not recomputed because EMI already computed it this frame, and
+	 * recomputing would clobber the cost list the screen is about to draw; its result is only read.
 	 */
 	public static void pollProgress(int firstVisible, int lastVisible) {
 		if (!TreeTabsConfig.showProgress || TABS.isEmpty()) {
@@ -462,11 +528,12 @@ public final class TreeTabs {
 
 		EmiPlayerInventory inventory = EmiPlayerInventory.of(player);
 		boolean sameInventory = lastPollInventory != null && inventory.isEqual(lastPollInventory);
-		if (sameInventory && structureVersion == lastPolledStructure) {
-			return;
+		if (!sameInventory || structureVersion != lastPolledStructure) {
+			// Every marker computed before now describes an inventory or a tab list that is gone.
+			progressGeneration++;
+			lastPollInventory = inventory;
+			lastPolledStructure = structureVersion;
 		}
-		lastPollInventory = inventory;
-		lastPolledStructure = structureVersion;
 
 		int from = Math.max(0, firstVisible);
 		int to = Math.min(TABS.size() - 1, lastVisible);
@@ -475,10 +542,15 @@ public final class TreeTabs {
 			if (tab.tree == null || tab.tree.goal == null) {
 				continue;
 			}
-			if (i != active) {
+			boolean isActive = i == active;
+			if (!isActive && tab.progressGeneration == progressGeneration) {
+				continue;
+			}
+			if (!isActive) {
 				tab.tree.calculateProgress(inventory);
 			}
 			tab.progress = tab.tree.goal.progress == null ? ProgressState.UNSTARTED : tab.tree.goal.progress;
+			tab.progressGeneration = progressGeneration;
 		}
 	}
 
@@ -581,73 +653,225 @@ public final class TreeTabs {
 			return;
 		}
 		List<TreeTab> rebuilt = new ArrayList<>();
-		for (JsonObject saved : pending) {
-			TreeTab tab = TabCodec.load(saved);
+		List<JsonObject> rejected = new ArrayList<>();
+		int wanted = pendingActive;
+		// Past the end until the wanted tab is reached, so an index beyond the list lands on the last tab.
+		int wantedAfterRestore = Integer.MAX_VALUE;
+		for (int i = 0; i < pending.size(); i++) {
+			if (i == wanted) {
+				// Tabs before it may have been rejected, so its position can only move down. If it
+				// is rejected itself this lands on the next tab that did come back.
+				wantedAfterRestore = rebuilt.size();
+			}
+			JsonObject saved = pending.get(i);
+			TreeTab tab = tryLoad(saved);
 			if (tab != null) {
 				rebuilt.add(tab);
+			} else {
+				rejected.add(saved);
 			}
 		}
-		int wanted = pendingActive;
+		int requested = pending.size();
 		pending = null;
 		TABS.clear();
 		TABS.addAll(rebuilt);
-		active = TABS.isEmpty() ? -1 : Math.max(0, Math.min(wanted, TABS.size() - 1));
+		active = TABS.isEmpty() ? -1 : Math.max(0, Math.min(wantedAfterRestore, TABS.size() - 1));
 		BoM.tree = activeTab() == null ? null : activeTab().tree;
+		if (!rejected.isEmpty()) {
+			keepRejected(rejected, requested);
+		}
+	}
+
+	/**
+	 * Rebuilds one tab, treating any failure as "this tab cannot come back" rather than letting it
+	 * abort the caller.
+	 *
+	 * <p>{@link TabCodec#load} already refuses malformed json without throwing, but a tree is built
+	 * by EMI's own code, and an odd recipe from another mod can throw from inside that. One such
+	 * tab used to end the whole restore, taking every valid tab after it down too.
+	 */
+	private static TreeTab tryLoad(JsonObject saved) {
+		try {
+			return TabCodec.load(saved);
+		} catch (RuntimeException e) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not rebuild the tab for {}", TabCodec.goalId(saved), e);
+			return null;
+		}
 	}
 
 	private static Path file() {
 		return Platform.configDir().resolve(EmiTreeTabs.MOD_ID + "-tabs.json");
 	}
 
+	/** Where tabs that could not be restored are kept. See {@link #keepRejected}. */
+	private static Path rejectedFile() {
+		return Platform.configDir().resolve(EmiTreeTabs.MOD_ID + "-tabs-rejected.json");
+	}
+
+	/** Bounds the rejected file, which only grows otherwise. The oldest entries go first. */
+	private static final int MAX_REJECTED_KEPT = 64;
+
+	/**
+	 * Writes the tabs that could not be restored to their own file, so the next save does not
+	 * erase them.
+	 *
+	 * <p>Usually the goal recipe is simply not loaded: a mod was removed, or this is a server that
+	 * does not have it. Before, such a tab vanished at the next save with only an info line in the
+	 * log. Whether such tabs should come back by themselves when the recipe returns is a product
+	 * decision that has not been taken, so for now they are kept where a player (or a support
+	 * thread) can find them, and nothing reads this file back automatically.
+	 */
+	private static void keepRejected(List<JsonObject> rejected, int requested) {
+		EmiTreeTabs.LOGGER.warn("[emitreetabs] restored {} of {} tabs; {} could not be rebuilt",
+				requested - rejected.size(), requested, rejected.size());
+		if (!TreeTabsConfig.persistTabs) {
+			return;
+		}
+		Path path = rejectedFile();
+		JsonArray kept = readRejected(path);
+		for (JsonObject tab : rejected) {
+			// A rejected tab stays in the main file until the next save, so the next launch can
+			// reject the very same entry again. One copy is enough.
+			if (!kept.contains(tab)) {
+				kept.add(tab);
+			}
+		}
+		while (kept.size() > MAX_REJECTED_KEPT) {
+			kept.remove(0);
+		}
+		JsonObject root = new JsonObject();
+		root.addProperty("note", "Tabs EMI Tree Tabs could not restore, usually because their recipe "
+				+ "was not loaded. Not read back automatically.");
+		root.add("tabs", kept);
+		try {
+			SafeFiles.write(path, writer -> GSON.toJson(root, writer));
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] kept the {} unrestorable tabs in {}", rejected.size(), path);
+		} catch (IOException e) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not write {}", path, e);
+		}
+		toast(Component.translatable("emi.tree_tabs.restore_partial.title", rejected.size()),
+				Component.translatable("emi.tree_tabs.restore_partial.body", path.getFileName().toString()));
+	}
+
+	private static JsonArray readRejected(Path path) {
+		if (!Files.exists(path)) {
+			return new JsonArray();
+		}
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			JsonObject root = GSON.fromJson(reader, JsonObject.class);
+			if (root != null && root.has("tabs") && root.get("tabs").isJsonArray()) {
+				return root.getAsJsonArray("tabs");
+			}
+		} catch (Exception e) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}, setting it aside", path, e);
+			SafeFiles.setAsideCorrupt(path);
+		}
+		return new JsonArray();
+	}
+
+	/**
+	 * Loads the saved tabs, falling back to the backup if the file itself cannot be read.
+	 *
+	 * <p>An unreadable file is moved aside rather than left in place: otherwise the next save would
+	 * overwrite it, and the tabs in it would be gone for good. The backup is only consulted when
+	 * the file exists but is broken. A missing file means there is nothing to restore (or the
+	 * player deleted it to start over), and bringing old tabs back from the backup then would be
+	 * surprising rather than helpful.
+	 */
 	private static void readFile() {
 		if (!TreeTabsConfig.persistTabs) {
 			return;
 		}
 		Path path = file();
-		if (!Files.exists(path)) {
+		if (!Files.exists(path) || readTabsFrom(path)) {
 			return;
 		}
-		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-			JsonObject root = GSON.fromJson(reader, JsonObject.class);
-			if (root == null || !root.has("tabs")) {
-				return;
-			}
-			List<JsonObject> loaded = new ArrayList<>();
-			for (JsonElement element : root.getAsJsonArray("tabs")) {
-				if (element.isJsonObject()) {
-					loaded.add(element.getAsJsonObject());
-				}
-			}
-			pending = loaded;
-			pendingActive = root.has("active") ? root.get("active").getAsInt() : 0;
-
-			// Version 1 files have no groups at all, which is a valid state rather than an error:
-			// every tab simply loads ungrouped. Nothing here should ever refuse to load a file.
-			GROUPS.clear();
-			nextGroupId = 1;
-			if (root.has("groups") && root.get("groups").isJsonArray()) {
-				for (JsonElement element : root.getAsJsonArray("groups")) {
-					if (!element.isJsonObject()) {
-						continue;
-					}
-					TabGroup group = TabGroup.load(element.getAsJsonObject());
-					if (group != null) {
-						GROUPS.add(group);
-						nextGroupId = Math.max(nextGroupId, group.id + 1);
-					}
-				}
-			}
-		} catch (Exception e) {
-			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not read {}", path, e);
+		Path aside = SafeFiles.setAsideCorrupt(path);
+		EmiTreeTabs.LOGGER.warn("[emitreetabs] {} could not be read{}; trying the backup", path,
+				aside == null ? "" : " and was moved to " + aside.getFileName());
+		Path backup = SafeFiles.backupOf(path);
+		if (Files.exists(backup) && readTabsFrom(backup)) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] restored tabs from {}", backup);
 		}
 	}
 
 	/**
-	 * Marks the tabs as needing a write, and invalidates the progress cache.
+	 * Reads one tabs file into {@link #pending} and {@link #GROUPS}.
 	 *
-	 * <p>Switching tabs used to write the whole json file synchronously on every click. Now the
-	 * write is deferred to {@link #flush()}, which the tree screen calls when it closes.
+	 * <p>Parsed completely before anything is assigned, so a file that fails part way does not
+	 * leave half of it applied. Inside a file that parses, damage is contained to the entry it is
+	 * in: a malformed group is skipped, a malformed tab is left for {@link #tryRestore} to reject.
+	 *
+	 * @return false when the file is not usable at all: not json, or no list of tabs.
 	 */
+	private static boolean readTabsFrom(Path path) {
+		JsonObject root;
+		try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+			root = GSON.fromJson(reader, JsonObject.class);
+		} catch (Exception e) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not parse {}", path, e);
+			return false;
+		}
+		if (root == null) {
+			// An empty file. Nothing to restore, and nothing worth keeping either.
+			return true;
+		}
+		if (!root.has("tabs")) {
+			return true;
+		}
+		if (!root.get("tabs").isJsonArray()) {
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] {} has no list of tabs", path);
+			return false;
+		}
+		List<JsonObject> loaded = new ArrayList<>();
+		for (JsonElement element : root.getAsJsonArray("tabs")) {
+			if (element.isJsonObject()) {
+				loaded.add(element.getAsJsonObject());
+			}
+		}
+		int loadedActive = 0;
+		JsonElement activeElement = root.get("active");
+		if (activeElement != null && activeElement.isJsonPrimitive() && activeElement.getAsJsonPrimitive().isNumber()) {
+			loadedActive = activeElement.getAsInt();
+		}
+
+		// Version 1 files have no groups at all, which is a valid state rather than an error:
+		// every tab simply loads ungrouped.
+		List<TabGroup> loadedGroups = new ArrayList<>();
+		if (root.has("groups") && root.get("groups").isJsonArray()) {
+			for (JsonElement element : root.getAsJsonArray("groups")) {
+				TabGroup group = tryLoadGroup(element);
+				if (group != null) {
+					loadedGroups.add(group);
+				}
+			}
+		}
+
+		pending = loaded;
+		pendingActive = loadedActive;
+		GROUPS.clear();
+		GROUPS.addAll(loadedGroups);
+		nextGroupId = 1;
+		for (TabGroup group : loadedGroups) {
+			nextGroupId = Math.max(nextGroupId, group.id + 1);
+		}
+		return true;
+	}
+
+	private static TabGroup tryLoadGroup(JsonElement element) {
+		if (!element.isJsonObject()) {
+			return null;
+		}
+		try {
+			return TabGroup.load(element.getAsJsonObject());
+		} catch (RuntimeException e) {
+			// A wrongly typed name or colour. The tabs in it fall back to ungrouped, which is how a
+			// tab whose group is missing is already shown.
+			EmiTreeTabs.LOGGER.warn("[emitreetabs] skipping a malformed phase: {}", element);
+			return null;
+		}
+	}
+
 	// The old recipe-sync apparatus lived here: a mixin on MaterialTree.addResolution, a pending
 	// offer, two toasts and a keybind. It is gone. Disagreement between trees is not an event to
 	// be caught at the moment it happens - it is a property of the open trees, true until someone
@@ -677,10 +901,6 @@ public final class TreeTabs {
 		return group;
 	}
 
-	/**
-	 * Removes a group. Its tabs are kept and become ungrouped — closing tabs because their phase
-	 * was deleted would lose work the player never asked to lose.
-	 */
 	/**
 	 * Makes a phase out of one tree.
 	 *
@@ -856,8 +1076,11 @@ public final class TreeTabs {
 		markDirty();
 	}
 	/**
-	 * Marks the tabs as needing a write, and invalidates the progress cache.
-	 * basiclly a "something changed" flag for the whole system.
+	 * Marks the tabs as needing a write, invalidates the progress cache and recounts the crafting
+	 * list: the one "something changed" call every mutation ends with.
+	 *
+	 * <p>The write itself is deferred to {@link #flush()}, which the tree screen calls when it
+	 * closes. Switching tabs used to write the whole json file synchronously on every click.
 	 */
 	public static void markDirty() {
 		structureVersion++;
@@ -890,25 +1113,55 @@ public final class TreeTabs {
 				EmiScreenManager.repopulatePanels(CraftingSidebarType.TYPE);
 			}
 			EmiScreenManager.repopulatePanels(SidebarType.FAVORITES);
+			lastRefreshFailure = null;
 		} catch (Throwable t) {
-			EmiTreeTabs.LOGGER.debug("[emitreetabs] could not refresh the crafting sidebar", t);
+			reportRefreshFailure(t);
 		} finally {
 			refreshing = false;
 		}
 	}
 
-	/** Writes the tabs to disk if anything changed. */
+	/**
+	 * Warns once per distinct cause when the crafting list could not be rebuilt.
+	 *
+	 * <p>This used to log at debug level only, so a crafting list that had silently stopped
+	 * updating had no explanation in a normal log. Every mutation refreshes, so warning every time
+	 * would flood the log instead; the same failure repeating is logged at debug.
+	 */
+	private static void reportRefreshFailure(Throwable t) {
+		String cause = t.getClass().getName() + ": " + t.getMessage();
+		if (cause.equals(lastRefreshFailure)) {
+			EmiTreeTabs.LOGGER.debug("[emitreetabs] could not refresh the crafting list again", t);
+			return;
+		}
+		lastRefreshFailure = cause;
+		EmiTreeTabs.LOGGER.warn("[emitreetabs] could not refresh the crafting list; it may be out of "
+				+ "date until the next change", t);
+	}
+
+	/**
+	 * Writes the tabs to disk if anything changed since the last successful write.
+	 *
+	 * <p>The dirty flag is cleared only once the file is really written. It used to be cleared
+	 * first, so one failed write (a locked or read-only config folder) meant no later flush would
+	 * try again unless the player changed something else. Retrying needs no timer: flush already
+	 * runs on discrete events (closing the tree screen, leaving a world), never per frame.
+	 *
+	 * <p>With {@code persistTabs} off there is nothing to write, which counts as success.
+	 */
 	public static void flush() {
 		if (!dirty) {
 			return;
 		}
-		dirty = false;
-		writeFile();
+		if (writeFile()) {
+			dirty = false;
+		}
 	}
 
-	private static void writeFile() {
+	/** @return true when the tabs are safely on disk, or persistence is off. */
+	private static boolean writeFile() {
 		if (!TreeTabsConfig.persistTabs) {
-			return;
+			return true;
 		}
 		JsonArray array = new JsonArray();
 		for (JsonObject saved : snapshotAll()) {
@@ -929,12 +1182,33 @@ public final class TreeTabs {
 
 		Path path = file();
 		try {
-			Files.createDirectories(path.getParent());
-			try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-				GSON.toJson(root, writer);
-			}
+			SafeFiles.write(path, writer -> GSON.toJson(root, writer));
 		} catch (IOException e) {
-			EmiTreeTabs.LOGGER.warn("[emitreetabs] could not write {}", path, e);
+			reportSaveFailure(path, e);
+			return false;
 		}
+		if (saveFailing) {
+			saveFailing = false;
+			EmiTreeTabs.LOGGER.info("[emitreetabs] saved {} again after earlier failures", path.getFileName());
+		}
+		return true;
+	}
+
+	/**
+	 * Tells the player once per run of failures, not once per attempt.
+	 *
+	 * <p>The tabs are still in memory and the next flush retries, so this is a warning that work
+	 * would be lost on a restart, not that it is lost now.
+	 */
+	private static void reportSaveFailure(Path path, IOException e) {
+		if (saveFailing) {
+			EmiTreeTabs.LOGGER.debug("[emitreetabs] still could not write {}", path, e);
+			return;
+		}
+		saveFailing = true;
+		EmiTreeTabs.LOGGER.warn("[emitreetabs] could not write {}; the tabs are kept in memory and "
+				+ "saving will be retried", path, e);
+		toast(Component.translatable("emi.tree_tabs.save_failed.title"),
+				Component.translatable("emi.tree_tabs.save_failed.body"));
 	}
 }

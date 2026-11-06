@@ -29,6 +29,8 @@ public class TreeTab {
 
 	/** Cached completion of this tree against the player's inventory. Recomputed on a timer. */
 	public ProgressState progress = ProgressState.UNSTARTED;
+	/** Which poll generation {@link #progress} was computed in; -1 means never. See TreeTabs.pollProgress. */
+	public int progressGeneration = -1;
 
 	/**
 	 * Whether this tree is being <em>worked on</em> rather than just looked at.

@@ -40,6 +40,14 @@ import net.minecraft.world.item.ItemStack;
 public final class CraftingFavorites {
 	/** Set while we are driving EMI's own updateSynthetic, so our injector lets it through. */
 	private static boolean reentrant;
+	/**
+	 * Set while other mods' listeners are being told about a finished list. A listener that asks
+	 * for another rebuild from in there (which the listener contract forbids) gets the list as it
+	 * stands rather than a nested pass that would rebuild it under the listeners still iterating.
+	 */
+	private static boolean notifying;
+	/** Whether the last published list was empty, so a run of empty passes notifies only once. */
+	private static boolean publishedEmpty = true;
 
 	private CraftingFavorites() {
 	}
@@ -50,6 +58,9 @@ public final class CraftingFavorites {
 	public static boolean aggregate(EmiPlayerInventory inventory) {
 		if (reentrant) {
 			return false;
+		}
+		if (notifying) {
+			return true;
 		}
 		// Cleared up front so every exit below leaves the sections consistent with the list. Missing
 		// this is what left the sidebar showing a tree that had already been emptied: the flat list
@@ -70,8 +81,18 @@ public final class CraftingFavorites {
 			}
 		}
 		if (included.isEmpty()) {
-			// No tree is being worked on. Let EMI handle it.
-			return false;
+			if (!isOwnedByATab(BoM.tree)) {
+				// A tree no tab has adopted yet (set directly by another addon): EMI's own pass
+				// is the only thing that knows what to do with it.
+				return false;
+			}
+			// Nothing is being worked on, so the list is empty. Produced here rather than left to
+			// EMI's own body: EMI would still build a list from the active tree when that tree is in
+			// crafting mode but its phase is parked, and parked phases are meant to ask for nothing.
+			ATTRIBUTION = new LinkedHashMap<>();
+			EmiFavorites.syntheticFavorites.clear();
+			publish(true);
+			return true;
 		}
 
 		// [batches, amount, total] per recipe, and [needed, total] per leftover material.
@@ -132,9 +153,9 @@ public final class CraftingFavorites {
 		} finally {
 			reentrant = false;
 			SubCraftCosts.endPass();
-			// After the pass, never during it: a listener that looks at the list must see the
-			// finished one, and one that throws must not leave BoM.tree pointing at a stray tree.
-			ApiRegistry.get().craftingListChanged();
+			// EMI's globals go back on every exit, including a throw: otherwise BoM.tree is left
+			// pointing at whichever tree the pass had reached. Listeners are not told here; see
+			// publish().
 			BoM.tree = restore;
 			// The global flag is only about what the open screen shows, so restore the active tab's.
 			TreeTab activeTab = TreeTabs.activeTab();
@@ -146,6 +167,7 @@ public final class CraftingFavorites {
 		ATTRIBUTION = costOwners;
 		EmiFavorites.syntheticFavorites.clear();
 		if (!anything) {
+			publish(true);
 			return true;
 		}
 		// Recipes first, then raw materials, matching the order EMI emits for a single tree.
@@ -179,19 +201,48 @@ public final class CraftingFavorites {
 						.entries.add(synthetic);
 			}
 		}
+		publish(false);
 		return true;
 	}
 
+	private static boolean isOwnedByATab(MaterialTree tree) {
+		if (tree == null) {
+			return true;
+		}
+		for (TreeTab tab : TreeTabs.tabs()) {
+			if (tab.tree == tree) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
-	 * What a tree left unconsumed, as an inventory for the next tree to draw on.
+	 * Tells other mods the list has been rebuilt, once it really has been.
 	 *
-	 * <p>{@code TreeCost.remainders} starts life as the inventory and is decremented as the tree
-	 * claims materials, so after a progress pass it is exactly the unclaimed remainder, plus any
-	 * by-products the tree's own recipes would produce.
+	 * <p>Called only after the merged list, its sections and the attribution are all in place, and
+	 * after EMI's globals are restored. The call used to sit in the pass's {@code finally}, which
+	 * ran it before any of that was assigned (a listener reading the list saw the previous one) and
+	 * also on a pass that had thrown, announcing a rebuild that never happened.
 	 *
-	 * <p>Chanced remainders are deliberately ignored — a maybe-drop is not something to promise the
-	 * next tree it already has.
+	 * <p>Empty results are announced too, so a listener sees the list empty out when the last tree
+	 * stops being crafted, but only on the change to empty. With nothing being crafted every
+	 * inventory change still runs a pass, and repeating "still empty" to every listener each time
+	 * would be noise.
 	 */
+	private static void publish(boolean empty) {
+		if (empty && publishedEmpty) {
+			return;
+		}
+		publishedEmpty = empty;
+		notifying = true;
+		try {
+			ApiRegistry.get().craftingListChanged();
+		} finally {
+			notifying = false;
+		}
+	}
+
 	/**
 	 * How much of a shared material each tree wants, most demanding first.
 	 *
@@ -292,6 +343,16 @@ public final class CraftingFavorites {
 		STOCK_LABELS = new LinkedHashMap<>();
 	}
 
+	/**
+	 * What a tree left unconsumed, as an inventory for the next tree to draw on.
+	 *
+	 * <p>{@code TreeCost.remainders} starts life as the inventory and is decremented as the tree
+	 * claims materials, so after a progress pass it is exactly the unclaimed remainder, plus any
+	 * by-products the tree's own recipes would produce.
+	 *
+	 * <p>Chanced remainders are deliberately ignored — a maybe-drop is not something to promise the
+	 * next tree it already has.
+	 */
 	private static EmiPlayerInventory leftovers(MaterialTree tree) {
 		// The list constructor also folds in the cursor stack, so clear it and fill the map
 		// directly. EMI does the same thing when it needs an inventory it fully controls.
