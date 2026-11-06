@@ -99,7 +99,10 @@ public final class ApiRegistry implements TreeTabsRegistry {
 	 */
 	public List<ItemStack> stock(java.util.function.BiConsumer<ItemStack, Component> label) {
 		List<ItemStack> out = new ArrayList<>();
-		for (Map.Entry<String, StockSource> entry : stockSources.entrySet()) {
+		// A copy, because a source that throws is removed from the live map, and removing from a
+		// LinkedHashMap mid-iteration makes the next step throw ConcurrentModificationException
+		// outside any guard: one broken mod would have taken the whole pass down after all.
+		for (Map.Entry<String, StockSource> entry : List.copyOf(stockSources.entrySet())) {
 			List<ItemStack> offered = guard(entry.getKey(), () -> entry.getValue().stock());
 			if (offered == null) {
 				continue;
@@ -122,7 +125,8 @@ public final class ApiRegistry implements TreeTabsRegistry {
 	/** Where a shortfall can be found, from every provider, in registration order. */
 	public List<Component> locate(ItemStack stack) {
 		List<Component> out = new ArrayList<>();
-		for (Map.Entry<String, LocateProvider> entry : locateProviders.entrySet()) {
+		// A copy for the same reason as in stock().
+		for (Map.Entry<String, LocateProvider> entry : List.copyOf(locateProviders.entrySet())) {
 			List<Component> found = guard(entry.getKey(), () -> entry.getValue().locate(stack));
 			if (found != null) {
 				out.addAll(found);
@@ -131,17 +135,41 @@ public final class ApiRegistry implements TreeTabsRegistry {
 		return out;
 	}
 
-	/** Tells every listener the list changed. One throwing must not stop the others. */
+	/**
+	 * Tells every listener the list changed. One throwing must not stop the others.
+	 *
+	 * <p>A listener that throws is dropped for the session, like a failing stock source; the API
+	 * guide has always promised that, but it used to be logged and kept, and so called (and
+	 * failing) on every rebuild. It is removed after the loop, not during it, so the remaining
+	 * listeners are still all called this time.
+	 */
 	public void craftingListChanged() {
-		for (CraftingListListener listener : listeners) {
+		List<CraftingListListener> failed = null;
+		for (CraftingListListener listener : List.copyOf(listeners)) {
 			try {
 				listener.craftingListChanged();
 			} catch (Throwable t) {
-				report("a crafting-list listener", t);
+				// Named by class, so two different broken listeners each get their own log line.
+				report("crafting-list listener " + listener.getClass().getName(), t);
+				if (failed == null) {
+					failed = new ArrayList<>();
+				}
+				failed.add(listener);
 			}
+		}
+		if (failed != null) {
+			listeners.removeAll(failed);
 		}
 	}
 
+	/**
+	 * Calls into another mod, turning a throw into "no answer".
+	 *
+	 * <p>A failure drops every capability registered under that id, not just the one that threw:
+	 * the id is one mod's integration, and half of a broken integration (stock still counted,
+	 * locate gone, or the reverse) would be harder to explain to a player than none of it.
+	 * Callers iterate over copies of the maps, so removing here is safe.
+	 */
 	private <T> T guard(String id, java.util.function.Supplier<T> call) {
 		try {
 			return call.get();

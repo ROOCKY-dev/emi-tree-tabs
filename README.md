@@ -43,7 +43,13 @@ rather than letting the close button vanish. `tabOrientation` forces either one.
 - **Per-tab viewport** — each tab keeps its own pan, zoom and batch count
 - **Per-tab view/craft mode** — only trees in crafting mode feed the crafting list, so you can keep
   a dozen open for reference and still see only what you're actually building
-- **Tabs survive restarts** — stored as their goal recipe plus the resolutions you picked
+- **Tabs survive restarts** — stored as their goal recipe plus the resolutions you picked.
+  The file is replaced whole on every save, so a crash mid-save cannot cut it short. The previous
+  save is kept as `emitreetabs-tabs.json.bak`, and an unreadable file is moved to `.corrupt` and
+  restored from that backup. Tabs whose recipe is not loaded (a removed mod, a server without it)
+  are kept in `config/emitreetabs-tabs-rejected.json` instead of disappearing
+- **Nothing is overwritten at the tab limit** — opening another tree when `maxTabs` tabs are open
+  keeps every tab as it was and says so; close one first, or Shift-click to replace the current tab
 
 ### Phases
 
@@ -256,7 +262,8 @@ render-thread CPU and 0.004% of allocation.
 ### Moving saved tabs from 1.20.1
 
 Back up `config/emitreetabs-tabs.json` and `config/emitreetabs.json` before copying them between Minecraft
-versions. Goals whose recipe IDs no longer exist cannot be restored. Recipe choices for items with
+versions. Goals whose recipe IDs no longer exist cannot be restored; they are listed in
+`config/emitreetabs-tabs-rejected.json` rather than lost. Recipe choices for items with
 old NBT may fall back to EMI defaults because Minecraft 1.21 uses data components instead. Check
 restored trees before relying on their totals.
 

@@ -51,6 +51,12 @@ public interface TreeTabsRegistry {
 	 */
 	void addCraftingListListener(CraftingListListener listener);
 
-	/** How many trees are currently being worked on, which is what feeds the crafting list. */
+	/**
+	 * How many trees are in crafting mode.
+	 *
+	 * <p>Counts trees in a parked phase too. Those keep their crafting flag but add nothing to the
+	 * crafting list until the phase is unparked, so this can be larger than the number of trees the
+	 * list is currently built from.
+	 */
 	int craftingTreeCount();
 }
