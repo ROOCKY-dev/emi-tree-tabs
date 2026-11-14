@@ -652,6 +652,15 @@ public final class TreeTabs {
 		if (!EmiReloadManager.isLoaded()) {
 			return;
 		}
+		// No world, no restore. Leaving a world parks the tabs in pending, but EMI still reports
+		// itself loaded at the main menu, so the client tick kept rebuilding them there. Building a
+		// tree copies tag ingredients, and EmiTagKey.registry() reads client.level.registryAccess():
+		// with the level gone that threw a NullPointerException every tick (5.0.0 crashed; since
+		// tryLoad catches it, every tab would instead be filed as rejected). The next world's EMI
+		// reload brings them back, against that world's recipes.
+		if (Minecraft.getInstance().level == null) {
+			return;
+		}
 		List<TreeTab> rebuilt = new ArrayList<>();
 		List<JsonObject> rejected = new ArrayList<>();
 		int wanted = pendingActive;
