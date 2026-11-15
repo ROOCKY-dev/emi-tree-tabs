@@ -619,4 +619,147 @@ class SidebarLayoutTest {
 		SidebarLayout l = new SidebarLayout(960, 540, null, 0, true);
 		assertEquals(0, l.slots().size());
 	}
+
+	@Nested
+	@DisplayName("resizing")
+	class Resizing {
+
+		private SidebarLayout sized(int percent, boolean onLeft) {
+			return new SidebarLayout(960, 540, plainTabs(3), 0, onLeft, percent, 1.0);
+		}
+
+		@Test
+		@DisplayName("takes the width it is given, within the drag range")
+		void widthFollowsPercent() {
+			assertEquals(Math.round(960 * 0.40), sized(40, true).panel.width());
+			assertEquals(Math.round(960 * SidebarLayout.MIN_WIDTH_PERCENT / 100.0), sized(1, true).panel.width(),
+					"below the range clamps up");
+			assertEquals(Math.round(960 * SidebarLayout.MAX_WIDTH_PERCENT / 100.0), sized(99, true).panel.width(),
+					"above the range clamps down");
+		}
+
+		@Test
+		@DisplayName("putting the edge where it already is gives back the same width, on either side")
+		void edgeRoundTrips() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				for (int percent = SidebarLayout.MIN_WIDTH_PERCENT; percent <= SidebarLayout.MAX_WIDTH_PERCENT; percent++) {
+					SidebarLayout l = sized(percent, onLeft);
+					double edge = onLeft ? l.panel.x() + l.panel.width() : l.panel.x();
+					assertEquals(percent, SidebarLayout.widthPercentFor(edge, l.screenWidth, onLeft),
+							"edge of a " + percent + "% panel, onLeft=" + onLeft);
+				}
+			}
+		}
+
+		@Test
+		@DisplayName("a drag past either limit stops at the limit, never at a panel too small to draw")
+		void dragClamps() {
+			assertEquals(SidebarLayout.MIN_WIDTH_PERCENT, SidebarLayout.widthPercentFor(-500, 960, true));
+			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(5000, 960, true));
+			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(-500, 960, false));
+			// On a small window the minimum panel width is more than 15%, and that has to win.
+			int percent = SidebarLayout.widthPercentFor(0, 320, true);
+			assertTrue(320 * percent / 100.0 >= SidebarLayout.MIN_PANEL_WIDTH,
+					"a drag to nothing on a 320 wide window gave " + percent + "%");
+		}
+
+		@Test
+		@DisplayName("the handle is on the inner edge, inside the frame, clear of every row and button")
+		void handleIsClear() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				SidebarLayout l = new SidebarLayout(960, 540, List.of(Row.group(0, false), Row.tab(0), Row.tab()),
+						0, onLeft, 30, 1.0);
+				Rect h = l.resizeHandle();
+				int inner = onLeft ? l.panel.x() + l.panel.width() : l.panel.x();
+				assertTrue(onLeft ? h.x() + h.width() == inner : h.x() == inner, "handle is not on the inner edge");
+				assertTrue(h.width() <= SidebarLayout.FRAME, "handle reaches past the frame border");
+				for (Slot s : l.slots()) {
+					Rect b = s.bounds();
+					assertTrue(b.x() + b.width() <= h.x() || b.x() >= h.x() + h.width(),
+							"row " + s.index() + " overlaps the handle");
+				}
+				Rect bar = l.toolbar;
+				assertTrue(bar.x() + bar.width() <= h.x() || bar.x() >= h.x() + h.width(),
+						"toolbar overlaps the handle");
+			}
+		}
+	}
+
+	@Nested
+	@DisplayName("pinning")
+	class Pinning {
+
+		private SidebarLayout at(double reveal, boolean onLeft) {
+			return new SidebarLayout(960, 540, plainTabs(3), 0, onLeft, 25, reveal);
+		}
+
+		@Test
+		@DisplayName("slid away, only the peek strip is left on screen, on either side")
+		void hiddenLeavesPeek() {
+			SidebarLayout left = at(0, true);
+			assertEquals(SidebarLayout.PEEK, left.panel.x() + left.panel.width(), "left panel shows the wrong amount");
+			SidebarLayout right = at(0, false);
+			assertEquals(right.screenWidth - SidebarLayout.PEEK, right.panel.x(), "right panel shows the wrong amount");
+			assertFalse(left.revealed);
+		}
+
+		@Test
+		@DisplayName("the peek strip is the grip, so pointing at what is left brings the panel back")
+		void peekIsTheGrip() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				SidebarLayout l = at(0, onLeft);
+				Rect h = l.resizeHandle();
+				double cx = h.x() + h.width() / 2.0;
+				assertTrue(cx >= 0 && cx < l.screenWidth, "grip is off screen, onLeft=" + onLeft);
+				assertTrue(l.isOver(cx, 270), "pointing at the grip does not count as over the panel");
+			}
+		}
+
+		@Test
+		@DisplayName("open, it sits flush with the window edge as it always did")
+		void openIsFlush() {
+			assertEquals(0, at(1, true).panel.x());
+			SidebarLayout right = at(1, false);
+			assertEquals(right.screenWidth, right.panel.x() + right.panel.width());
+			assertTrue(at(1, true).revealed);
+		}
+
+		@Test
+		@DisplayName("the slide takes the same time at any frame rate")
+		void slideIsFrameRateIndependent() {
+			for (double frame : new double[] { 1, 7, 16.6, 33.3, 50 }) {
+				double r = 0;
+				double t = 0;
+				while (r < 1 && t < 10_000) {
+					r = SidebarLayout.stepReveal(r, 1, frame);
+					t += frame;
+				}
+				assertEquals(1.0, r, "never arrived at " + frame + "ms frames");
+				// Within one frame of the nominal time; summing 1/160 steps can land a hair short of 1.
+				assertTrue(t >= SidebarLayout.SLIDE_MS && t <= SidebarLayout.SLIDE_MS + frame,
+						"took " + t + "ms at " + frame + "ms frames");
+			}
+		}
+
+		@Test
+		@DisplayName("the pin button sits beside craft-all, and the middle buttons give way to it")
+		void pinButtonPlacement() {
+			for (int width : new int[] { 360, 480, 640, 960, 1280 }) {
+				SidebarLayout l = new SidebarLayout(width, 540, plainTabs(3), 0, true, 25, 1.0);
+				if (!l.pinFits()) {
+					continue;
+				}
+				Rect pin = l.pinButton();
+				Rect all = l.craftAllButton();
+				assertTrue(pin.x() + pin.width() <= all.x(), "pin overlaps craft-all at " + width);
+				Rect settings = l.settingsButton();
+				assertTrue(pin.x() >= settings.x() + settings.width(), "pin overlaps settings at " + width);
+				for (Rect r : new Rect[] { l.newGroupButton(), l.choicesButton(), l.reopenButton() }) {
+					if (l.toolbarFits(r)) {
+						assertTrue(r.x() + r.width() <= pin.x(), "a fitting button overlaps the pin at " + width);
+					}
+				}
+			}
+		}
+	}
 }

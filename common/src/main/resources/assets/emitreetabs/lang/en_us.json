@@ -152,5 +152,13 @@
   "emi.tree_tabs.action.park.hint": "Right click the header",
   "emi.tree_tabs.action.focus.hint": "Shift+right click the header",
   "config.emi.presets.emi_tree_tabs": "EMI Tree Tabs",
-  "config.emi.tooltip.presets.emi_tree_tabs": "Crafting, Favorites and Craftables on the left.\nItem index on the right.\nClick the left sidebar page icon to switch pages.\nReplaces the current sidebar layout; Revert undoes it."
+  "config.emi.tooltip.presets.emi_tree_tabs": "Crafting, Favorites and Craftables on the left.\nItem index on the right.\nClick the left sidebar page icon to switch pages.\nReplaces the current sidebar layout; Revert undoes it.",
+  "emi.tree_tabs.config.sidebarPinned": "Pin the sidebar open",
+  "emi.tree_tabs.config.sidebarPinned.tooltip": "Unpinned, the sidebar slides away leaving its edge showing, and comes back while the pointer is over it. The pin button in the sidebar's toolbar does the same.",
+  "emi.tree_tabs.config.sidebarWidthPercent": "Sidebar width",
+  "emi.tree_tabs.config.sidebarWidthPercent.tooltip": "How much of the window the attached sidebar takes. Dragging the grip on the sidebar's inner edge sets this too.",
+  "emi.tree_tabs.config.sidebarWidthPercent.value": "%s%% of the window",
+  "emi.tree_tabs.sidebar.pin": "Pin the sidebar",
+  "emi.tree_tabs.sidebar.unpin": "Unpin the sidebar",
+  "emi.tree_tabs.sidebar.pin.desc": "Unpinned, it slides away to leave room for the tree and comes back when you point at its edge."
 }

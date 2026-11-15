@@ -163,8 +163,22 @@ public final class SidebarLayout {
 	public static final int TOOLBAR_GAP = 6;
 	public static final int ICON = 16;
 
-	/** The panel takes 25% of the full window width, independently of content scaling. */
+	/** The panel takes 25% of the full window width by default, independently of content scaling. */
 	public static final double WIDTH_FRACTION = 0.25;
+	public static final int DEFAULT_WIDTH_PERCENT = 25;
+	/**
+	 * The range dragging the edge may set. Below 15% a name no longer fits at common window sizes;
+	 * above half the window the tree is the thing squeezed out of view.
+	 */
+	public static final int MIN_WIDTH_PERCENT = 15;
+	public static final int MAX_WIDTH_PERCENT = 50;
+	/**
+	 * How much of an unpinned panel stays on screen while it is slid away: the inner edge of the
+	 * frame and its grip. Enough to see and to point at, which is what brings the panel back.
+	 */
+	public static final int PEEK = 10;
+	/** The grab strip along the panel's inner edge, inside the frame border, that resizes it. */
+	public static final int GRIP = 6;
 	/** Below this the sidebar cannot show anything useful and the caller should stay horizontal. */
 	public static final int MIN_PANEL_WIDTH = 72;
 	/** Names are dropped below this panel width; the icon and marker still fit. */
@@ -180,6 +194,8 @@ public final class SidebarLayout {
 	public final Rect toolbar;
 	/** Where rows are drawn, inside the panel's padding and below the toolbar. */
 	public final Rect viewport;
+	/** True when the panel is all the way in view. Rows only take clicks then. */
+	public final boolean revealed;
 	/** True when the panel is wide enough for row labels. */
 	public final boolean showNames;
 	/** Total height every row would occupy, ignoring the viewport. */
@@ -189,15 +205,35 @@ public final class SidebarLayout {
 	private final List<Slot> slots;
 
 	public SidebarLayout(int screenWidth, int screenHeight, List<Row> rows, double scroll, boolean onLeft) {
+		this(screenWidth, screenHeight, rows, scroll, onLeft, DEFAULT_WIDTH_PERCENT, 1.0);
+	}
+
+	/**
+	 * @param widthPercent how much of the window the panel takes; clamped to the drag range
+	 * @param reveal       how far the panel is slid into view: 1 is open, 0 leaves only
+	 *                     {@link #PEEK} showing at the window's edge. Unpinned panels move
+	 *                     between the two.
+	 */
+	public SidebarLayout(int screenWidth, int screenHeight, List<Row> rows, double scroll, boolean onLeft,
+			int widthPercent, double reveal) {
 		this.screenWidth = screenWidth;
 		this.screenHeight = screenHeight;
 		this.onLeft = onLeft;
 
-		int width = (int) Math.round(screenWidth * WIDTH_FRACTION);
+		int percent = Math.max(MIN_WIDTH_PERCENT, Math.min(MAX_WIDTH_PERCENT, widthPercent));
+		int width = Math.max(MIN_PANEL_WIDTH, (int) Math.round(screenWidth * percent / 100.0));
+		width = Math.min(width, Math.max(MIN_PANEL_WIDTH, screenWidth));
 		// Attached: flush with the window's edge and as tall as the window.
 		int height = Math.max(TOOLBAR + ROW_HEIGHT, screenHeight);
-		int x = onLeft ? 0 : screenWidth - width;
+		// Slid out past the window's edge rather than shrunk, so nothing inside has to re-lay out
+		// while it moves; everything below is placed relative to the panel and follows it.
+		double shown = Math.max(0, Math.min(1, reveal));
+		// Smoothstep: starts and lands gently instead of moving at one speed and stopping dead.
+		double eased = shown * shown * (3 - 2 * shown);
+		int offscreen = (int) Math.round((width - PEEK) * (1 - eased));
+		int x = onLeft ? -offscreen : screenWidth - width + offscreen;
 		this.panel = new Rect(x, 0, width, height);
+		this.revealed = shown >= 1;
 
 		this.toolbar = new Rect(panel.x() + PAD, panel.y() + PAD, panel.width() - PAD * 2, TOOLBAR);
 		int rowsTop = toolbar.y() + TOOLBAR + TOOLBAR_GAP;
@@ -439,6 +475,21 @@ public final class SidebarLayout {
 	}
 
 	/**
+	 * Pins the panel open, or lets it slide away. Next to craft-all, so the two buttons that are
+	 * always there sit together at the far end and the middle ones give way to both.
+	 */
+	public Rect pinButton() {
+		Rect all = craftAllButton();
+		return new Rect(all.x() - TOOLBAR_PAD - BUTTON, all.y(), BUTTON, BUTTON);
+	}
+
+	/** Whether the pin button has room beside settings. Below that the setting is the way in. */
+	public boolean pinFits() {
+		Rect settings = settingsButton();
+		return pinButton().x() >= settings.x() + settings.width() + TOOLBAR_PAD;
+	}
+
+	/**
 	 * Whether a toolbar button has room before craft-all.
 	 *
 	 * <p>On a narrow panel the later buttons land on top of it. The two ends are the buttons that
@@ -446,7 +497,51 @@ public final class SidebarLayout {
 	 * costs nothing.
 	 */
 	public boolean toolbarFits(Rect r) {
-		return r.x() + r.width() + TOOLBAR_PAD <= craftAllButton().x();
+		int end = pinFits() ? pinButton().x() : craftAllButton().x();
+		return r.x() + r.width() + TOOLBAR_PAD <= end;
+	}
+
+	/**
+	 * The strip along the panel's inner edge that resizes it.
+	 *
+	 * <p>Inside the frame border, which nothing else uses, so grabbing it can never be mistaken
+	 * for a click on a row or on the tree beside the panel.
+	 */
+	public Rect resizeHandle() {
+		int x = onLeft ? panel.x() + panel.width() - GRIP : panel.x();
+		return new Rect(x, panel.y(), GRIP, panel.height());
+	}
+
+	/**
+	 * The width, in percent of the window, that puts the panel's inner edge at {@code edgeX}.
+	 *
+	 * <p>Clamped to the drag range and to {@link #MIN_PANEL_WIDTH}, so no drag can make a panel
+	 * the layout then refuses to draw.
+	 */
+	public static int widthPercentFor(double edgeX, int screenWidth, boolean onLeft) {
+		if (screenWidth <= 0) {
+			return DEFAULT_WIDTH_PERCENT;
+		}
+		double width = onLeft ? edgeX : screenWidth - edgeX;
+		int percent = (int) Math.round(width * 100.0 / screenWidth);
+		int floor = (int) Math.ceil(MIN_PANEL_WIDTH * 100.0 / screenWidth);
+		return Math.max(Math.max(MIN_WIDTH_PERCENT, floor), Math.min(MAX_WIDTH_PERCENT, percent));
+	}
+
+	/** How long an unpinned panel takes to slide all the way in or out. */
+	public static final double SLIDE_MS = 160;
+
+	/**
+	 * Moves {@code reveal} towards {@code target} at a constant rate, so the slide takes
+	 * {@link #SLIDE_MS} at any frame rate. The easing is applied where the value becomes a position,
+	 * in the constructor, which keeps this a plain clock.
+	 */
+	public static double stepReveal(double reveal, double target, double elapsedMs) {
+		if (elapsedMs <= 0) {
+			return reveal;
+		}
+		double step = elapsedMs / SLIDE_MS;
+		return target > reveal ? Math.min(target, reveal + step) : Math.max(target, reveal - step);
 	}
 
 	/**

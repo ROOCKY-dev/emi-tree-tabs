@@ -35,6 +35,10 @@ with controls drawn at 65% of the normal GUI size. On a screen too small it fall
 back to a **horizontal strip** along the top, which shrinks tabs down a fixed floor and then scrolls
 rather than letting the close button vanish. `tabOrientation` forces either one.
 
+Drag the grip on the sidebar's inner edge to make it wider or narrower (15% to 50% of the window;
+the width is remembered). The pin button in its toolbar unpins it: an unpinned sidebar slides off
+the edge of the screen, leaving its grip showing, and slides back while the pointer is over it.
+
 Both layouts are drawn with EMI's own GUI textures: the strip uses EMI's recipe-screen tabs and panel
 edge, the sidebar uses EMI's sidebar frame, slots and buttons. A resource pack that restyles EMI
 (`emi:textures/gui/background.png`, `buttons.png`, `widgets.png`) restyles the tabs too. Status
@@ -203,6 +207,8 @@ how tabs are stored is collapsed into *Advanced*.
 | `showProgress` | `true` | Colour tabs by inventory progress |
 | `progressIntervalMs` | `500` | How often to recheck progress |
 | `barAtBottom` | `false` | Strip along the bottom; also puts the sidebar on the right |
+| `sidebarWidthPercent` | `25` | Sidebar width in percent of the window, 15 to 50. Dragging the sidebar's edge sets it |
+| `sidebarPinned` | `true` | Off lets the sidebar slide away until the pointer is over its edge |
 | `maxTabs` | `32` | Each tab holds a whole material graph, so this is the main lever on memory |
 | `closedTabHistory` | `16` | How many closed tabs `Ctrl+Shift+T` can restore; `0` disables |
 | `keyboardShortcuts` | `true` | Master switch for the shortcuts above |

@@ -41,6 +41,16 @@ public final class TreeTabsConfig {
 	 * than theoretical.
 	 */
 	public static String tabOrientation = "auto";
+	/**
+	 * How much of the window the attached sidebar takes, in percent. Set by dragging the panel's
+	 * inner edge; kept within {@code SidebarLayout}'s 15-50 range.
+	 */
+	public static int sidebarWidthPercent = 25;
+	/**
+	 * Whether the attached sidebar stays open. Unpinned, it slides away leaving its edge showing,
+	 * and comes back while the pointer is over it: room to look round a big tree.
+	 */
+	public static boolean sidebarPinned = true;
 	/** Crafting mode gathers what to make from every tracked tree, not just the visible one. */
 	public static boolean aggregateCraftingFavorites = true;
 	/**
@@ -178,6 +188,8 @@ public final class TreeTabsConfig {
 		closedTabHistory = clamp(integer(obj, "closedTabHistory", closedTabHistory), 0, 128);
 		keyboardShortcuts = bool(obj, "keyboardShortcuts", keyboardShortcuts);
 		tabOrientation = string(obj, "tabOrientation", tabOrientation);
+		sidebarWidthPercent = clamp(integer(obj, "sidebarWidthPercent", sidebarWidthPercent), 15, 50);
+		sidebarPinned = bool(obj, "sidebarPinned", sidebarPinned);
 		craftingPanelSide = string(obj, "craftingPanelSide", craftingPanelSide);
 		groupCraftingList = bool(obj, "groupCraftingList", groupCraftingList);
 		showGroupSeparators = bool(obj, "showGroupSeparators", showGroupSeparators);
@@ -202,6 +214,8 @@ public final class TreeTabsConfig {
 		obj.addProperty("closedTabHistory", closedTabHistory);
 		obj.addProperty("keyboardShortcuts", keyboardShortcuts);
 		obj.addProperty("tabOrientation", tabOrientation);
+		obj.addProperty("sidebarWidthPercent", sidebarWidthPercent);
+		obj.addProperty("sidebarPinned", sidebarPinned);
 		obj.addProperty("craftingPanelSide", craftingPanelSide);
 		obj.addProperty("groupCraftingList", groupCraftingList);
 		obj.addProperty("showGroupSeparators", showGroupSeparators);

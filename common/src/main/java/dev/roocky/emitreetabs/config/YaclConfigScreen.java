@@ -109,6 +109,13 @@ public final class YaclConfigScreen {
 						.option(barAtBottom)
 						.option(toggle("showProgress", true, () -> TreeTabsConfig.showProgress,
 								v -> TreeTabsConfig.showProgress = v))
+						.option(toggle("sidebarPinned", true, () -> TreeTabsConfig.sidebarPinned,
+								v -> TreeTabsConfig.sidebarPinned = v))
+						.option(slider("sidebarWidthPercent", 25, 15, 50, 1,
+								() -> TreeTabsConfig.sidebarWidthPercent,
+								v -> TreeTabsConfig.sidebarWidthPercent = v,
+								value -> Component.translatable(
+										"emi.tree_tabs.config.sidebarWidthPercent.value", value)))
 						.build())
 				.group(OptionGroup.createBuilder()
 						.name(Component.translatable("emi.tree_tabs.config.group.advanced"))
