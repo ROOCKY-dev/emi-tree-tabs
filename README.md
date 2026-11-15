@@ -35,6 +35,11 @@ with controls drawn at 65% of the normal GUI size. On a screen too small it fall
 back to a **horizontal strip** along the top, which shrinks tabs down a fixed floor and then scrolls
 rather than letting the close button vanish. `tabOrientation` forces either one.
 
+Both layouts are drawn with EMI's own GUI textures: the strip uses EMI's recipe-screen tabs and panel
+edge, the sidebar uses EMI's sidebar frame, slots and buttons. A resource pack that restyles EMI
+(`emi:textures/gui/background.png`, `buttons.png`, `widgets.png`) restyles the tabs too. Status
+colours (progress, crafting, a phase's colour) stay fixed so a pack cannot hide them.
+
 - **Live progress per tab** — grey (nothing gathered), amber (partly stocked), green (you have
   everything), checked against your inventory on a timer
 - **Fork a tree** with `Ctrl+D` — same goal, independent resolutions, so you can compare two routes

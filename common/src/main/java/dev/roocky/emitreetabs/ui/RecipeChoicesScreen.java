@@ -130,14 +130,14 @@ public final class RecipeChoicesScreen extends Screen {
 	private int drawConflict(GuiGraphics g, RecipeChoices.Conflict conflict, int y,
 			int top, int bottom) {
 		if (y + ROW > top && y < bottom) {
-			g.fill(MARGIN, y, width - MARGIN, y + ROW - 2, TabPalette.GROUP);
+			EmiSkin.inset(g, MARGIN, y, width - MARGIN * 2, ROW - 2);
 			conflict.ingredient().render(g, MARGIN + 4, y + 3, 0f, EmiIngredient.RENDER_ICON);
 			g.drawString(font, name(conflict.ingredient()), MARGIN + 4 + SLOT + 6, y + 8,
-					TabPalette.TEXT, false);
+					EmiSkin.TEXT, true);
 			g.drawString(font, Component.translatable("emi.tree_tabs.choices.ways",
 							conflict.options().size()).withStyle(ChatFormatting.GRAY),
 					MARGIN + 4 + SLOT + 6 + font.width(name(conflict.ingredient())) + 8, y + 8,
-					TabPalette.TEXT_DIM, false);
+					EmiSkin.TEXT_DIM, true);
 		}
 		y += ROW;
 
