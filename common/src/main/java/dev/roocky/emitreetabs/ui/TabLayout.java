@@ -42,9 +42,17 @@ public final class TabLayout {
 		ICON
 	}
 
-	public static final int HEIGHT = 22;
+	/**
+	 * Tall enough for EMI's own tab art: a {@link #SHELF} along the content edge, a 2px lift for the
+	 * selected tab, a 2px tab border and a 16px icon. At the old 22 an unselected EMI tab showed
+	 * 14px of face, which does not hold an item icon.
+	 */
+	public static final int HEIGHT = 26;
+	/** The strip of EMI panel edge the tabs hang off, on the side that faces the tree. */
+	public static final int SHELF = 4;
 	public static final int PAD = 2;
-	public static final int ARROW_WIDTH = 9;
+	/** EMI's page arrow, which is drawn at its native 12px rather than squeezed. */
+	public static final int ARROW_WIDTH = 12;
 	public static final int ADD_BUTTON_WIDTH = 18;
 	public static final int ALL_BUTTON_WIDTH = 18;
 	public static final int ICON_SIZE = 16;
@@ -189,9 +197,19 @@ public final class TabLayout {
 		}
 		int x = tabX(index, scroll);
 		if (density == Density.ICON) {
-			return new Rect(x + tabWidth - CLOSE_BADGE - 1, barY + 2, CLOSE_BADGE, CLOSE_BADGE);
+			return new Rect(x + tabWidth - CLOSE_BADGE - 2, contentY() - 1, CLOSE_BADGE, CLOSE_BADGE);
 		}
-		return new Rect(x + tabWidth - CLOSE_INLINE - 3, barY + 5, CLOSE_INLINE, 11);
+		return new Rect(x + tabWidth - CLOSE_INLINE - 4, contentY() + 2, CLOSE_INLINE, 12);
+	}
+
+	/**
+	 * Top of the 16px row a tab's icon and label sit in.
+	 *
+	 * <p>Not centred in the bar: the shelf takes the content-facing edge, so the row sits in what is
+	 * left, below an unselected tab's 2px drop and its 2px border.
+	 */
+	public int contentY() {
+		return barAtBottom ? barY + SHELF + 2 : barY + 4;
 	}
 
 	public boolean overClose(int index, double mouseX, double mouseY, double scroll,

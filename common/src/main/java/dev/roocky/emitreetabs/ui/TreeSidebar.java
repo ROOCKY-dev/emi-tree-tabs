@@ -260,13 +260,9 @@ public final class TreeSidebar {
 		return choiceCount;
 	}
 
+	/** EMI's own sidebar frame, so the panel matches the item list beside it under any pack. */
 	private static void panel(GuiGraphics g, Rect r) {
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL);
-		// Vanilla's bevel: light on the top and left, dark on the bottom and right.
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + 1, TabPalette.PANEL_HI);
-		g.fill(r.x(), r.y(), r.x() + 1, r.y() + r.height(), TabPalette.PANEL_HI);
-		g.fill(r.x(), r.y() + r.height() - 1, r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
-		g.fill(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
+		EmiSkin.sidebarPanel(g, r.x(), r.y(), r.width(), r.height());
 	}
 
 	private static void outline(GuiGraphics g, Rect r, int colour) {
@@ -284,15 +280,22 @@ public final class TreeSidebar {
 		}
 		Rect b = s.bounds();
 		boolean isActive = tabIndex == TreeTabs.activeIndex();
-		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-
-		// State on the border, not a corner pip: down a column a stripe reads at a glance.
-		int state = isActive ? TabPalette.ACCENT : progressColour(tab);
-		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), state);
+		// A tab is a slot well, and the open one is raised out of the list as an EMI panel: the
+		// same sunken-or-raised language EMI's own screens use, and both come from its textures.
 		if (isActive) {
-			outline(g, b, TabPalette.ACCENT);
+			EmiSkin.panel(g, b.x(), b.y(), b.width(), b.height());
+		} else {
+			EmiSkin.slot(g, b.x(), b.y(), b.width(), b.height());
+			if (hovered) {
+				EmiSkin.highlight(g, b.x() + 1, b.y() + 1, b.width() - 2, b.height() - 2);
+			}
 		}
+
+		// State on the leading edge, not a corner pip: down a column a stripe reads at a glance.
+		// Inside the border, so the pack's edge stays whole.
+		int inset = isActive ? 3 : 1;
+		g.fill(b.x() + inset, b.y() + inset, b.x() + inset + 2, b.y() + b.height() - inset,
+				progressColour(tab));
 
 		EmiIngredient icon = tab.icon();
 		if (!icon.isEmpty()) {
@@ -305,7 +308,7 @@ public final class TreeSidebar {
 		if (budget > 6 && !RowName.editingTab(tabIndex)) {
 			g.drawString(font, tab.trimmedLabel(font, budget),
 					SidebarLayout.labelStart(b, false), b.y() + (b.height() - 8) / 2,
-					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
+					isActive ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
 		}
 		drawActions(g, l, s, shown, Set.of(), mouseX, mouseY);
 
@@ -327,15 +330,17 @@ public final class TreeSidebar {
 		Rect b = s.bounds();
 		// The header fills the panel width as its own background — that is what separates it from a
 		// tab, which only has a border.
-		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				hovered ? TabPalette.GROUP_HOVER : TabPalette.GROUP);
+		// EMI's category-title bar, the thing it puts a heading on.
+		EmiSkin.inset(g, b.x(), b.y(), b.width(), b.height());
+		if (hovered) {
+			EmiSkin.highlight(g, b.x(), b.y(), b.width(), b.height());
+		}
 		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), group.colour);
-		g.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), TabPalette.BORDER);
 
 		Rect c = s.collapse();
 		Icons.centred(g, group.collapsed ? Icons.CARET_RIGHT : Icons.CARET_DOWN,
 				c.x(), c.y(), c.width(), c.height(),
-				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
+				l.overCollapse(s, mouseX, mouseY) ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 
 		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
 		// aside for now". Now the park button stays up on a parked header: the state and the control
@@ -347,7 +352,7 @@ public final class TreeSidebar {
 		if (budget > 6 && !RowName.editingGroup(group.id)) {
 			g.drawString(font, trim(font, group.name, budget),
 					SidebarLayout.labelStart(b, true), b.y() + (b.height() - 8) / 2,
-					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
+					group.parked ? EmiSkin.TEXT_DIM : EmiSkin.TEXT, true);
 		}
 		drawActions(g, l, s, shown, lit, mouseX, mouseY);
 
@@ -379,9 +384,9 @@ public final class TreeSidebar {
 			}
 			int ink;
 			if (a.kind() == pointed) {
-				ink = a.kind() == RowAction.CLOSE ? TabPalette.CLOSE_HOVER : TabPalette.TEXT;
+				ink = a.kind() == RowAction.CLOSE ? TabPalette.CLOSE_HOVER : EmiSkin.TEXT;
 			} else {
-				ink = lit.contains(a.kind()) ? TabPalette.TEXT : TabPalette.TEXT_DIM;
+				ink = lit.contains(a.kind()) ? EmiSkin.TEXT : EmiSkin.TEXT_DIM;
 			}
 			Rect r = a.bounds();
 			Icons.centred(g, actionIcon(a.kind()), r.x(), r.y(), r.width(), r.height(), ink);
@@ -402,10 +407,13 @@ public final class TreeSidebar {
 	private static void marker(GuiGraphics g, Font font, Rect r, String count,
 			boolean crafting, boolean hovered) {
 		boolean lit = crafting || hovered;
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? TabPalette.CRAFTING : TabPalette.MARKER_BG);
-		outline(g, r, lit ? TabPalette.CRAFTING_EDGE : TabPalette.OUTLINE);
-		int ink = lit ? TabPalette.INK_ON_LIT : TabPalette.TEXT_DIM;
+		// An EMI slot, filled with the crafting colour while lit. The colour is status, so it stays
+		// ours; the well around it is the pack's.
+		EmiSkin.slot(g, r.x(), r.y(), r.width(), r.height());
+		if (lit) {
+			g.fill(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, TabPalette.CRAFTING);
+		}
+		int ink = lit ? TabPalette.INK_ON_LIT : EmiSkin.TEXT;
 		if (hovered) {
 			// The number is only information until you reach for it; then the same square is the
 			// control, and says so with the mark the craft-all button uses.
@@ -413,7 +421,7 @@ public final class TreeSidebar {
 		} else {
 			int w = font.width(count);
 			g.drawString(font, count, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
-					ink, false);
+					ink, !lit);
 		}
 	}
 
@@ -443,11 +451,11 @@ public final class TreeSidebar {
 
 	private static void button(GuiGraphics g, Rect r, Icons.Sprite icon,
 			boolean hovered, boolean lit) {
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? TabPalette.CRAFTING : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-		outline(g, r, TabPalette.OUTLINE);
+		// EMI's button, in its own hover state. Lit says "attend to this", which is status and so a
+		// colour of ours on the icon rather than a different button.
+		EmiSkin.button(g, r.x(), r.y(), r.width(), r.height(), EmiSkin.State.of(true, hovered));
 		Icons.centred(g, icon, r.x(), r.y(), r.width(), r.height(),
-				lit ? TabPalette.INK_ON_LIT : hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
+				lit ? TabPalette.CRAFTING : hovered ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 	}
 
 	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
