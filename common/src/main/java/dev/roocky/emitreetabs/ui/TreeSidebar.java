@@ -144,13 +144,13 @@ public final class TreeSidebar {
 		}
 		graphics.disableScissor();
 
-		drawFooter(graphics, l, mouseX, mouseY);
+		drawToolbar(graphics, l, mouseX, mouseY);
 		graphics.pose().popPose();
 
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
 		} else {
-			footerTooltip(screen, graphics, font, l, mouseX, mouseY);
+			toolbarTooltip(screen, graphics, font, l, mouseX, mouseY);
 		}
 	}
 
@@ -205,10 +205,10 @@ public final class TreeSidebar {
 	 * <p>Worth the lines: a button with a drawn icon and no tooltip is a button you have to click
 	 * to find out about, and one of these creates something.
 	 */
-	private static void footerTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
+	private static void toolbarTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
 			int mouseX, int mouseY) {
 		List<Component> lines = new ArrayList<>();
-		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+		if (TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())
 				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.group.new"));
 			lines.add(Component.translatable("emi.tree_tabs.group.new.desc")
@@ -219,7 +219,7 @@ public final class TreeSidebar {
 			lines.add(Component.translatable("emi.tree_tabs.all.title"));
 			lines.add(Component.translatable("emi.tree_tabs.all.state",
 					TreeTabs.craftingCount(), TreeTabs.count()).withStyle(ChatFormatting.GRAY));
-		} else if (l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
+		} else if (l.toolbarFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.choices.button"));
 			lines.add((choiceCount() > 0
 					? Component.translatable("emi.tree_tabs.choices.button.desc", choiceCount())
@@ -227,7 +227,7 @@ public final class TreeSidebar {
 					.withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("emi.tree_tabs.choices.button.hint")
 					.withStyle(ChatFormatting.DARK_GRAY));
-		} else if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+		} else if (TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())
 				&& l.reopenButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.reopen.button"));
 			lines.add(Component.translatable("emi.tree_tabs.reopen.button.hint")
@@ -425,24 +425,26 @@ public final class TreeSidebar {
 		}
 	}
 
-	private static void drawFooter(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
+	private static void drawToolbar(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
+		Rect bar = l.toolbar;
+		EmiSkin.inset(g, bar.x(), bar.y(), bar.width(), bar.height());
 		Rect all = l.craftAllButton();
 		// No settings screen installed means no button, rather than a button that does nothing.
 		if (ConfigScreenHook.available()) {
 			Rect settings = l.settingsButton();
 			button(g, settings, Icons.SETTINGS, settings.contains(mouseX, mouseY), false);
 		}
-		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())) {
+		if (TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())) {
 			Rect group = l.newGroupButton();
 			button(g, group, Icons.NEW_GROUP, group.contains(mouseX, mouseY), false);
 		}
 		// Always there, so the screen can be found before it is needed. Lit while the trees
 		// disagree, because then it is a thing to attend to rather than a thing to do.
-		if (l.footerFits(l.choicesButton())) {
+		if (l.toolbarFits(l.choicesButton())) {
 			Rect choices = l.choicesButton();
 			button(g, choices, Icons.CHOICES, choices.contains(mouseX, mouseY), choiceCount() > 0);
 		}
-		if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())) {
+		if (TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())) {
 			Rect reopen = l.reopenButton();
 			button(g, reopen, Icons.REOPEN, reopen.contains(mouseX, mouseY), false);
 		}
@@ -576,18 +578,18 @@ public final class TreeSidebar {
 			ConfigScreenHook.open(screen);
 			return true;
 		}
-		if (button == 0 && TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+		if (button == 0 && TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())
 				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			click();
 			newGroup(screen);
 			return true;
 		}
-		if (button == 0 && l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
+		if (button == 0 && l.toolbarFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			click();
 			openChoices(screen);
 			return true;
 		}
-		if (button == 0 && TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+		if (button == 0 && TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())
 				&& l.reopenButton().contains(mouseX, mouseY)) {
 			click();
 			TreeTabs.reopenClosed();
@@ -798,7 +800,7 @@ public final class TreeSidebar {
 		}
 	}
 
-	/** Opens the recipe-choices screen, from the footer button or from the keybind. */
+	/** Opens the recipe-choices screen, from the toolbar button or from the keybind. */
 	public static void openChoices(Screen screen) {
 		Minecraft.getInstance().setScreen(new RecipeChoicesScreen(screen));
 	}

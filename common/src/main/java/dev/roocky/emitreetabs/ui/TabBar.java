@@ -541,15 +541,15 @@ public final class TabBar {
 				if (!Screen.hasShiftDown()) {
 					return false;
 				}
-				// The footer button is the discoverable way in; this is the one that still works
-				// on the strip, which has no footer, and on a panel too narrow for the button.
+				// The toolbar button is the discoverable way in; this is the one that still works
+				// on the strip, which has no toolbar, and on a panel too narrow for the button.
 				click();
 				TreeSidebar.openChoices(screen);
 				return true;
 			}
 			case GLFW.GLFW_KEY_G -> {
 				// Ctrl+G makes a phase out of the active tree. A keybind as well as the sidebar
-				// button, because the strip has no footer to put a button in.
+				// button, because the strip has no toolbar to put a button in.
 				if (TreeTabs.activeTab() != null) {
 					click();
 					TreeSidebar.newGroup(screen);

@@ -178,25 +178,39 @@ public final class BarPreview implements ImageRenderer {
 
 		EmiSkin.sidebarPanel(g, panelX, panelY, panelWidth, panelHeight);
 
-		int rowY = panelY + SidebarLayout.PAD;
-		int rowX = panelX + SidebarLayout.PAD;
-		int rowWidth = panelWidth - SidebarLayout.PAD * 2;
-		for (int i = 0; i < 3 && rowY + SidebarLayout.ROW_HEIGHT < panelY + panelHeight; i++) {
+		// The same geometry as the real sidebar: toolbar on top, then rows with their gaps.
+		int inner = panelWidth - SidebarLayout.PAD * 2;
+		int barX = panelX + SidebarLayout.PAD;
+		int barY = panelY + SidebarLayout.PAD;
+		EmiSkin.inset(g, barX, barY, inner, SidebarLayout.TOOLBAR);
+		int buttonY = barY + SidebarLayout.TOOLBAR_PAD;
+		EmiSkin.button(g, barX + SidebarLayout.TOOLBAR_PAD, buttonY, SidebarLayout.BUTTON,
+				SidebarLayout.BUTTON, EmiSkin.State.NORMAL);
+		EmiSkin.button(g, barX + inner - SidebarLayout.TOOLBAR_PAD - SidebarLayout.BUTTON, buttonY,
+				SidebarLayout.BUTTON, SidebarLayout.BUTTON, EmiSkin.State.NORMAL);
+
+		int rowY = barY + SidebarLayout.TOOLBAR + SidebarLayout.TOOLBAR_GAP;
+		int rowX = barX;
+		int rowWidth = inner;
+		int rowBottom = panelY + panelHeight - SidebarLayout.PAD;
+		for (int i = 0; i < 3 && rowY + SidebarLayout.ROW_HEIGHT <= rowBottom; i++) {
 			if (i == 0) {
 				EmiSkin.panel(g, rowX, rowY, rowWidth, SidebarLayout.ROW_HEIGHT);
 			} else {
 				EmiSkin.slot(g, rowX, rowY, rowWidth, SidebarLayout.ROW_HEIGHT);
 			}
-			g.fill(rowX + 5, rowY + 5, rowX + 5 + SidebarLayout.ICON, rowY + 5 + SidebarLayout.ICON,
+			int iconX = rowX + SidebarLayout.ROW_PAD + 2;
+			int iconY = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.ICON) / 2;
+			g.fill(iconX, iconY, iconX + SidebarLayout.ICON, iconY + SidebarLayout.ICON,
 					ICON_TINTS[i % ICON_TINTS.length]);
-			int budget = rowWidth - SidebarLayout.ICON - SidebarLayout.MARKER - 20;
+			int mx = rowX + rowWidth - SidebarLayout.MARKER - SidebarLayout.ROW_PAD;
+			int my = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.MARKER) / 2;
+			int budget = mx - (iconX + SidebarLayout.ICON + 5) - 4;
 			if (budget > 6) {
 				g.drawString(font, trim(font, NAMES[i % NAMES.length], budget),
-						rowX + SidebarLayout.ICON + 10, rowY + (SidebarLayout.ROW_HEIGHT - 8) / 2,
+						iconX + SidebarLayout.ICON + 5, rowY + (SidebarLayout.ROW_HEIGHT - 8) / 2,
 						i == 0 ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
 			}
-			int mx = rowX + rowWidth - SidebarLayout.MARKER - 5;
-			int my = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.MARKER) / 2;
 			EmiSkin.slot(g, mx, my, SidebarLayout.MARKER, SidebarLayout.MARKER);
 			g.drawString(font, "1", mx + 6, my + 4, EmiSkin.TEXT, true);
 			rowY += SidebarLayout.ROW_HEIGHT + SidebarLayout.ROW_GAP;

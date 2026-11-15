@@ -87,17 +87,34 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("the footer never overlaps the rows")
-		void footerIsClearOfRows() {
+		@DisplayName("the toolbar never overlaps the rows")
+		void toolbarIsClearOfRows() {
 			SidebarLayout l = medium(plainTabs(40));
 			Rect settings = l.settingsButton();
 			Rect craftAll = l.craftAllButton();
-			int viewportBottom = l.viewport.y() + l.viewport.height();
-			assertTrue(settings.y() >= viewportBottom, "settings button overlaps the rows");
-			assertTrue(craftAll.y() >= viewportBottom, "craft-all button overlaps the rows");
+			assertTrue(settings.y() + settings.height() <= l.viewport.y(), "settings button overlaps the rows");
+			assertTrue(craftAll.y() + craftAll.height() <= l.viewport.y(), "craft-all button overlaps the rows");
 			assertTrue(settings.x() + settings.width() <= craftAll.x(), "the two buttons overlap");
 			assertTrue(craftAll.x() + craftAll.width() <= l.panel.x() + l.panel.width(),
 					"craft-all button escapes the panel");
+		}
+
+		@Test
+		@DisplayName("keeps every row and button clear of the frame border on both sides")
+		void contentsClearTheFrame() {
+			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0), Row.tab()));
+			int left = l.panel.x() + SidebarLayout.FRAME;
+			int right = l.panel.x() + l.panel.width() - SidebarLayout.FRAME;
+			for (Slot s : l.slots()) {
+				assertTrue(s.bounds().x() > left, "row " + s.index() + " runs into the left border");
+				assertTrue(s.bounds().x() + s.bounds().width() < right,
+						"row " + s.index() + " runs into the right border");
+			}
+			assertEquals(l.toolbar.x() - l.panel.x(),
+					l.panel.x() + l.panel.width() - (l.toolbar.x() + l.toolbar.width()),
+					"the toolbar's margins differ, so a row's will too");
+			assertTrue(l.craftAllButton().x() + l.craftAllButton().width() < right,
+					"craft-all runs into the right border");
 		}
 
 		@Test
@@ -372,23 +389,23 @@ class SidebarLayoutTest {
 	}
 
 	@Nested
-	@DisplayName("footer")
-	class Footer {
+	@DisplayName("toolbar")
+	class Toolbar {
 
 		@Test
 		@DisplayName("buttons sit left to right without touching, and give way to craft-all")
-		void footerButtonsInOrder() {
+		void toolbarButtonsInOrder() {
 			SidebarLayout l = medium(plainTabs(3));
 			Rect[] inOrder = { l.settingsButton(), l.newGroupButton(), l.choicesButton(), l.reopenButton() };
 			for (int i = 1; i < inOrder.length; i++) {
 				assertTrue(inOrder[i].x() >= inOrder[i - 1].x() + inOrder[i - 1].width(),
-						"footer button " + i + " overlaps the one before it");
+						"toolbar button " + i + " overlaps the one before it");
 			}
 			SidebarLayout narrow = of(360, 540, plainTabs(3));
 			for (Rect r : new Rect[] { narrow.choicesButton(), narrow.reopenButton() }) {
-				if (narrow.footerFits(r)) {
+				if (narrow.toolbarFits(r)) {
 					assertTrue(r.x() + r.width() <= narrow.craftAllButton().x(),
-							"a footer button that 'fits' still overlaps craft-all");
+							"a toolbar button that 'fits' still overlaps craft-all");
 				}
 			}
 		}
@@ -411,8 +428,8 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("the footer is not a row, so the buttons never select a tab")
-		void footerIsNotARow() {
+		@DisplayName("the toolbar is not a row, so the buttons never select a tab")
+		void toolbarIsNotARow() {
 			SidebarLayout l = medium(plainTabs(40));
 			Rect b = l.settingsButton();
 			assertNull(l.slotAt(b.x() + b.width() / 2.0, b.y() + b.height() / 2.0),
