@@ -111,19 +111,25 @@ public final class SidebarLayout {
 		}
 	}
 
-	/** Padding between the panel's edge and its contents. */
-	public static final int PAD = 7;
-	/** Padding inside a row, before its icon and after its marker. */
-	public static final int ROW_PAD = 5;
-	/** Height of a tab row. */
-	public static final int ROW_HEIGHT = 26;
-	/** Group headers are taller, because they carry a fold arrow and a count. */
-	public static final int GROUP_HEIGHT = 29;
 	/**
-	 * Gap between rows. Deliberately small: rows are separated by the space *inside* them, not by
-	 * the space between them, so the panel reads as a stack of surfaces rather than a scattered list.
+	 * The border of EMI's sidebar frame: the corner size of the nine-patch it is drawn from. A
+	 * resource pack can paint anything up to this wide, and packs do paint the sides differently,
+	 * so contents start past it on every side rather than wherever the default art's border ends.
 	 */
-	public static final int ROW_GAP = 2;
+	public static final int FRAME = 8;
+	/** Padding between the panel's edge and its contents: the frame, then clear space. */
+	public static final int PAD = FRAME + 4;
+	/** Padding inside a row, before its icon and after its marker. */
+	public static final int ROW_PAD = 4;
+	/** Height of a tab row: the 16px icon and marker with 3px either side, and no more. */
+	public static final int ROW_HEIGHT = 22;
+	/** Group headers are a little taller, because they carry a fold arrow and a count. */
+	public static final int GROUP_HEIGHT = 24;
+	/**
+	 * Gap between rows. At 2 the rows ran together into one block once a pack gave them a strong
+	 * border; 4 keeps each tree its own surface.
+	 */
+	public static final int ROW_GAP = 4;
 	/**
 	 * How far a group insets its members — on <em>both</em> sides, because this is the group box's
 	 * padding rather than a margin on each member. Insetting only the left would leave every member's
@@ -141,10 +147,20 @@ public final class SidebarLayout {
 	public static final int ACTION_GAP = 2;
 	/** Between the leftmost row button and the marker it would otherwise touch. */
 	public static final int ACTION_MARKER_GAP = 3;
-	/** The settings and craft-all buttons in the bottom corners. */
-	public static final int BUTTON = 16;
-	/** Reserved strip at the bottom of the panel for those two buttons. */
-	public static final int FOOTER = 22;
+	/** A toolbar button. */
+	public static final int BUTTON = 18;
+	/** Between the toolbar's edge and its buttons, and between two buttons. */
+	public static final int TOOLBAR_PAD = 3;
+	/**
+	 * The toolbar across the top of the panel.
+	 *
+	 * <p>It was a footer: two 16px buttons pinned into the bottom corners, with the rows at the top
+	 * and the empty middle of a full-height panel between them. On top, the controls and the list
+	 * they act on are one block, and the space left over is all below it.
+	 */
+	public static final int TOOLBAR = BUTTON + TOOLBAR_PAD * 2;
+	/** Between the toolbar and the first row. */
+	public static final int TOOLBAR_GAP = 6;
 	public static final int ICON = 16;
 
 	/** The panel takes 25% of the full window width, independently of content scaling. */
@@ -160,7 +176,9 @@ public final class SidebarLayout {
 
 	/** The floating panel itself. */
 	public final Rect panel;
-	/** Where rows are drawn, inside the panel's padding and above the footer. */
+	/** The strip of buttons across the top, inside the panel's padding. */
+	public final Rect toolbar;
+	/** Where rows are drawn, inside the panel's padding and below the toolbar. */
 	public final Rect viewport;
 	/** True when the panel is wide enough for row labels. */
 	public final boolean showNames;
@@ -177,12 +195,14 @@ public final class SidebarLayout {
 
 		int width = (int) Math.round(screenWidth * WIDTH_FRACTION);
 		// Attached: flush with the window's edge and as tall as the window.
-		int height = Math.max(FOOTER + ROW_HEIGHT, screenHeight);
+		int height = Math.max(TOOLBAR + ROW_HEIGHT, screenHeight);
 		int x = onLeft ? 0 : screenWidth - width;
 		this.panel = new Rect(x, 0, width, height);
 
-		this.viewport = new Rect(panel.x() + PAD, panel.y() + PAD,
-				panel.width() - PAD * 2, panel.height() - PAD * 2 - FOOTER);
+		this.toolbar = new Rect(panel.x() + PAD, panel.y() + PAD, panel.width() - PAD * 2, TOOLBAR);
+		int rowsTop = toolbar.y() + TOOLBAR + TOOLBAR_GAP;
+		this.viewport = new Rect(panel.x() + PAD, rowsTop,
+				panel.width() - PAD * 2, panel.y() + panel.height() - PAD - rowsTop);
 		this.showNames = panel.width() >= NAME_WIDTH;
 
 		List<Row> safe = rows == null ? List.of() : rows;
@@ -332,7 +352,7 @@ public final class SidebarLayout {
 		return panel.contains(x, y);
 	}
 
-	/** The row under the pointer, or null. Clipped to the viewport, so the footer never matches. */
+	/** The row under the pointer, or null. Clipped to the viewport, so the toolbar never matches. */
 	public Slot slotAt(double x, double y) {
 		if (!viewport.contains(x, y)) {
 			return null;
@@ -385,12 +405,13 @@ public final class SidebarLayout {
 	}
 
 	public Rect settingsButton() {
-		return new Rect(panel.x() + PAD, panel.y() + panel.height() - PAD - BUTTON, BUTTON, BUTTON);
+		return toolbarSlot(0);
 	}
 
+	/** The act-on-every-tree button, at the toolbar's far end. */
 	public Rect craftAllButton() {
-		return new Rect(panel.x() + panel.width() - PAD - BUTTON,
-				panel.y() + panel.height() - PAD - BUTTON, BUTTON, BUTTON);
+		return new Rect(toolbar.x() + toolbar.width() - TOOLBAR_PAD - BUTTON, toolbar.y() + TOOLBAR_PAD,
+				BUTTON, BUTTON);
 	}
 
 	/**
@@ -398,44 +419,44 @@ public final class SidebarLayout {
 	 * hiding it until then meant nobody knew the screen existed until the day it appeared.
 	 */
 	public Rect choicesButton() {
-		return footerSlot(2);
+		return toolbarSlot(2);
 	}
 
 	/** Brings back the last closed tab. Drawn only while there is one to bring back. */
 	public Rect reopenButton() {
-		return footerSlot(3);
+		return toolbarSlot(3);
 	}
 
 	/**
-	 * The n-th button from the left along the footer, settings being the 0th.
+	 * The n-th button from the left along the toolbar, settings being the 0th.
 	 *
-	 * <p>Craft-all is not one of these: it owns the opposite corner, and {@link #footerFits} is how
-	 * the ones in between give way to it on a narrow panel.
+	 * <p>Craft-all is not one of these: it owns the far end, and {@link #toolbarFits} is how the
+	 * ones in between give way to it on a narrow panel.
 	 */
-	private Rect footerSlot(int n) {
-		return new Rect(panel.x() + PAD + (BUTTON + 4) * n, panel.y() + panel.height() - PAD - BUTTON,
-				BUTTON, BUTTON);
+	private Rect toolbarSlot(int n) {
+		return new Rect(toolbar.x() + TOOLBAR_PAD + (BUTTON + TOOLBAR_PAD) * n,
+				toolbar.y() + TOOLBAR_PAD, BUTTON, BUTTON);
 	}
 
 	/**
-	 * Whether a footer button has room before the craft-all corner.
+	 * Whether a toolbar button has room before craft-all.
 	 *
-	 * <p>At {@link #MIN_PANEL_WIDTH} the third button lands on top of it. The corners are the two
-	 * that always exist, so it is the middle ones that give way — and the keybind is why losing
-	 * one costs nothing.
+	 * <p>On a narrow panel the later buttons land on top of it. The two ends are the buttons that
+	 * always exist, so it is the middle ones that give way — and the keybind is why losing one
+	 * costs nothing.
 	 */
-	public boolean footerFits(Rect r) {
-		return r.x() + r.width() + 4 <= craftAllButton().x();
+	public boolean toolbarFits(Rect r) {
+		return r.x() + r.width() + TOOLBAR_PAD <= craftAllButton().x();
 	}
 
 	/**
 	 * Makes a new phase out of the active tree.
 	 *
-	 * <p>Beside settings rather than in the free corner: the two corners are "change how this
-	 * behaves" and "act on every tree", and making a phase is neither — it acts on one tree.
+	 * <p>Beside settings rather than at the far end: the two ends are "change how this behaves" and
+	 * "act on every tree", and making a phase is neither — it acts on one tree.
 	 */
 	public Rect newGroupButton() {
-		return footerSlot(1);
+		return toolbarSlot(1);
 	}
 
 	/** How wide a label may be on this row at rest, with none of its buttons showing. */
@@ -480,6 +501,6 @@ public final class SidebarLayout {
 	/** Whether this screen can host the sidebar at all. */
 	public static boolean fits(int screenWidth, int screenHeight) {
 		return screenWidth * WIDTH_FRACTION >= MIN_PANEL_WIDTH
-				&& screenHeight >= FOOTER + PAD * 2 + ROW_HEIGHT * 3 + ROW_GAP * 2;
+				&& screenHeight >= TOOLBAR + TOOLBAR_GAP + PAD * 2 + ROW_HEIGHT * 3 + ROW_GAP * 2;
 	}
 }
