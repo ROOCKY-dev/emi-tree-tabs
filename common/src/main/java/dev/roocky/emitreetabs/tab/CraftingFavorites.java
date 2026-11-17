@@ -134,7 +134,16 @@ public final class CraftingFavorites {
 				anything = true;
 				for (EmiFavorite.Synthetic entry : EmiFavorites.syntheticFavorites) {
 					if (entry.getRecipe() != null) {
-						long[] totals = recipeTotals.computeIfAbsent(entry.getRecipe(), key -> new long[3]);
+						// Moved to the end on every sighting rather than kept where it first appeared,
+						// which is what EMI's own countRecipes does within one tree. Each tree's list
+						// puts a recipe after everything that consumes it, so ordering by last sighting
+						// keeps that true across trees too. Keeping the first sighting let a part shared
+						// with an earlier tree land before a later tree's machine that is made from it.
+						long[] totals = recipeTotals.remove(entry.getRecipe());
+						if (totals == null) {
+							totals = new long[3];
+						}
+						recipeTotals.put(entry.getRecipe(), totals);
 						totals[0] += entry.batches;
 						totals[1] += entry.amount;
 						totals[2] += entry.total;
@@ -170,7 +179,8 @@ public final class CraftingFavorites {
 			publish(true);
 			return true;
 		}
-		// Recipes first, then raw materials, matching the order EMI emits for a single tree.
+		// Recipes first, then raw materials, matching the order EMI emits for a single tree. Recipes
+		// come out in EMI's order too: a product before the parts it is made from.
 		CraftingGroups.Group toCraft = CraftingGroups.group("craft",
 				Component.translatable("emi.tree_tabs.group.craft"));
 		for (Map.Entry<EmiRecipe, long[]> entry : recipeTotals.entrySet()) {
