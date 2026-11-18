@@ -2,6 +2,7 @@ package dev.roocky.emitreetabs.tab;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,10 +15,12 @@ import dev.roocky.emitreetabs.sidebar.ChoiceEntry;
 import dev.roocky.emitreetabs.sidebar.CraftingSidebarType;
 import dev.emi.emi.api.recipe.EmiPlayerInventory;
 import dev.emi.emi.api.recipe.EmiRecipe;
+import dev.emi.emi.api.recipe.EmiResolutionRecipe;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.bom.BoM;
 import dev.emi.emi.bom.FlatMaterialCost;
+import dev.emi.emi.bom.MaterialNode;
 import dev.emi.emi.bom.MaterialTree;
 import dev.emi.emi.runtime.EmiFavorite;
 import dev.emi.emi.runtime.EmiFavorites;
@@ -102,6 +105,11 @@ public final class CraftingFavorites {
 		// already walking every tree, and it is the only place the split is knowable: once the totals
 		// are summed the question "how much of this copper is for plates" cannot be answered.
 		Map<EmiIngredient, Map<TreeTab, long[]>> costOwners = new LinkedHashMap<>();
+		// [consumed, missing if each tree had the whole stock] per recipe, over every tree in the
+		// pass, and the item each recipe is making. See countDemand.
+		Map<EmiRecipe, long[]> demand = new HashMap<>();
+		Map<EmiRecipe, EmiStack> products = new HashMap<>();
+		EmiPlayerInventory stock = inventory;
 		MaterialTree restore = BoM.tree;
 		boolean anything = false;
 
@@ -111,8 +119,10 @@ public final class CraftingFavorites {
 			// Materials another mod says the player has elsewhere join the pool before any tree
 			// draws on it, so a chest three rooms away counts the same as a pocket - which is the
 			// point. Off until the player turns it on: see TreeTabsConfig.useExternalStock.
-			EmiPlayerInventory pool = withExternalStock(inventory);
+			stock = withExternalStock(inventory);
+			EmiPlayerInventory pool = stock;
 			for (TreeTab tab : included) {
+				EmiPlayerInventory before = pool;
 				BoM.tree = tab.tree;
 				BoM.craftingMode = true;
 				// Watch this tree's costing, so each raw material can be attributed to the
@@ -120,6 +130,9 @@ public final class CraftingFavorites {
 				SubCraftCosts.begin(tab);
 				EmiFavorites.updateSynthetic(pool);
 				SubCraftCosts.end();
+				// Before the done check below: a tree with nothing left to make still consumed
+				// its share, and leaving it out is what made "/4 obtained" drop to "/3".
+				countDemand(tab.tree, before, stock, demand, products);
 				// Costed against the pool, so whatever this tree claimed is gone for the next one.
 				// Valid even when the tree had nothing to do: it still earmarked what it consumed.
 				if (TreeTabsConfig.sharedCraftingInventory) {
@@ -186,9 +199,24 @@ public final class CraftingFavorites {
 		for (Map.Entry<EmiRecipe, long[]> entry : recipeTotals.entrySet()) {
 			EmiRecipe recipe = entry.getKey();
 			long[] totals = entry.getValue();
+			long amount = totals[1];
+			long total = totals[2];
+			long[] consumed = demand.get(recipe);
+			EmiStack product = products.get(recipe);
+			if (consumed != null && product != null && !product.isEmpty()) {
+				// Crafting only happens once the pool has run dry, so whenever anything is crafted the
+				// stock was used up first: what is missing is simply demand minus stock.
+				long missing = TreeTabsConfig.sharedCraftingInventory
+						? Math.max(0, consumed[0] - held(stock, product))
+						: consumed[1];
+				// EMI's own count can only be lower than the real one, never higher; keeping the larger
+				// is a guard against a case this arithmetic has not foreseen.
+				amount = Math.max(amount, missing);
+				total = Math.max(consumed[0], amount);
+			}
 			int state = inventory.canCraft(recipe, totals[0]) ? 2 : inventory.canCraft(recipe) ? 1 : 0;
 			EmiFavorite.Synthetic synthetic =
-					new EmiFavorite.Synthetic(recipe, totals[0], totals[1], totals[2], state);
+					new EmiFavorite.Synthetic(recipe, totals[0], amount, total, state);
 			EmiFavorites.syntheticFavorites.add(synthetic);
 			toCraft.entries.add(synthetic);
 		}
@@ -351,6 +379,80 @@ public final class CraftingFavorites {
 	public static void release() {
 		ATTRIBUTION = new LinkedHashMap<>();
 		STOCK_LABELS = new LinkedHashMap<>();
+	}
+
+	/**
+	 * Adds how many of each crafted item this tree actually uses to {@code demand}.
+	 *
+	 * <p>EMI's own "remaining" count adds up what each node asked for at the moment it crafted, so a
+	 * node that was handed the spare half of another node's batch counts nothing. A recipe making
+	 * two steel rods per craft, wanted in six places, reads "4 remaining" and "3 crafts": the crafts
+	 * are right, but six rods are needed, and that is the number the player is counting towards.
+	 * Holding four does not finish the list, holding five still leaves one missing, and after
+	 * stocking some of them the count barely moves. Plain EMI does this too.
+	 *
+	 * <p>The real use falls out of the walk EMI has just done: whatever was available before, plus
+	 * what the crafts make, minus what is left over afterwards. Unlike EMI's per-node counts this
+	 * adds up across trees, so the merged list can be right where summing EMI's could not.
+	 *
+	 * <p>Read after {@code updateSynthetic}, while the nodes and remainders still hold its last
+	 * pass, which is the one against {@code before}.
+	 */
+	private static void countDemand(MaterialTree tree, EmiPlayerInventory before, EmiPlayerInventory stock,
+			Map<EmiRecipe, long[]> demand, Map<EmiRecipe, EmiStack> products) {
+		Map<EmiRecipe, long[]> made = new LinkedHashMap<>();
+		collectCrafts(tree.goal, made, products);
+		for (Map.Entry<EmiRecipe, long[]> entry : made.entrySet()) {
+			EmiStack product = products.get(entry.getKey());
+			if (product == null || product.isEmpty()) {
+				continue;
+			}
+			if (tree.cost.chanceRemainders.containsKey(product)) {
+				// Leftovers of a chanced craft are kept apart, where the arithmetic below cannot see
+				// them; EMI's own count stands for that recipe.
+				products.put(entry.getKey(), EmiStack.EMPTY);
+				continue;
+			}
+			FlatMaterialCost left = tree.cost.remainders.get(product);
+			long used = held(before, product) + entry.getValue()[0] * entry.getValue()[1]
+					- (left == null ? 0 : left.amount);
+			used = Math.max(0, used);
+			long[] totals = demand.computeIfAbsent(entry.getKey(), key -> new long[2]);
+			totals[0] += used;
+			totals[1] += Math.max(0, used - held(stock, product));
+		}
+	}
+
+	/**
+	 * [batches, items per batch] for every recipe in the tree, and the item each one is there for.
+	 *
+	 * <p>The item is the first stack of the node's ingredient, which is the key EMI files a craft's
+	 * spare output under. A recipe used for two different outputs is marked with an empty stack and
+	 * left to EMI's count, since one leftover figure cannot describe both.
+	 */
+	private static void collectCrafts(MaterialNode node, Map<EmiRecipe, long[]> made,
+			Map<EmiRecipe, EmiStack> products) {
+		if (node == null || node.recipe == null || node.children == null) {
+			return;
+		}
+		if (node.recipe instanceof EmiResolutionRecipe) {
+			// Only a pointer to the item actually chosen, as in EMI's own countRecipes.
+			collectCrafts(node.children.get(0), made, products);
+			return;
+		}
+		if (node.divisor > 0) {
+			EmiStack product = node.ingredient.getEmiStacks().get(0);
+			products.merge(node.recipe, product, (a, b) -> a.equals(b) ? a : EmiStack.EMPTY);
+			made.computeIfAbsent(node.recipe, key -> new long[] {0, node.divisor})[0] += node.neededBatches;
+		}
+		for (MaterialNode child : node.children) {
+			collectCrafts(child, made, products);
+		}
+	}
+
+	private static long held(EmiPlayerInventory inventory, EmiStack stack) {
+		EmiStack held = inventory.inventory.get(stack);
+		return held == null ? 0 : held.getAmount();
 	}
 
 	/**
