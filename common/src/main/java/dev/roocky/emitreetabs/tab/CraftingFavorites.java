@@ -24,6 +24,8 @@ import dev.emi.emi.bom.MaterialNode;
 import dev.emi.emi.bom.MaterialTree;
 import dev.emi.emi.runtime.EmiFavorite;
 import dev.emi.emi.runtime.EmiFavorites;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -109,6 +111,8 @@ public final class CraftingFavorites {
 		// pass, and the item each recipe is making. See countDemand.
 		Map<EmiRecipe, long[]> demand = new HashMap<>();
 		Map<EmiRecipe, EmiStack> products = new HashMap<>();
+		// The order the merged list is shown in. See orderCrafts.
+		Set<EmiRecipe> order = new LinkedHashSet<>();
 		EmiPlayerInventory stock = inventory;
 		MaterialTree restore = BoM.tree;
 		boolean anything = false;
@@ -133,6 +137,7 @@ public final class CraftingFavorites {
 				// Before the done check below: a tree with nothing left to make still consumed
 				// its share, and leaving it out is what made "/4 obtained" drop to "/3".
 				countDemand(tab.tree, before, stock, demand, products);
+				orderCrafts(tab.tree, order);
 				// Costed against the pool, so whatever this tree claimed is gone for the next one.
 				// Valid even when the tree had nothing to do: it still earmarked what it consumed.
 				if (TreeTabsConfig.sharedCraftingInventory) {
@@ -147,16 +152,7 @@ public final class CraftingFavorites {
 				anything = true;
 				for (EmiFavorite.Synthetic entry : EmiFavorites.syntheticFavorites) {
 					if (entry.getRecipe() != null) {
-						// Moved to the end on every sighting rather than kept where it first appeared,
-						// which is what EMI's own countRecipes does within one tree. Each tree's list
-						// puts a recipe after everything that consumes it, so ordering by last sighting
-						// keeps that true across trees too. Keeping the first sighting let a part shared
-						// with an earlier tree land before a later tree's machine that is made from it.
-						long[] totals = recipeTotals.remove(entry.getRecipe());
-						if (totals == null) {
-							totals = new long[3];
-						}
-						recipeTotals.put(entry.getRecipe(), totals);
+						long[] totals = recipeTotals.computeIfAbsent(entry.getRecipe(), key -> new long[3]);
 						totals[0] += entry.batches;
 						totals[1] += entry.amount;
 						totals[2] += entry.total;
@@ -196,9 +192,11 @@ public final class CraftingFavorites {
 		// come out in EMI's order too: a product before the parts it is made from.
 		CraftingGroups.Group toCraft = CraftingGroups.group("craft",
 				Component.translatable("emi.tree_tabs.group.craft"));
-		for (Map.Entry<EmiRecipe, long[]> entry : recipeTotals.entrySet()) {
-			EmiRecipe recipe = entry.getKey();
-			long[] totals = entry.getValue();
+		for (EmiRecipe recipe : order) {
+			long[] totals = recipeTotals.get(recipe);
+			if (totals == null) {
+				continue;
+			}
 			long amount = totals[1];
 			long total = totals[2];
 			long[] consumed = demand.get(recipe);
@@ -379,6 +377,28 @@ public final class CraftingFavorites {
 	public static void release() {
 		ATTRIBUTION = new LinkedHashMap<>();
 		STOCK_LABELS = new LinkedHashMap<>();
+	}
+
+	/**
+	 * Moves every recipe in the tree to the end of {@code order}, in EMI's own order for that tree.
+	 *
+	 * <p>Within one tree EMI lists a product before the parts it is made from: its
+	 * {@code countRecipes} moves a recipe to the end each time it meets it again. Ordering by last
+	 * sighting across trees keeps that true for the merged list, because every tree already places a
+	 * recipe after everything that consumes it.
+	 *
+	 * <p>Taken from {@code countRecipes} rather than from the tree's crafting list, which leaves out
+	 * whatever that tree no longer has to make. A part covered by an earlier tree's leftovers was
+	 * then never sighted in the later tree, so a product made from it there could move past it:
+	 * small piles of a dust ended up listed after the dust they are crafted from.
+	 */
+	private static void orderCrafts(MaterialTree tree, Set<EmiRecipe> order) {
+		Object2LongMap<EmiRecipe> batches = new Object2LongLinkedOpenHashMap<>();
+		EmiFavorites.countRecipes(batches, new Object2LongLinkedOpenHashMap<>(), tree.goal);
+		for (EmiRecipe recipe : batches.keySet()) {
+			order.remove(recipe);
+			order.add(recipe);
+		}
 	}
 
 	/**
