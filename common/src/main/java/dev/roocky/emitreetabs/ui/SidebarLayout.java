@@ -180,7 +180,7 @@ public final class SidebarLayout {
 	/** The grab strip along the panel's inner edge, inside the frame border, that resizes it. */
 	public static final int GRIP = 6;
 	/** Below this the sidebar cannot show anything useful and the caller should stay horizontal. */
-	public static final int MIN_PANEL_WIDTH = 72;
+	public static final int MIN_PANEL_WIDTH = PAD * 2 + GROUP_PAD * 2 + ROW_PAD * 2 + 2 + ICON + ACTION_MARKER_GAP + MARKER;
 	/** Names are dropped below this panel width; the icon and marker still fit. */
 	public static final int NAME_WIDTH = 96;
 
@@ -245,7 +245,8 @@ public final class SidebarLayout {
 		int total = 0;
 		boolean hidden = false;
 		int hidingGroup = -1;
-		for (Row r : safe) {
+		for (int i = 0; i < safe.size(); i++) {
+			Row r = safe.get(i);
 			if (r.kind() == RowKind.GROUP) {
 				// A collapsed group hides its members but never itself.
 				hidden = r.collapsed();
@@ -255,7 +256,7 @@ public final class SidebarLayout {
 				if (hidden && r.groupIndex() == hidingGroup) {
 					continue;
 				}
-				total += ROW_HEIGHT + ROW_GAP;
+				total += ROW_HEIGHT + ROW_GAP + groupBottomPad(safe, i);
 			}
 		}
 		this.contentHeight = Math.max(0, total - ROW_GAP);
@@ -263,6 +264,12 @@ public final class SidebarLayout {
 
 		double s = Math.max(0, Math.min(scroll, maxScroll));
 		this.slots = layOut(safe, s);
+	}
+
+	private static int groupBottomPad(List<Row> rows, int i) {
+		Row row = rows.get(i);
+		return row.kind() != RowKind.GROUP && row.groupIndex() >= 0
+				&& (i + 1 == rows.size() || rows.get(i + 1).groupIndex() != row.groupIndex()) ? GROUP_PAD : 0;
 	}
 
 	private List<Slot> layOut(List<Row> rows, double scroll) {
@@ -300,7 +307,7 @@ public final class SidebarLayout {
 					labelStart(bounds, isGroup), marker.x() - ACTION_MARKER_GAP, y, h);
 
 			out.add(new Slot(r, i, bounds, marker, collapse, actions));
-			y += h + ROW_GAP;
+			y += h + ROW_GAP + groupBottomPad(rows, i);
 		}
 		return out;
 	}
@@ -379,7 +386,7 @@ public final class SidebarLayout {
 			return null;
 		}
 		return new Rect(viewport.x(), first.y(),
-				viewport.width(), last.y() + last.height() - first.y());
+				viewport.width(), last.y() + last.height() + GROUP_PAD - first.y());
 	}
 
 	// ------------------------------------------------------------ hit tests

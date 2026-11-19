@@ -27,6 +27,20 @@ import dev.roocky.emitreetabs.ui.SidebarLayout.Slot;
  */
 class SidebarLayoutTest {
 
+	@Test
+	void smallestGroupedTabKeepsItsIconClearAndEndsInsideTheFrame() {
+		var rows = List.of(Row.group(0, false), Row.tab(0), Row.tab());
+		for (boolean left : List.of(false, true)) {
+			var layout = new SidebarLayout(320, 240, rows, 0, left, 15, 1);
+			Rect member = layout.slots().get(1).bounds();
+			assertTrue(layout.slots().get(1).marker().x() >= SidebarLayout.iconX(member)
+					+ SidebarLayout.ICON + SidebarLayout.ACTION_MARKER_GAP);
+			Rect group = layout.groupBounds(0);
+			assertEquals(SidebarLayout.GROUP_PAD, group.y() + group.height() - member.y() - member.height());
+			assertEquals(SidebarLayout.ROW_GAP, layout.slots().get(2).bounds().y() - group.y() - group.height());
+		}
+	}
+
 	private static SidebarLayout of(int w, int h, List<Row> rows) {
 		return new SidebarLayout(w, h, rows, 0, true);
 	}

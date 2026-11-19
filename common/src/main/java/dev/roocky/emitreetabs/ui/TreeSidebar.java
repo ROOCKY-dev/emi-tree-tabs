@@ -172,7 +172,9 @@ public final class TreeSidebar {
 
 		graphics.pose().pushPose();
 		graphics.pose().scale((float) scale.factor, (float) scale.factor, 1f);
-		panel(graphics, l.panel);
+		if (TreeTabsConfig.sidebarFrame) {
+			panel(graphics, l.panel);
+		}
 		drawGrip(graphics, l, mouseX, mouseY);
 
 		// GuiGraphics scissor coordinates ignore the pose on 1.21.1.
@@ -495,14 +497,20 @@ public final class TreeSidebar {
 			Icons.centred(g, Icons.CRAFT_ONE, r.x(), r.y(), r.width(), r.height(), ink);
 		} else {
 			int w = font.width(count);
-			g.drawString(font, count, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
-					ink, !lit);
+			float fit = Math.min(1f, (r.width() - 2f) / Math.max(1, w));
+			g.pose().pushPose();
+			g.pose().translate(r.x() + (r.width() - w * fit) / 2f, r.y() + (r.height() - 8 * fit) / 2f, 0);
+			g.pose().scale(fit, fit, 1f);
+			g.drawString(font, count, 0, 0, ink, !lit);
+			g.pose().popPose();
 		}
 	}
 
 	private static void drawToolbar(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
 		Rect bar = l.toolbar;
-		EmiSkin.inset(g, bar.x(), bar.y(), bar.width(), bar.height());
+		if (TreeTabsConfig.sidebarFrame) {
+			EmiSkin.inset(g, bar.x(), bar.y(), bar.width(), bar.height());
+		}
 		Rect all = l.craftAllButton();
 		// No settings screen installed means no button, rather than a button that does nothing.
 		if (ConfigScreenHook.available()) {
