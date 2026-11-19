@@ -525,7 +525,7 @@ public final class SidebarLayout {
 		double width = onLeft ? edgeX : screenWidth - edgeX;
 		int percent = (int) Math.round(width * 100.0 / screenWidth);
 		int floor = (int) Math.ceil(MIN_PANEL_WIDTH * 100.0 / screenWidth);
-		return Math.max(Math.max(MIN_WIDTH_PERCENT, floor), Math.min(MAX_WIDTH_PERCENT, percent));
+		return Math.min(MAX_WIDTH_PERCENT, Math.max(Math.max(MIN_WIDTH_PERCENT, floor), percent));
 	}
 
 	/** How long an unpinned panel takes to slide all the way in or out. */
