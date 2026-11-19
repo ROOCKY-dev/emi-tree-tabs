@@ -54,6 +54,7 @@ public final class YaclConfigScreen {
 	private static final class Pending {
 		String orientation = TreeTabsConfig.tabOrientation;
 		boolean barAtBottom = TreeTabsConfig.barAtBottom;
+		boolean frame = TreeTabsConfig.sidebarFrame;
 	}
 
 	public static Screen create(Screen parent) {
@@ -74,7 +75,7 @@ public final class YaclConfigScreen {
 	private static ConfigCategory layout(Pending pending) {
 		Supplier<OptionDescription> preview = () -> OptionDescription.createBuilder()
 				.text(Component.translatable("emi.tree_tabs.config.preview.text"))
-				.customImage(new BarPreview(() -> pending.orientation, () -> pending.barAtBottom))
+				.customImage(new BarPreview(() -> pending.orientation, () -> pending.barAtBottom, () -> pending.frame))
 				.build();
 
 		Option<String> orientation = Option.<String>createBuilder()
@@ -107,6 +108,16 @@ public final class YaclConfigScreen {
 								v -> TreeTabsConfig.enabled = v))
 						.option(orientation)
 						.option(barAtBottom)
+						.option(Option.<Boolean>createBuilder()
+								.name(Component.translatable("emi.tree_tabs.config.sidebarFrame"))
+								.description(value -> OptionDescription.createBuilder()
+										.text(Component.translatable("emi.tree_tabs.config.sidebarFrame.tooltip"))
+										.customImage(new BarPreview(() -> "vertical", () -> pending.barAtBottom, () -> pending.frame))
+										.build())
+								.binding(true, () -> TreeTabsConfig.sidebarFrame, v -> TreeTabsConfig.sidebarFrame = v)
+								.controller(TickBoxControllerBuilder::create)
+								.listener((opt, value) -> pending.frame = value)
+								.build())
 						.option(toggle("showProgress", true, () -> TreeTabsConfig.showProgress,
 								v -> TreeTabsConfig.showProgress = v))
 						.option(toggle("sidebarPinned", true, () -> TreeTabsConfig.sidebarPinned,

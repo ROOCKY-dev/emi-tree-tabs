@@ -153,6 +153,8 @@
   "emi.tree_tabs.action.focus.hint": "Shift+right click the header",
   "config.emi.presets.emi_tree_tabs": "EMI Tree Tabs",
   "config.emi.tooltip.presets.emi_tree_tabs": "Crafting, Favorites and Craftables on the left.\nItem index on the right.\nClick the left sidebar page icon to switch pages.\nReplaces the current sidebar layout; Revert undoes it.",
+  "emi.tree_tabs.config.sidebarFrame": "Show sidebar frame",
+  "emi.tree_tabs.config.sidebarFrame.tooltip": "Turn off the panel and toolbar backgrounds to show the tree behind your tabs and groups.",
   "emi.tree_tabs.config.sidebarPinned": "Pin the sidebar open",
   "emi.tree_tabs.config.sidebarPinned.tooltip": "Unpinned, the sidebar slides away leaving its edge showing, and comes back while the pointer is over it. The pin button in the sidebar's toolbar does the same.",
   "emi.tree_tabs.config.sidebarWidthPercent": "Sidebar width",

@@ -32,6 +32,7 @@ public final class BarPreview implements ImageRenderer {
 
 	private final java.util.function.Supplier<String> orientation;
 	private final java.util.function.BooleanSupplier barAtBottom;
+	private final java.util.function.BooleanSupplier frame;
 
 	/**
 	 * @param orientation the <em>pending</em> orientation, not the saved one, so the preview
@@ -39,7 +40,8 @@ public final class BarPreview implements ImageRenderer {
 	 * @param barAtBottom likewise
 	 */
 	public BarPreview(java.util.function.Supplier<String> orientation,
-			java.util.function.BooleanSupplier barAtBottom) {
+			java.util.function.BooleanSupplier barAtBottom, java.util.function.BooleanSupplier frame) {
+		this.frame = frame;
 		this.orientation = orientation;
 		this.barAtBottom = barAtBottom;
 	}
@@ -177,13 +179,17 @@ public final class BarPreview implements ImageRenderer {
 		int panelY = y;
 		int panelHeight = PREVIEW_HEIGHT - 18;
 
-		EmiSkin.sidebarPanel(g, panelX, panelY, panelWidth, panelHeight);
+		if (frame.getAsBoolean()) {
+			EmiSkin.sidebarPanel(g, panelX, panelY, panelWidth, panelHeight);
+		}
 
 		// The same geometry as the real sidebar: toolbar on top, then rows with their gaps.
 		int inner = panelWidth - SidebarLayout.PAD * 2;
 		int barX = panelX + SidebarLayout.PAD;
 		int barY = panelY + SidebarLayout.PAD;
-		EmiSkin.inset(g, barX, barY, inner, SidebarLayout.TOOLBAR);
+		if (frame.getAsBoolean()) {
+			EmiSkin.inset(g, barX, barY, inner, SidebarLayout.TOOLBAR);
+		}
 		int buttonY = barY + SidebarLayout.TOOLBAR_PAD;
 		EmiSkin.button(g, barX + SidebarLayout.TOOLBAR_PAD, buttonY, SidebarLayout.BUTTON,
 				SidebarLayout.BUTTON, EmiSkin.State.NORMAL);

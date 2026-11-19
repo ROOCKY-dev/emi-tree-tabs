@@ -19,7 +19,13 @@ EMI keeps exactly one crafting tree in memory, so opening a second one silently 
 first. This mod keeps a list of them and swaps the right one into place when you change tab — EMI's
 own tree screen does all the drawing and editing, so every tree behaves exactly as you expect.
 
-<img src="docs/sidebar.png" alt="The tab sidebar, showing a phase named Redstone gear containing two trees, with two ungrouped trees below" width="470">
+**Nightly sidebar:** Turn off **Show sidebar frame** in Layout settings (or set `sidebarFrame` to `false`) to see the recipe tree between rows. The toolbar buttons, group headers, tabs, and resize grip stay visible.
+
+![Framed and transparent sidebars with an expanded and collapsed group](docs/nightly-sidebar-layout.png)
+
+*Offline layout preview using EMI textures and sample item icons. The grid shows where the background is transparent.*
+
+
 
 ---
 
