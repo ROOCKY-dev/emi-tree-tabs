@@ -658,6 +658,9 @@ class SidebarLayoutTest {
 			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(5000, 960, true));
 			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(-500, 960, false));
 			// On a small window the minimum panel width is more than 15%, and that has to win.
+			for (boolean left : List.of(true, false)) {
+				assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(48, 96, left));
+			}
 			int percent = SidebarLayout.widthPercentFor(0, 320, true);
 			assertTrue(320 * percent / 100.0 >= SidebarLayout.MIN_PANEL_WIDTH,
 					"a drag to nothing on a 320 wide window gave " + percent + "%");

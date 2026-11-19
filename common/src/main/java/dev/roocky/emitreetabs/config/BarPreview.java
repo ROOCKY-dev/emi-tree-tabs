@@ -3,6 +3,7 @@ package dev.roocky.emitreetabs.config;
 import dev.roocky.emitreetabs.ui.EmiSkin;
 import dev.roocky.emitreetabs.ui.Icons;
 import dev.roocky.emitreetabs.ui.SidebarLayout;
+import dev.roocky.emitreetabs.ui.SidebarScale;
 import dev.roocky.emitreetabs.ui.TabLayout;
 import dev.roocky.emitreetabs.ui.TabPalette;
 import dev.isxander.yacl3.gui.image.ImageRenderer;
@@ -66,7 +67,7 @@ public final class BarPreview implements ImageRenderer {
 		Font font = Minecraft.getInstance().font;
 		graphics.fill(x, y, x + width, y + PREVIEW_HEIGHT, 0xFF101018);
 
-		if (vertical(width)) {
+		if (vertical()) {
 			drawSidebar(graphics, font, x, y, width);
 		} else {
 			drawStrip(graphics, font, x, y, width);
@@ -84,7 +85,7 @@ public final class BarPreview implements ImageRenderer {
 	 * <p>So an explicit choice is drawn as chosen, and only {@code auto} asks a question — of the
 	 * real window, because that is the screen auto would actually be deciding for.
 	 */
-	private boolean vertical(int width) {
+	private boolean vertical() {
 		String mode = orientation.get();
 		if ("horizontal".equalsIgnoreCase(mode)) {
 			return false;
@@ -96,7 +97,7 @@ public final class BarPreview implements ImageRenderer {
 		if (client == null || client.getWindow() == null) {
 			return false;
 		}
-		return SidebarLayout.fits(client.getWindow().getGuiScaledWidth(),
+		return SidebarScale.standard().fits(client.getWindow().getGuiScaledWidth(),
 				client.getWindow().getGuiScaledHeight());
 	}
 

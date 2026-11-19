@@ -973,8 +973,8 @@ public final class TreeSidebar {
 		if (!l.isOver(mouseX, mouseY)) {
 			return false;
 		}
-		if (l.maxScroll <= 0) {
-			// Nothing to scroll, but swallow it so the tree does not zoom under the panel.
+		if (!l.revealed || l.maxScroll <= 0) {
+			// The grip and sliding panel capture the wheel without moving hidden rows.
 			return true;
 		}
 		scroll = l.clampScroll(scroll - amount * SidebarLayout.ROW_HEIGHT);
