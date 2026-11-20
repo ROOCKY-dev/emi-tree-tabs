@@ -96,13 +96,16 @@ public final class TabBar {
 		// Only the tabs actually on screen need their progress costed.
 		TreeTabs.pollProgress(l.firstVisible(scroll), l.lastVisible(scroll));
 
-		graphics.fill(0, y, screen.width, y + HEIGHT, TabPalette.BAR);
-		int borderY = l.barAtBottom ? y : y + HEIGHT - 1;
-		graphics.fill(0, borderY, screen.width, borderY + 1, TabPalette.BORDER);
+		// Vanilla's own screen-background gradient behind the tabs: the tree would otherwise show
+		// through the gaps between them, and EMI's tab art assumes a dimmed screen behind it.
+		graphics.fillGradient(0, y, screen.width, y + HEIGHT, 0xC0101010, 0xD0101010);
 
+		// EMI's order: unselected tabs, then the panel edge they hang off, then the selected tab,
+		// whose open edge is drawn over the panel's border so the two read as one surface.
+		int active = TreeTabs.activeIndex();
 		graphics.enableScissor(l.stripLeft, y, l.stripLeft + l.stripWidth, y + HEIGHT);
 		for (int i = 0; i < l.count; i++) {
-			if (dragging && i == dragIndex) {
+			if (i == active || dragging && i == dragIndex) {
 				continue;
 			}
 			int x = l.tabX(i, scroll);
@@ -112,6 +115,15 @@ public final class TabBar {
 			drawTab(l, graphics, font, i, x, i == hovered, mouseX, mouseY);
 		}
 		graphics.disableScissor();
+		drawShelf(l, graphics);
+		if (active >= 0 && !(dragging && active == dragIndex)) {
+			int x = l.tabX(active, scroll);
+			if (x + l.tabWidth >= l.stripLeft && x <= l.stripLeft + l.stripWidth) {
+				graphics.enableScissor(l.stripLeft, y, l.stripLeft + l.stripWidth, y + HEIGHT);
+				drawTab(l, graphics, font, active, x, active == hovered, mouseX, mouseY);
+				graphics.disableScissor();
+			}
+		}
 
 		if (dragging && dragIndex >= 0) {
 			drawTab(l, graphics, font, dragIndex, (int) (dragX - l.tabWidth / 2.0), true, -1, -1);
@@ -145,63 +157,94 @@ public final class TabBar {
 		}
 	}
 
+	/**
+	 * The edge of an EMI panel, along the side of the strip that faces the tree.
+	 *
+	 * <p>Drawn as a whole panel and cut down to its edge, so the shelf is whatever a resource pack
+	 * makes EMI's panel border, corners pushed off screen.
+	 */
+	private static void drawShelf(TabLayout l, GuiGraphics graphics) {
+		int width = l.screenWidth;
+		int shelfY = shelfY(l);
+		graphics.enableScissor(0, shelfY, width, shelfY + TabLayout.SHELF);
+		int panelY = l.barAtBottom ? shelfY - TabLayout.SHELF : shelfY;
+		EmiSkin.panel(graphics, -TabLayout.SHELF, panelY, width + TabLayout.SHELF * 2, TabLayout.SHELF * 2);
+		graphics.disableScissor();
+	}
+
+	private static int shelfY(TabLayout l) {
+		return l.barAtBottom ? l.barY : l.barY + HEIGHT - TabLayout.SHELF;
+	}
+
+	/**
+	 * How far a tab's art runs under the shelf. EMI overlaps its tabs into the panel by the same
+	 * amount; that is where the selected piece's open edge covers the panel border.
+	 */
+	private static final int TAB_OVERLAP = 3;
+	/** How much shorter an unselected tab is than the selected one, as on EMI's recipe screen. */
+	private static final int TAB_DROP = 2;
+
 	private static void drawTab(TabLayout l, GuiGraphics graphics, Font font, int index,
 			int x, boolean hovered, int mouseX, int mouseY) {
 		TreeTab tab = TreeTabs.tab(index);
 		if (tab == null) {
 			return;
 		}
-		int y = l.barY;
 		int width = l.tabWidth;
 		boolean isActive = index == TreeTabs.activeIndex();
-		int background = isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB;
-		graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, background);
+		int drop = isActive ? 0 : TAB_DROP;
+		int artHeight = HEIGHT - TabLayout.SHELF - drop + TAB_OVERLAP;
+		int artY = l.barAtBottom ? l.barY + TabLayout.SHELF - TAB_OVERLAP : l.barY + drop;
+		// One pixel short of the slot, so neighbouring tabs keep EMI's gap between them.
+		EmiSkin.tab(graphics, x, artY, width - 1, artHeight, isActive, l.barAtBottom);
+
+		int contentY = l.contentY();
+		if (hovered && !isActive) {
+			EmiSkin.highlight(graphics, x + 2, contentY, width - 5, 16);
+		}
 
 		// The group's colour down the tab's leading edge. The strip does not reorder tabs into
 		// their groups the way the sidebar does, so this is the only thing that can say a tab
 		// belongs to a phase; it claims membership, not adjacency, which is all that is true.
 		TabGroup group = tab.groupId >= 0 ? TreeTabs.group(tab.groupId) : null;
 		if (group != null) {
-			graphics.fill(x, y + 1, x + 2, y + HEIGHT - 1, group.colour);
+			graphics.fill(x + 2, contentY, x + 4, contentY + 16, group.colour);
 		}
 
-		int accent = accentColor(tab);
-		if (isActive) {
-			int accentY = l.barAtBottom ? y + HEIGHT - 3 : y + 1;
-			graphics.fill(x, accentY, x + width - 1, accentY + 2, accent);
-		} else {
-			int accentY = l.barAtBottom ? y + 1 : y + HEIGHT - 3;
-			graphics.fill(x, accentY, x + width - 1, accentY + 1, accent);
-			// Hairline between inactive neighbours; the active tab reads on its own.
-			graphics.fill(x + width - 1, y + 4, x + width, y + HEIGHT - 4, TabPalette.DIVIDER);
+		// Progress as a line next to the shelf. Which tab is active no longer needs a colour of its
+		// own: EMI's selected piece says that, the way it does on the recipe screen.
+		int progress = progressColour(tab);
+		if (progress != 0) {
+			int lineY = l.barAtBottom ? contentY - 2 : contentY + 16;
+			graphics.fill(x + 2, lineY, x + width - 3, lineY + 2, progress);
 		}
 
 		// At icon density the tab is barely wider than the icon, so centre it rather than letting
 		// it sit against the left edge with dead space to its right.
-		int iconX = l.density == Density.ICON ? x + (width - ICON_SIZE) / 2 : x + 4;
+		int iconX = l.density == Density.ICON ? x + (width - 1 - ICON_SIZE) / 2 : x + 5;
 		EmiIngredient icon = tab.icon();
 		if (!icon.isEmpty()) {
-			icon.render(graphics, iconX, y + 3, 0f, EmiIngredient.RENDER_ICON);
+			icon.render(graphics, iconX, contentY, 0f, EmiIngredient.RENDER_ICON);
 			if (tab.craftingMode) {
 				// A pip on the icon's corner: this tree is being built, not just read.
-				graphics.fill(iconX - 1 + ICON_SIZE - 4, y + 2 + ICON_SIZE - 4,
-						iconX - 1 + ICON_SIZE + 1, y + 2 + ICON_SIZE + 1, 0xFF000000);
-				graphics.fill(iconX - 1 + ICON_SIZE - 3, y + 2 + ICON_SIZE - 3,
-						iconX - 1 + ICON_SIZE, y + 2 + ICON_SIZE, TabPalette.CRAFTING);
+				graphics.fill(iconX + ICON_SIZE - 4, contentY + ICON_SIZE - 4,
+						iconX + ICON_SIZE + 1, contentY + ICON_SIZE + 1, 0xFF000000);
+				graphics.fill(iconX + ICON_SIZE - 3, contentY + ICON_SIZE - 3,
+						iconX + ICON_SIZE, contentY + ICON_SIZE, TabPalette.CRAFTING);
 			}
 		}
 
 		// A parked tree has stopped asking for materials. The sidebar dims it; so should this, or
 		// the same tab reads as two different states depending on which layout is up.
 		if (TreeTabs.isParked(tab)) {
-			graphics.fill(x, y + 1, x + width - 1, y + HEIGHT - 1, TabPalette.PARKED);
+			graphics.fill(x + 2, contentY - 1, x + width - 3, contentY + 17, TabPalette.PARKED);
 		}
 
 		boolean closeShown = l.closeVisible(hovered, isActive);
 		int budget = l.labelBudget(closeShown);
 		if (budget > 4) {
-			graphics.drawString(font, tab.trimmedLabel(font, budget), x + 4 + ICON_SIZE + 3, y + 7,
-					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
+			graphics.drawString(font, tab.trimmedLabel(font, budget), x + 5 + ICON_SIZE + 3, contentY + 4,
+					isActive ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
 		}
 
 		if (closeShown) {
@@ -210,27 +253,28 @@ public final class TabBar {
 			int rx = r.x() + (x - l.tabX(index, scroll));
 			boolean closeHovered = mouseX >= rx && mouseX < rx + r.width()
 					&& mouseY >= r.y() && mouseY < r.y() + r.height();
-			int colour = closeHovered ? TabPalette.CLOSE_HOVER : TabPalette.TEXT_DIM;
 			if (l.density == Density.ICON) {
 				// A badge, not an inline button: the rest of the tab has to stay selectable.
-				graphics.fill(rx, r.y(), rx + r.width(), r.y() + r.height(), 0xC0101014);
+				EmiSkin.button(graphics, rx, r.y(), r.width(), r.height(),
+						EmiSkin.State.of(true, closeHovered));
 			}
-			Icons.centred(graphics, Icons.CLOSE, rx, r.y(), r.width(), r.height(), colour);
+			Icons.centred(graphics, Icons.CLOSE, rx, r.y(), r.width(), r.height(),
+					closeHovered ? TabPalette.CLOSE_HOVER : EmiSkin.TEXT_DIM);
 		}
 	}
 
-	/** Scroll affordances, so a long strip does not look like it simply ends. */
+	/** Scroll affordances, so a long strip does not look like it simply ends. EMI's own arrows. */
 	private static void drawArrows(TabLayout l, GuiGraphics graphics, int mouseX, int mouseY) {
 		if (!l.scrolling) {
 			return;
 		}
-		int y = l.barY;
+		int y = l.contentY() + (ICON_SIZE - EmiSkin.ARROW_SIZE) / 2;
 		boolean canLeft = scroll > 0.5;
 		boolean canRight = scroll < l.maxScroll - 0.5;
-		Icons.centred(graphics, Icons.ARROW_LEFT, l.leftArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
-				canLeft ? (l.overLeftArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
-		Icons.centred(graphics, Icons.ARROW_RIGHT, l.rightArrowX(), y, TabLayout.ARROW_WIDTH, HEIGHT,
-				canRight ? (l.overRightArrow(mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM) : TabPalette.DISABLED);
+		EmiSkin.arrow(graphics, l.leftArrowX(), y, true,
+				EmiSkin.State.of(canLeft, l.overLeftArrow(mouseX, mouseY)));
+		EmiSkin.arrow(graphics, l.rightArrowX(), y, false,
+				EmiSkin.State.of(canRight, l.overRightArrow(mouseX, mouseY)));
 	}
 
 	/**
@@ -244,17 +288,14 @@ public final class TabBar {
 			return;
 		}
 		int x = l.allButtonX();
-		int y = l.barY;
-		boolean hovered = l.overAllButton(mouseX, mouseY);
+		int y = l.contentY() - 1;
+		int w = TabLayout.ALL_BUTTON_WIDTH;
 		int crafting = TreeTabs.craftingCount();
-		graphics.fill(x, y + 1, x + TabLayout.ALL_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-		int colour = crafting == 0 ? TabPalette.TEXT_DIM : TabPalette.CRAFTING;
-		Icons.centred(graphics, Icons.CRAFT_ALL, x, y + 1, TabLayout.ALL_BUTTON_WIDTH, HEIGHT - 2,
-				colour);
+		EmiSkin.button(graphics, x, y, w, ICON_SIZE + 2, EmiSkin.State.of(true, l.overAllButton(mouseX, mouseY)));
+		Icons.centred(graphics, Icons.CRAFT_ALL, x, y, w, ICON_SIZE + 2,
+				crafting == 0 ? EmiSkin.TEXT_DIM : TabPalette.CRAFTING);
 		if (crafting > 0) {
-			graphics.fill(x + TabLayout.ALL_BUTTON_WIDTH - 5, y + 4,
-					x + TabLayout.ALL_BUTTON_WIDTH - 2, y + 7, TabPalette.CRAFTING);
+			graphics.fill(x + w - 5, y + 2, x + w - 2, y + 5, TabPalette.CRAFTING);
 		}
 	}
 
@@ -263,12 +304,11 @@ public final class TabBar {
 			return;
 		}
 		int x = l.addButtonX();
-		int y = l.barY;
+		int y = l.contentY() - 1;
 		boolean hovered = l.overAddButton(mouseX, mouseY);
-		graphics.fill(x, y + 1, x + TabLayout.ADD_BUTTON_WIDTH, y + HEIGHT - 1,
-				hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-		Icons.centred(graphics, Icons.NEW_TAB, x, y + 1, TabLayout.ADD_BUTTON_WIDTH, HEIGHT - 2,
-				hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
+		EmiSkin.button(graphics, x, y, TabLayout.ADD_BUTTON_WIDTH, ICON_SIZE + 2, EmiSkin.State.of(true, hovered));
+		Icons.centred(graphics, Icons.NEW_TAB, x, y, TabLayout.ADD_BUTTON_WIDTH, ICON_SIZE + 2,
+				hovered ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 	}
 
 	private static void drawTooltip(Screen screen, TabLayout l, GuiGraphics graphics, Font font,
@@ -311,9 +351,10 @@ public final class TabBar {
 				l.tabX(index, scroll) + l.tabWidth / 2, mouseX, mouseY);
 	}
 
-	private static int accentColor(TreeTab tab) {
+	/** The progress line's colour, or 0 for no line at all. */
+	private static int progressColour(TreeTab tab) {
 		if (!TreeTabsConfig.showProgress || tab.progress == null) {
-			return TabPalette.ACCENT;
+			return 0;
 		}
 		// Deliberately not a switch: switching on another mod's enum makes javac emit a synthetic
 		// TabBar$1 switch-map class, one more thing that has to resolve at runtime.
@@ -500,15 +541,15 @@ public final class TabBar {
 				if (!Screen.hasShiftDown()) {
 					return false;
 				}
-				// The footer button is the discoverable way in; this is the one that still works
-				// on the strip, which has no footer, and on a panel too narrow for the button.
+				// The toolbar button is the discoverable way in; this is the one that still works
+				// on the strip, which has no toolbar, and on a panel too narrow for the button.
 				click();
 				TreeSidebar.openChoices(screen);
 				return true;
 			}
 			case GLFW.GLFW_KEY_G -> {
 				// Ctrl+G makes a phase out of the active tree. A keybind as well as the sidebar
-				// button, because the strip has no footer to put a button in.
+				// button, because the strip has no toolbar to put a button in.
 				if (TreeTabs.activeTab() != null) {
 					click();
 					TreeSidebar.newGroup(screen);
@@ -602,7 +643,7 @@ public final class TabBar {
 		int boxWidth = Math.max(80, l.tabWidth - 4);
 		x = Math.min(x + 2, l.stripLeft + l.stripWidth - boxWidth);
 		x = Math.max(x, l.stripLeft);
-		renameBox = new EditBox(Minecraft.getInstance().font, x, l.barY + 3, boxWidth, 16,
+		renameBox = new EditBox(Minecraft.getInstance().font, x, l.contentY(), boxWidth, 16,
 				Component.translatable("emi.tree_tabs.rename"));
 		renameBox.setMaxLength(48);
 		renameBox.setBordered(true);

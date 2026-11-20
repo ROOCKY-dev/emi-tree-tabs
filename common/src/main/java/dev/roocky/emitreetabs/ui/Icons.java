@@ -54,6 +54,8 @@ public final class Icons {
 	public static final Sprite FOCUS = new Sprite(44, 16, 8, 8);
 	/** An arrow turning back: reopen the last closed tab. */
 	public static final Sprite REOPEN = new Sprite(32, 44, 12, 12);
+	/** A pushpin: keep the sidebar open, or let it slide away. */
+	public static final Sprite PIN = new Sprite(48, 44, 12, 12);
 
 	public static final Sprite ARROW_LEFT = new Sprite(0, 16, 5, 8);
 	public static final Sprite ARROW_RIGHT = new Sprite(6, 16, 5, 8);
