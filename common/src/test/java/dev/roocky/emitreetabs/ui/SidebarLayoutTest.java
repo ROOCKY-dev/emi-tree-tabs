@@ -27,6 +27,20 @@ import dev.roocky.emitreetabs.ui.SidebarLayout.Slot;
  */
 class SidebarLayoutTest {
 
+	@Test
+	void smallestGroupedTabKeepsItsIconClearAndEndsInsideTheFrame() {
+		var rows = List.of(Row.group(0, false), Row.tab(0), Row.tab());
+		for (boolean left : List.of(false, true)) {
+			var layout = new SidebarLayout(320, 240, rows, 0, left, 15, 1);
+			Rect member = layout.slots().get(1).bounds();
+			assertTrue(layout.slots().get(1).marker().x() >= SidebarLayout.iconX(member)
+					+ SidebarLayout.ICON + SidebarLayout.ACTION_MARKER_GAP);
+			Rect group = layout.groupBounds(0);
+			assertEquals(SidebarLayout.GROUP_PAD, group.y() + group.height() - member.y() - member.height());
+			assertEquals(SidebarLayout.ROW_GAP, layout.slots().get(2).bounds().y() - group.y() - group.height());
+		}
+	}
+
 	private static SidebarLayout of(int w, int h, List<Row> rows) {
 		return new SidebarLayout(w, h, rows, 0, true);
 	}
@@ -87,17 +101,34 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("the footer never overlaps the rows")
-		void footerIsClearOfRows() {
+		@DisplayName("the toolbar never overlaps the rows")
+		void toolbarIsClearOfRows() {
 			SidebarLayout l = medium(plainTabs(40));
 			Rect settings = l.settingsButton();
 			Rect craftAll = l.craftAllButton();
-			int viewportBottom = l.viewport.y() + l.viewport.height();
-			assertTrue(settings.y() >= viewportBottom, "settings button overlaps the rows");
-			assertTrue(craftAll.y() >= viewportBottom, "craft-all button overlaps the rows");
+			assertTrue(settings.y() + settings.height() <= l.viewport.y(), "settings button overlaps the rows");
+			assertTrue(craftAll.y() + craftAll.height() <= l.viewport.y(), "craft-all button overlaps the rows");
 			assertTrue(settings.x() + settings.width() <= craftAll.x(), "the two buttons overlap");
 			assertTrue(craftAll.x() + craftAll.width() <= l.panel.x() + l.panel.width(),
 					"craft-all button escapes the panel");
+		}
+
+		@Test
+		@DisplayName("keeps every row and button clear of the frame border on both sides")
+		void contentsClearTheFrame() {
+			SidebarLayout l = medium(List.of(Row.group(0, false), Row.tab(0), Row.tab()));
+			int left = l.panel.x() + SidebarLayout.FRAME;
+			int right = l.panel.x() + l.panel.width() - SidebarLayout.FRAME;
+			for (Slot s : l.slots()) {
+				assertTrue(s.bounds().x() > left, "row " + s.index() + " runs into the left border");
+				assertTrue(s.bounds().x() + s.bounds().width() < right,
+						"row " + s.index() + " runs into the right border");
+			}
+			assertEquals(l.toolbar.x() - l.panel.x(),
+					l.panel.x() + l.panel.width() - (l.toolbar.x() + l.toolbar.width()),
+					"the toolbar's margins differ, so a row's will too");
+			assertTrue(l.craftAllButton().x() + l.craftAllButton().width() < right,
+					"craft-all runs into the right border");
 		}
 
 		@Test
@@ -372,23 +403,23 @@ class SidebarLayoutTest {
 	}
 
 	@Nested
-	@DisplayName("footer")
-	class Footer {
+	@DisplayName("toolbar")
+	class Toolbar {
 
 		@Test
 		@DisplayName("buttons sit left to right without touching, and give way to craft-all")
-		void footerButtonsInOrder() {
+		void toolbarButtonsInOrder() {
 			SidebarLayout l = medium(plainTabs(3));
 			Rect[] inOrder = { l.settingsButton(), l.newGroupButton(), l.choicesButton(), l.reopenButton() };
 			for (int i = 1; i < inOrder.length; i++) {
 				assertTrue(inOrder[i].x() >= inOrder[i - 1].x() + inOrder[i - 1].width(),
-						"footer button " + i + " overlaps the one before it");
+						"toolbar button " + i + " overlaps the one before it");
 			}
 			SidebarLayout narrow = of(360, 540, plainTabs(3));
 			for (Rect r : new Rect[] { narrow.choicesButton(), narrow.reopenButton() }) {
-				if (narrow.footerFits(r)) {
+				if (narrow.toolbarFits(r)) {
 					assertTrue(r.x() + r.width() <= narrow.craftAllButton().x(),
-							"a footer button that 'fits' still overlaps craft-all");
+							"a toolbar button that 'fits' still overlaps craft-all");
 				}
 			}
 		}
@@ -411,8 +442,8 @@ class SidebarLayoutTest {
 		}
 
 		@Test
-		@DisplayName("the footer is not a row, so the buttons never select a tab")
-		void footerIsNotARow() {
+		@DisplayName("the toolbar is not a row, so the buttons never select a tab")
+		void toolbarIsNotARow() {
 			SidebarLayout l = medium(plainTabs(40));
 			Rect b = l.settingsButton();
 			assertNull(l.slotAt(b.x() + b.width() / 2.0, b.y() + b.height() / 2.0),
@@ -601,5 +632,151 @@ class SidebarLayoutTest {
 	void nullRowsAreSafe() {
 		SidebarLayout l = new SidebarLayout(960, 540, null, 0, true);
 		assertEquals(0, l.slots().size());
+	}
+
+	@Nested
+	@DisplayName("resizing")
+	class Resizing {
+
+		private SidebarLayout sized(int percent, boolean onLeft) {
+			return new SidebarLayout(960, 540, plainTabs(3), 0, onLeft, percent, 1.0);
+		}
+
+		@Test
+		@DisplayName("takes the width it is given, within the drag range")
+		void widthFollowsPercent() {
+			assertEquals(Math.round(960 * 0.40), sized(40, true).panel.width());
+			assertEquals(Math.round(960 * SidebarLayout.MIN_WIDTH_PERCENT / 100.0), sized(1, true).panel.width(),
+					"below the range clamps up");
+			assertEquals(Math.round(960 * SidebarLayout.MAX_WIDTH_PERCENT / 100.0), sized(99, true).panel.width(),
+					"above the range clamps down");
+		}
+
+		@Test
+		@DisplayName("putting the edge where it already is gives back the same width, on either side")
+		void edgeRoundTrips() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				for (int percent = SidebarLayout.MIN_WIDTH_PERCENT; percent <= SidebarLayout.MAX_WIDTH_PERCENT; percent++) {
+					SidebarLayout l = sized(percent, onLeft);
+					double edge = onLeft ? l.panel.x() + l.panel.width() : l.panel.x();
+					assertEquals(percent, SidebarLayout.widthPercentFor(edge, l.screenWidth, onLeft),
+							"edge of a " + percent + "% panel, onLeft=" + onLeft);
+				}
+			}
+		}
+
+		@Test
+		@DisplayName("a drag past either limit stops at the limit, never at a panel too small to draw")
+		void dragClamps() {
+			assertEquals(SidebarLayout.MIN_WIDTH_PERCENT, SidebarLayout.widthPercentFor(-500, 960, true));
+			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(5000, 960, true));
+			assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(-500, 960, false));
+			// On a small window the minimum panel width is more than 15%, and that has to win.
+			for (boolean left : List.of(true, false)) {
+				assertEquals(SidebarLayout.MAX_WIDTH_PERCENT, SidebarLayout.widthPercentFor(48, 96, left));
+			}
+			int percent = SidebarLayout.widthPercentFor(0, 320, true);
+			assertTrue(320 * percent / 100.0 >= SidebarLayout.MIN_PANEL_WIDTH,
+					"a drag to nothing on a 320 wide window gave " + percent + "%");
+		}
+
+		@Test
+		@DisplayName("the handle is on the inner edge, inside the frame, clear of every row and button")
+		void handleIsClear() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				SidebarLayout l = new SidebarLayout(960, 540, List.of(Row.group(0, false), Row.tab(0), Row.tab()),
+						0, onLeft, 30, 1.0);
+				Rect h = l.resizeHandle();
+				int inner = onLeft ? l.panel.x() + l.panel.width() : l.panel.x();
+				assertTrue(onLeft ? h.x() + h.width() == inner : h.x() == inner, "handle is not on the inner edge");
+				assertTrue(h.width() <= SidebarLayout.FRAME, "handle reaches past the frame border");
+				for (Slot s : l.slots()) {
+					Rect b = s.bounds();
+					assertTrue(b.x() + b.width() <= h.x() || b.x() >= h.x() + h.width(),
+							"row " + s.index() + " overlaps the handle");
+				}
+				Rect bar = l.toolbar;
+				assertTrue(bar.x() + bar.width() <= h.x() || bar.x() >= h.x() + h.width(),
+						"toolbar overlaps the handle");
+			}
+		}
+	}
+
+	@Nested
+	@DisplayName("pinning")
+	class Pinning {
+
+		private SidebarLayout at(double reveal, boolean onLeft) {
+			return new SidebarLayout(960, 540, plainTabs(3), 0, onLeft, 25, reveal);
+		}
+
+		@Test
+		@DisplayName("slid away, only the peek strip is left on screen, on either side")
+		void hiddenLeavesPeek() {
+			SidebarLayout left = at(0, true);
+			assertEquals(SidebarLayout.PEEK, left.panel.x() + left.panel.width(), "left panel shows the wrong amount");
+			SidebarLayout right = at(0, false);
+			assertEquals(right.screenWidth - SidebarLayout.PEEK, right.panel.x(), "right panel shows the wrong amount");
+			assertFalse(left.revealed);
+		}
+
+		@Test
+		@DisplayName("the peek strip is the grip, so pointing at what is left brings the panel back")
+		void peekIsTheGrip() {
+			for (boolean onLeft : new boolean[] { true, false }) {
+				SidebarLayout l = at(0, onLeft);
+				Rect h = l.resizeHandle();
+				double cx = h.x() + h.width() / 2.0;
+				assertTrue(cx >= 0 && cx < l.screenWidth, "grip is off screen, onLeft=" + onLeft);
+				assertTrue(l.isOver(cx, 270), "pointing at the grip does not count as over the panel");
+			}
+		}
+
+		@Test
+		@DisplayName("open, it sits flush with the window edge as it always did")
+		void openIsFlush() {
+			assertEquals(0, at(1, true).panel.x());
+			SidebarLayout right = at(1, false);
+			assertEquals(right.screenWidth, right.panel.x() + right.panel.width());
+			assertTrue(at(1, true).revealed);
+		}
+
+		@Test
+		@DisplayName("the slide takes the same time at any frame rate")
+		void slideIsFrameRateIndependent() {
+			for (double frame : new double[] { 1, 7, 16.6, 33.3, 50 }) {
+				double r = 0;
+				double t = 0;
+				while (r < 1 && t < 10_000) {
+					r = SidebarLayout.stepReveal(r, 1, frame);
+					t += frame;
+				}
+				assertEquals(1.0, r, "never arrived at " + frame + "ms frames");
+				// Within one frame of the nominal time; summing 1/160 steps can land a hair short of 1.
+				assertTrue(t >= SidebarLayout.SLIDE_MS && t <= SidebarLayout.SLIDE_MS + frame,
+						"took " + t + "ms at " + frame + "ms frames");
+			}
+		}
+
+		@Test
+		@DisplayName("the pin button sits beside craft-all, and the middle buttons give way to it")
+		void pinButtonPlacement() {
+			for (int width : new int[] { 360, 480, 640, 960, 1280 }) {
+				SidebarLayout l = new SidebarLayout(width, 540, plainTabs(3), 0, true, 25, 1.0);
+				if (!l.pinFits()) {
+					continue;
+				}
+				Rect pin = l.pinButton();
+				Rect all = l.craftAllButton();
+				assertTrue(pin.x() + pin.width() <= all.x(), "pin overlaps craft-all at " + width);
+				Rect settings = l.settingsButton();
+				assertTrue(pin.x() >= settings.x() + settings.width(), "pin overlaps settings at " + width);
+				for (Rect r : new Rect[] { l.newGroupButton(), l.choicesButton(), l.reopenButton() }) {
+					if (l.toolbarFits(r)) {
+						assertTrue(r.x() + r.width() <= pin.x(), "a fitting button overlaps the pin at " + width);
+					}
+				}
+			}
+		}
 	}
 }

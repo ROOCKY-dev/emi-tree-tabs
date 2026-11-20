@@ -1,7 +1,9 @@
 package dev.roocky.emitreetabs.config;
 
+import dev.roocky.emitreetabs.ui.EmiSkin;
 import dev.roocky.emitreetabs.ui.Icons;
 import dev.roocky.emitreetabs.ui.SidebarLayout;
+import dev.roocky.emitreetabs.ui.SidebarScale;
 import dev.roocky.emitreetabs.ui.TabLayout;
 import dev.roocky.emitreetabs.ui.TabPalette;
 import dev.isxander.yacl3.gui.image.ImageRenderer;
@@ -30,6 +32,7 @@ public final class BarPreview implements ImageRenderer {
 
 	private final java.util.function.Supplier<String> orientation;
 	private final java.util.function.BooleanSupplier barAtBottom;
+	private final java.util.function.BooleanSupplier frame;
 
 	/**
 	 * @param orientation the <em>pending</em> orientation, not the saved one, so the preview
@@ -37,7 +40,8 @@ public final class BarPreview implements ImageRenderer {
 	 * @param barAtBottom likewise
 	 */
 	public BarPreview(java.util.function.Supplier<String> orientation,
-			java.util.function.BooleanSupplier barAtBottom) {
+			java.util.function.BooleanSupplier barAtBottom, java.util.function.BooleanSupplier frame) {
+		this.frame = frame;
 		this.orientation = orientation;
 		this.barAtBottom = barAtBottom;
 	}
@@ -55,7 +59,7 @@ public final class BarPreview implements ImageRenderer {
 	 * Tall enough for the sidebar to show three rows with names on them.
 	 *
 	 * <p>At 74 it fitted one nameless row, under a caption promising "room for names at any GUI
-	 * scale" - the preview contradicting its own label. The strip only ever needs 22 of this; the
+	 * scale" - the preview contradicting its own label. The strip only ever needs 26 of this; the
 	 * rest is where its caption goes.
 	 */
 	private static final int PREVIEW_HEIGHT = 120;
@@ -65,7 +69,7 @@ public final class BarPreview implements ImageRenderer {
 		Font font = Minecraft.getInstance().font;
 		graphics.fill(x, y, x + width, y + PREVIEW_HEIGHT, 0xFF101018);
 
-		if (vertical(width)) {
+		if (vertical()) {
 			drawSidebar(graphics, font, x, y, width);
 		} else {
 			drawStrip(graphics, font, x, y, width);
@@ -83,7 +87,7 @@ public final class BarPreview implements ImageRenderer {
 	 * <p>So an explicit choice is drawn as chosen, and only {@code auto} asks a question — of the
 	 * real window, because that is the screen auto would actually be deciding for.
 	 */
-	private boolean vertical(int width) {
+	private boolean vertical() {
 		String mode = orientation.get();
 		if ("horizontal".equalsIgnoreCase(mode)) {
 			return false;
@@ -95,7 +99,7 @@ public final class BarPreview implements ImageRenderer {
 		if (client == null || client.getWindow() == null) {
 			return false;
 		}
-		return SidebarLayout.fits(client.getWindow().getGuiScaledWidth(),
+		return SidebarScale.standard().fits(client.getWindow().getGuiScaledWidth(),
 				client.getWindow().getGuiScaledHeight());
 	}
 
@@ -105,42 +109,61 @@ public final class BarPreview implements ImageRenderer {
 		// edge - visible in game as a strip that ignored the toggle right next to it.
 		TabLayout l = new TabLayout(width, PREVIEW_HEIGHT, SAMPLE_TABS, barAtBottom.getAsBoolean());
 		int barY = y + l.barY;
-		g.fill(x, barY, x + width, barY + TabLayout.HEIGHT, TabPalette.BAR);
-		int borderY = l.barAtBottom ? barY : barY + TabLayout.HEIGHT - 1;
-		g.fill(x, borderY, x + width, borderY + 1, TabPalette.BORDER);
+		// The same pieces TabBar draws, in the same order, so a resource pack's look shows here too.
+		g.fillGradient(x, barY, x + width, barY + TabLayout.HEIGHT, 0xC0101010, 0xD0101010);
+		int shelfY = l.barAtBottom ? barY : barY + TabLayout.HEIGHT - TabLayout.SHELF;
+		int contentY = y + l.contentY();
+		for (int pass = 0; pass < 2; pass++) {
+			for (int i = 0; i < SAMPLE_TABS; i++) {
+				boolean active = i == 0;
+				// Unselected tabs first, then the shelf, then the selected one over it.
+				if (active != (pass == 1)) {
+					continue;
+				}
+				int tx = x + l.tabX(i, 0);
+				if (tx + l.tabWidth < x || tx > x + width) {
+					continue;
+				}
+				int drop = active ? 0 : 2;
+				int artHeight = TabLayout.HEIGHT - TabLayout.SHELF - drop + 3;
+				int artY = l.barAtBottom ? barY + TabLayout.SHELF - 3 : barY + drop;
+				EmiSkin.tab(g, tx, artY, l.tabWidth - 1, artHeight, active, l.barAtBottom);
 
-		for (int i = 0; i < SAMPLE_TABS; i++) {
-			int tx = x + l.tabX(i, 0);
-			if (tx + l.tabWidth < x || tx > x + width) {
-				continue;
+				int lineY = l.barAtBottom ? contentY - 2 : contentY + 16;
+				g.fill(tx + 2, lineY, tx + l.tabWidth - 3, lineY + 2, TabPalette.PROGRESS_PARTIAL);
+
+				int iconX = l.density == TabLayout.Density.ICON
+						? tx + (l.tabWidth - 1 - TabLayout.ICON_SIZE) / 2 : tx + 5;
+				g.fill(iconX, contentY, iconX + TabLayout.ICON_SIZE, contentY + TabLayout.ICON_SIZE,
+						ICON_TINTS[i % ICON_TINTS.length]);
+
+				int budget = l.labelBudget(true);
+				if (budget > 4) {
+					g.drawString(font, trim(font, NAMES[i % NAMES.length], budget),
+							tx + 5 + TabLayout.ICON_SIZE + 3, contentY + 4,
+							active ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
+				}
+				TabLayout.Rect close = l.closeRect(i, 0, true, active);
+				Icons.centred(g, Icons.CLOSE, x + close.x(), y + close.y(), close.width(),
+						close.height(), EmiSkin.TEXT_DIM);
 			}
-			boolean active = i == 0;
-			g.fill(tx, barY + 1, tx + l.tabWidth - 1, barY + TabLayout.HEIGHT - 1,
-					active ? TabPalette.TAB_ACTIVE : TabPalette.TAB);
-			int accentY = l.barAtBottom ? barY + TabLayout.HEIGHT - 3 : barY + 1;
-			g.fill(tx, accentY, tx + l.tabWidth - 1, accentY + (active ? 2 : 1),
-					active ? TabPalette.ACCENT : TabPalette.PROGRESS_PARTIAL);
-
-			int iconX = l.density == TabLayout.Density.ICON
-					? tx + (l.tabWidth - TabLayout.ICON_SIZE) / 2 : tx + 4;
-			g.fill(iconX, barY + 3, iconX + TabLayout.ICON_SIZE, barY + 3 + TabLayout.ICON_SIZE,
-					ICON_TINTS[i % ICON_TINTS.length]);
-
-			int budget = l.labelBudget(true);
-			if (budget > 4) {
-				g.drawString(font, trim(font, NAMES[i % NAMES.length], budget),
-						tx + 4 + TabLayout.ICON_SIZE + 3, barY + 7,
-						active ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
+			if (pass == 0) {
+				g.enableScissor(x, shelfY, x + width, shelfY + TabLayout.SHELF);
+				EmiSkin.panel(g, x - TabLayout.SHELF, l.barAtBottom ? shelfY - TabLayout.SHELF : shelfY,
+						width + TabLayout.SHELF * 2, TabLayout.SHELF * 2);
+				g.disableScissor();
 			}
-			TabLayout.Rect close = l.closeRect(i, 0, true, active);
-			Icons.centred(g, Icons.CLOSE, x + close.x(), y + close.y(), close.width(),
-					close.height(), TabPalette.TEXT_DIM);
 		}
 
-		Icons.centred(g, Icons.CRAFT_ALL, x + l.allButtonX(), barY + 1,
-				TabLayout.ALL_BUTTON_WIDTH, TabLayout.HEIGHT - 2, TabPalette.TEXT_DIM);
-		Icons.centred(g, Icons.NEW_TAB, x + l.addButtonX(), barY + 1,
-				TabLayout.ADD_BUTTON_WIDTH, TabLayout.HEIGHT - 2, TabPalette.TEXT_DIM);
+		int buttonY = contentY - 1;
+		EmiSkin.button(g, x + l.allButtonX(), buttonY, TabLayout.ALL_BUTTON_WIDTH,
+				TabLayout.ICON_SIZE + 2, EmiSkin.State.NORMAL);
+		Icons.centred(g, Icons.CRAFT_ALL, x + l.allButtonX(), buttonY,
+				TabLayout.ALL_BUTTON_WIDTH, TabLayout.ICON_SIZE + 2, EmiSkin.TEXT_DIM);
+		EmiSkin.button(g, x + l.addButtonX(), buttonY, TabLayout.ADD_BUTTON_WIDTH,
+				TabLayout.ICON_SIZE + 2, EmiSkin.State.NORMAL);
+		Icons.centred(g, Icons.NEW_TAB, x + l.addButtonX(), buttonY,
+				TabLayout.ADD_BUTTON_WIDTH, TabLayout.ICON_SIZE + 2, EmiSkin.TEXT_DIM);
 
 		caption(g, font, x, y, width, l.barAtBottom, Component.translatable(
 				"emi.tree_tabs.config.preview.density." + l.density.name().toLowerCase(),
@@ -156,33 +179,47 @@ public final class BarPreview implements ImageRenderer {
 		int panelY = y;
 		int panelHeight = PREVIEW_HEIGHT - 18;
 
-		g.fill(panelX, panelY, panelX + panelWidth, panelY + panelHeight, TabPalette.PANEL);
-		g.fill(panelX, panelY, panelX + panelWidth, panelY + 1, TabPalette.PANEL_HI);
-		g.fill(panelX, panelY, panelX + 1, panelY + panelHeight, TabPalette.PANEL_HI);
-		g.fill(panelX, panelY + panelHeight - 1, panelX + panelWidth, panelY + panelHeight,
-				TabPalette.PANEL_LO);
-		g.fill(panelX + panelWidth - 1, panelY, panelX + panelWidth, panelY + panelHeight,
-				TabPalette.PANEL_LO);
+		if (frame.getAsBoolean()) {
+			EmiSkin.sidebarPanel(g, panelX, panelY, panelWidth, panelHeight);
+		}
 
-		int rowY = panelY + SidebarLayout.PAD;
-		int rowX = panelX + SidebarLayout.PAD;
-		int rowWidth = panelWidth - SidebarLayout.PAD * 2;
-		for (int i = 0; i < 3 && rowY + SidebarLayout.ROW_HEIGHT < panelY + panelHeight; i++) {
-			g.fill(rowX, rowY, rowX + rowWidth, rowY + SidebarLayout.ROW_HEIGHT,
-					i == 0 ? TabPalette.TAB_ACTIVE : TabPalette.TAB);
-			g.fill(rowX + 5, rowY + 5, rowX + 5 + SidebarLayout.ICON, rowY + 5 + SidebarLayout.ICON,
+		// The same geometry as the real sidebar: toolbar on top, then rows with their gaps.
+		int inner = panelWidth - SidebarLayout.PAD * 2;
+		int barX = panelX + SidebarLayout.PAD;
+		int barY = panelY + SidebarLayout.PAD;
+		if (frame.getAsBoolean()) {
+			EmiSkin.inset(g, barX, barY, inner, SidebarLayout.TOOLBAR);
+		}
+		int buttonY = barY + SidebarLayout.TOOLBAR_PAD;
+		EmiSkin.button(g, barX + SidebarLayout.TOOLBAR_PAD, buttonY, SidebarLayout.BUTTON,
+				SidebarLayout.BUTTON, EmiSkin.State.NORMAL);
+		EmiSkin.button(g, barX + inner - SidebarLayout.TOOLBAR_PAD - SidebarLayout.BUTTON, buttonY,
+				SidebarLayout.BUTTON, SidebarLayout.BUTTON, EmiSkin.State.NORMAL);
+
+		int rowY = barY + SidebarLayout.TOOLBAR + SidebarLayout.TOOLBAR_GAP;
+		int rowX = barX;
+		int rowWidth = inner;
+		int rowBottom = panelY + panelHeight - SidebarLayout.PAD;
+		for (int i = 0; i < 3 && rowY + SidebarLayout.ROW_HEIGHT <= rowBottom; i++) {
+			if (i == 0) {
+				EmiSkin.panel(g, rowX, rowY, rowWidth, SidebarLayout.ROW_HEIGHT);
+			} else {
+				EmiSkin.slot(g, rowX, rowY, rowWidth, SidebarLayout.ROW_HEIGHT);
+			}
+			int iconX = rowX + SidebarLayout.ROW_PAD + 2;
+			int iconY = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.ICON) / 2;
+			g.fill(iconX, iconY, iconX + SidebarLayout.ICON, iconY + SidebarLayout.ICON,
 					ICON_TINTS[i % ICON_TINTS.length]);
-			int budget = rowWidth - SidebarLayout.ICON - SidebarLayout.MARKER - 20;
+			int mx = rowX + rowWidth - SidebarLayout.MARKER - SidebarLayout.ROW_PAD;
+			int my = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.MARKER) / 2;
+			int budget = mx - (iconX + SidebarLayout.ICON + 5) - 4;
 			if (budget > 6) {
 				g.drawString(font, trim(font, NAMES[i % NAMES.length], budget),
-						rowX + SidebarLayout.ICON + 10, rowY + (SidebarLayout.ROW_HEIGHT - 8) / 2,
-						i == 0 ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
+						iconX + SidebarLayout.ICON + 5, rowY + (SidebarLayout.ROW_HEIGHT - 8) / 2,
+						i == 0 ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
 			}
-			int mx = rowX + rowWidth - SidebarLayout.MARKER - 5;
-			int my = rowY + (SidebarLayout.ROW_HEIGHT - SidebarLayout.MARKER) / 2;
-			g.fill(mx, my, mx + SidebarLayout.MARKER, my + SidebarLayout.MARKER,
-					TabPalette.MARKER_BG);
-			g.drawString(font, "1", mx + 6, my + 4, TabPalette.TEXT_DIM, false);
+			EmiSkin.slot(g, mx, my, SidebarLayout.MARKER, SidebarLayout.MARKER);
+			g.drawString(font, "1", mx + 6, my + 4, EmiSkin.TEXT, true);
 			rowY += SidebarLayout.ROW_HEIGHT + SidebarLayout.ROW_GAP;
 		}
 

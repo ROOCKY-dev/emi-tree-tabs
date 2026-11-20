@@ -40,6 +40,11 @@ public final class RowName {
 		return box != null && groupId == id;
 	}
 
+	/** True while any row's name is being typed. */
+	public static boolean isOpen() {
+		return box != null;
+	}
+
 	/** The same for a tab row. */
 	public static boolean editingTab(int index) {
 		return box != null && tabIndex == index;
