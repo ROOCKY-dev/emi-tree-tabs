@@ -50,6 +50,24 @@ public final class TreeSidebar {
 	private static double dragY;
 	private static boolean dragging;
 
+	/** True while the panel's inner edge is being dragged. */
+	private static boolean resizing;
+	/** Where the edge was relative to the pointer when grabbed, so the edge does not jump to it. */
+	private static double resizeGrab;
+	/** The width being dragged to; written to the config when the button comes up. */
+	private static int resizePercent;
+
+	/**
+	 * How far an unpinned panel is slid into view, 0 to 1. Negative until the first frame, which
+	 * starts it where it belongs instead of animating in from nowhere every time the screen opens.
+	 */
+	private static double reveal = -1;
+	private static long revealClock;
+	/** When the pointer was last over the panel. An unpinned panel waits a moment before leaving. */
+	private static long lastOverAt;
+	/** Long enough that brushing past the edge, or a jittery hand on the list, does not shut it. */
+	private static final long HIDE_DELAY_MS = 350;
+
 	private TreeSidebar() {
 	}
 
@@ -64,7 +82,39 @@ public final class TreeSidebar {
 	private static SidebarLayout layout(Screen screen, SidebarRows.Result rows) {
 		SidebarScale scale = scale();
 		return new SidebarLayout(scale.toUnits(screen.width), scale.toUnits(screen.height), rows.rows(), scroll,
-				!TreeTabsConfig.barAtBottom);
+				!TreeTabsConfig.barAtBottom, resizing ? resizePercent : TreeTabsConfig.sidebarWidthPercent,
+				currentReveal());
+	}
+
+	private static double currentReveal() {
+		return TreeTabsConfig.sidebarPinned ? 1 : Math.max(0, reveal);
+	}
+
+	/**
+	 * Slides an unpinned panel towards where it should be this frame.
+	 *
+	 * <p>Open while the pointer is over it, and while anything on it is mid-gesture — a drag, a
+	 * resize, a name or a batch count being typed — because sliding away under a half-finished edit
+	 * would throw it at the tree.
+	 */
+	private static void updateReveal(Screen screen, int mouseX, int mouseY) {
+		long now = System.currentTimeMillis();
+		if (TreeTabsConfig.sidebarPinned) {
+			reveal = 1;
+			revealClock = now;
+			return;
+		}
+		boolean busy = resizing || dragTab >= 0 || RowName.isOpen() || BatchInput.isOpen();
+		if (busy || layout(screen, TreeTabs.sidebarRows()).isOver(mouseX, mouseY)) {
+			lastOverAt = now;
+		}
+		double target = now - lastOverAt < HIDE_DELAY_MS ? 1 : 0;
+		if (reveal < 0) {
+			reveal = target;
+		} else {
+			reveal = SidebarLayout.stepReveal(reveal, target, Math.min(100, now - revealClock));
+		}
+		revealClock = now;
 	}
 
 	private static SidebarScale scale() {
@@ -96,12 +146,15 @@ public final class TreeSidebar {
 		mouseY = (int) scale.toUnits((double) mouseY);
 		TreeTabs.syncActiveCraftingMode();
 
+		updateReveal(screen, mouseX, mouseY);
 		SidebarRows.Result rows = TreeTabs.sidebarRows();
 		SidebarLayout l = layout(screen, rows);
 		scroll = l.clampScroll(scroll);
 
 		Font font = Minecraft.getInstance().font;
-		Slot hovered = l.slotAt(mouseX, mouseY);
+		// Nothing on a panel that is still moving answers the pointer, so a row does not light up
+		// as it slides past and then turn out not to be clickable.
+		Slot hovered = l.revealed ? l.slotAt(mouseX, mouseY) : null;
 
 		// Only cost the trees that are actually on screen.
 		int first = Integer.MAX_VALUE;
@@ -119,7 +172,10 @@ public final class TreeSidebar {
 
 		graphics.pose().pushPose();
 		graphics.pose().scale((float) scale.factor, (float) scale.factor, 1f);
-		panel(graphics, l.panel);
+		if (TreeTabsConfig.sidebarFrame) {
+			panel(graphics, l.panel);
+		}
+		drawGrip(graphics, l, mouseX, mouseY);
 
 		// GuiGraphics scissor coordinates ignore the pose on 1.21.1.
 		Rect clip = scale.toScreen(l.viewport);
@@ -144,13 +200,13 @@ public final class TreeSidebar {
 		}
 		graphics.disableScissor();
 
-		drawFooter(graphics, l, mouseX, mouseY);
+		drawToolbar(graphics, l, mouseX, mouseY);
 		graphics.pose().popPose();
 
 		if (hovered != null) {
 			tooltip(screen, graphics, font, l, rows, hovered, mouseX, mouseY);
-		} else {
-			footerTooltip(screen, graphics, font, l, mouseX, mouseY);
+		} else if (l.revealed) {
+			toolbarTooltip(screen, graphics, font, l, mouseX, mouseY);
 		}
 	}
 
@@ -205,21 +261,26 @@ public final class TreeSidebar {
 	 * <p>Worth the lines: a button with a drawn icon and no tooltip is a button you have to click
 	 * to find out about, and one of these creates something.
 	 */
-	private static void footerTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
+	private static void toolbarTooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
 			int mouseX, int mouseY) {
 		List<Component> lines = new ArrayList<>();
-		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+		if (TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())
 				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.group.new"));
 			lines.add(Component.translatable("emi.tree_tabs.group.new.desc")
 					.withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("emi.tree_tabs.group.new.hint")
 					.withStyle(ChatFormatting.DARK_GRAY));
+		} else if (l.pinFits() && l.pinButton().contains(mouseX, mouseY)) {
+			lines.add(Component.translatable(TreeTabsConfig.sidebarPinned
+					? "emi.tree_tabs.sidebar.unpin" : "emi.tree_tabs.sidebar.pin"));
+			lines.add(Component.translatable("emi.tree_tabs.sidebar.pin.desc")
+					.withStyle(ChatFormatting.GRAY));
 		} else if (l.craftAllButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.all.title"));
 			lines.add(Component.translatable("emi.tree_tabs.all.state",
 					TreeTabs.craftingCount(), TreeTabs.count()).withStyle(ChatFormatting.GRAY));
-		} else if (l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
+		} else if (l.toolbarFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.choices.button"));
 			lines.add((choiceCount() > 0
 					? Component.translatable("emi.tree_tabs.choices.button.desc", choiceCount())
@@ -227,7 +288,7 @@ public final class TreeSidebar {
 					.withStyle(ChatFormatting.GRAY));
 			lines.add(Component.translatable("emi.tree_tabs.choices.button.hint")
 					.withStyle(ChatFormatting.DARK_GRAY));
-		} else if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+		} else if (TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())
 				&& l.reopenButton().contains(mouseX, mouseY)) {
 			lines.add(Component.translatable("emi.tree_tabs.reopen.button"));
 			lines.add(Component.translatable("emi.tree_tabs.reopen.button.hint")
@@ -260,13 +321,25 @@ public final class TreeSidebar {
 		return choiceCount;
 	}
 
+	/**
+	 * Three short bars on the inner edge: the handle that resizes the panel, and on an unpinned
+	 * panel the part that stays on screen to say where it went.
+	 */
+	private static void drawGrip(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
+		Rect h = l.resizeHandle();
+		boolean lit = resizing || l.revealed && h.contains(mouseX, mouseY);
+		int colour = lit ? EmiSkin.TEXT : EmiSkin.TEXT_DIM;
+		int x = h.x() + (h.width() - 2) / 2;
+		int top = h.y() + h.height() / 2 - 14;
+		for (int i = 0; i < 3; i++) {
+			int y = top + i * 10;
+			g.fill(x, y, x + 2, y + 8, colour);
+		}
+	}
+
+	/** EMI's own sidebar frame, so the panel matches the item list beside it under any pack. */
 	private static void panel(GuiGraphics g, Rect r) {
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL);
-		// Vanilla's bevel: light on the top and left, dark on the bottom and right.
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + 1, TabPalette.PANEL_HI);
-		g.fill(r.x(), r.y(), r.x() + 1, r.y() + r.height(), TabPalette.PANEL_HI);
-		g.fill(r.x(), r.y() + r.height() - 1, r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
-		g.fill(r.x() + r.width() - 1, r.y(), r.x() + r.width(), r.y() + r.height(), TabPalette.PANEL_LO);
+		EmiSkin.sidebarPanel(g, r.x(), r.y(), r.width(), r.height());
 	}
 
 	private static void outline(GuiGraphics g, Rect r, int colour) {
@@ -284,15 +357,22 @@ public final class TreeSidebar {
 		}
 		Rect b = s.bounds();
 		boolean isActive = tabIndex == TreeTabs.activeIndex();
-		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				isActive ? TabPalette.TAB_ACTIVE : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-
-		// State on the border, not a corner pip: down a column a stripe reads at a glance.
-		int state = isActive ? TabPalette.ACCENT : progressColour(tab);
-		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), state);
+		// A tab is a slot well, and the open one is raised out of the list as an EMI panel: the
+		// same sunken-or-raised language EMI's own screens use, and both come from its textures.
 		if (isActive) {
-			outline(g, b, TabPalette.ACCENT);
+			EmiSkin.panel(g, b.x(), b.y(), b.width(), b.height());
+		} else {
+			EmiSkin.slot(g, b.x(), b.y(), b.width(), b.height());
+			if (hovered) {
+				EmiSkin.highlight(g, b.x() + 1, b.y() + 1, b.width() - 2, b.height() - 2);
+			}
 		}
+
+		// State on the leading edge, not a corner pip: down a column a stripe reads at a glance.
+		// Inside the border, so the pack's edge stays whole.
+		int inset = isActive ? 3 : 1;
+		g.fill(b.x() + inset, b.y() + inset, b.x() + inset + 2, b.y() + b.height() - inset,
+				progressColour(tab));
 
 		EmiIngredient icon = tab.icon();
 		if (!icon.isEmpty()) {
@@ -305,7 +385,7 @@ public final class TreeSidebar {
 		if (budget > 6 && !RowName.editingTab(tabIndex)) {
 			g.drawString(font, tab.trimmedLabel(font, budget),
 					SidebarLayout.labelStart(b, false), b.y() + (b.height() - 8) / 2,
-					isActive ? TabPalette.TEXT : TabPalette.TEXT_DIM, false);
+					isActive ? EmiSkin.TEXT : EmiSkin.TEXT_DIM, true);
 		}
 		drawActions(g, l, s, shown, Set.of(), mouseX, mouseY);
 
@@ -327,15 +407,17 @@ public final class TreeSidebar {
 		Rect b = s.bounds();
 		// The header fills the panel width as its own background — that is what separates it from a
 		// tab, which only has a border.
-		g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
-				hovered ? TabPalette.GROUP_HOVER : TabPalette.GROUP);
+		// EMI's category-title bar, the thing it puts a heading on.
+		EmiSkin.inset(g, b.x(), b.y(), b.width(), b.height());
+		if (hovered) {
+			EmiSkin.highlight(g, b.x(), b.y(), b.width(), b.height());
+		}
 		g.fill(b.x(), b.y(), b.x() + 3, b.y() + b.height(), group.colour);
-		g.fill(b.x(), b.y() + b.height() - 1, b.x() + b.width(), b.y() + b.height(), TabPalette.BORDER);
 
 		Rect c = s.collapse();
 		Icons.centred(g, group.collapsed ? Icons.CARET_RIGHT : Icons.CARET_DOWN,
 				c.x(), c.y(), c.width(), c.height(),
-				l.overCollapse(s, mouseX, mouseY) ? TabPalette.TEXT : TabPalette.TEXT_DIM);
+				l.overCollapse(s, mouseX, mouseY) ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 
 		// Parking used to show only as dimmed text, which reads as "disabled" rather than "set
 		// aside for now". Now the park button stays up on a parked header: the state and the control
@@ -347,7 +429,7 @@ public final class TreeSidebar {
 		if (budget > 6 && !RowName.editingGroup(group.id)) {
 			g.drawString(font, trim(font, group.name, budget),
 					SidebarLayout.labelStart(b, true), b.y() + (b.height() - 8) / 2,
-					group.parked ? TabPalette.TEXT_DIM : TabPalette.TEXT, false);
+					group.parked ? EmiSkin.TEXT_DIM : EmiSkin.TEXT, true);
 		}
 		drawActions(g, l, s, shown, lit, mouseX, mouseY);
 
@@ -379,9 +461,9 @@ public final class TreeSidebar {
 			}
 			int ink;
 			if (a.kind() == pointed) {
-				ink = a.kind() == RowAction.CLOSE ? TabPalette.CLOSE_HOVER : TabPalette.TEXT;
+				ink = a.kind() == RowAction.CLOSE ? TabPalette.CLOSE_HOVER : EmiSkin.TEXT;
 			} else {
-				ink = lit.contains(a.kind()) ? TabPalette.TEXT : TabPalette.TEXT_DIM;
+				ink = lit.contains(a.kind()) ? EmiSkin.TEXT : EmiSkin.TEXT_DIM;
 			}
 			Rect r = a.bounds();
 			Icons.centred(g, actionIcon(a.kind()), r.x(), r.y(), r.width(), r.height(), ink);
@@ -402,52 +484,71 @@ public final class TreeSidebar {
 	private static void marker(GuiGraphics g, Font font, Rect r, String count,
 			boolean crafting, boolean hovered) {
 		boolean lit = crafting || hovered;
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? TabPalette.CRAFTING : TabPalette.MARKER_BG);
-		outline(g, r, lit ? TabPalette.CRAFTING_EDGE : TabPalette.OUTLINE);
-		int ink = lit ? TabPalette.INK_ON_LIT : TabPalette.TEXT_DIM;
+		// An EMI slot, filled with the crafting colour while lit. The colour is status, so it stays
+		// ours; the well around it is the pack's.
+		EmiSkin.slot(g, r.x(), r.y(), r.width(), r.height());
+		if (lit) {
+			g.fill(r.x() + 1, r.y() + 1, r.x() + r.width() - 1, r.y() + r.height() - 1, TabPalette.CRAFTING);
+		}
+		int ink = lit ? TabPalette.INK_ON_LIT : EmiSkin.TEXT;
 		if (hovered) {
 			// The number is only information until you reach for it; then the same square is the
 			// control, and says so with the mark the craft-all button uses.
 			Icons.centred(g, Icons.CRAFT_ONE, r.x(), r.y(), r.width(), r.height(), ink);
 		} else {
 			int w = font.width(count);
-			g.drawString(font, count, r.x() + (r.width() - w) / 2, r.y() + (r.height() - 8) / 2,
-					ink, false);
+			float fit = Math.min(1f, (r.width() - 2f) / Math.max(1, w));
+			g.pose().pushPose();
+			g.pose().translate(r.x() + (r.width() - w * fit) / 2f, r.y() + (r.height() - 8 * fit) / 2f, 0);
+			g.pose().scale(fit, fit, 1f);
+			g.drawString(font, count, 0, 0, ink, !lit);
+			g.pose().popPose();
 		}
 	}
 
-	private static void drawFooter(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
+	private static void drawToolbar(GuiGraphics g, SidebarLayout l, int mouseX, int mouseY) {
+		Rect bar = l.toolbar;
+		if (TreeTabsConfig.sidebarFrame) {
+			EmiSkin.inset(g, bar.x(), bar.y(), bar.width(), bar.height());
+		}
 		Rect all = l.craftAllButton();
 		// No settings screen installed means no button, rather than a button that does nothing.
 		if (ConfigScreenHook.available()) {
 			Rect settings = l.settingsButton();
 			button(g, settings, Icons.SETTINGS, settings.contains(mouseX, mouseY), false);
 		}
-		if (TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())) {
+		if (TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())) {
 			Rect group = l.newGroupButton();
 			button(g, group, Icons.NEW_GROUP, group.contains(mouseX, mouseY), false);
 		}
 		// Always there, so the screen can be found before it is needed. Lit while the trees
 		// disagree, because then it is a thing to attend to rather than a thing to do.
-		if (l.footerFits(l.choicesButton())) {
+		if (l.toolbarFits(l.choicesButton())) {
 			Rect choices = l.choicesButton();
 			button(g, choices, Icons.CHOICES, choices.contains(mouseX, mouseY), choiceCount() > 0);
 		}
-		if (TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())) {
+		if (TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())) {
 			Rect reopen = l.reopenButton();
 			button(g, reopen, Icons.REOPEN, reopen.contains(mouseX, mouseY), false);
+		}
+		if (l.pinFits()) {
+			// Bright while pinned, dim while it slides away: the state and its switch are one icon.
+			Rect pin = l.pinButton();
+			boolean over = pin.contains(mouseX, mouseY);
+			EmiSkin.button(g, pin.x(), pin.y(), pin.width(), pin.height(), EmiSkin.State.of(true, over));
+			Icons.centred(g, Icons.PIN, pin.x(), pin.y(), pin.width(), pin.height(),
+					TreeTabsConfig.sidebarPinned || over ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 		}
 		button(g, all, Icons.CRAFT_ALL, all.contains(mouseX, mouseY), TreeTabs.craftingCount() > 0);
 	}
 
 	private static void button(GuiGraphics g, Rect r, Icons.Sprite icon,
 			boolean hovered, boolean lit) {
-		g.fill(r.x(), r.y(), r.x() + r.width(), r.y() + r.height(),
-				lit ? TabPalette.CRAFTING : hovered ? TabPalette.TAB_HOVER : TabPalette.TAB);
-		outline(g, r, TabPalette.OUTLINE);
+		// EMI's button, in its own hover state. Lit says "attend to this", which is status and so a
+		// colour of ours on the icon rather than a different button.
+		EmiSkin.button(g, r.x(), r.y(), r.width(), r.height(), EmiSkin.State.of(true, hovered));
 		Icons.centred(g, icon, r.x(), r.y(), r.width(), r.height(),
-				lit ? TabPalette.INK_ON_LIT : hovered ? TabPalette.TEXT : TabPalette.TEXT_DIM);
+				lit ? TabPalette.CRAFTING : hovered ? EmiSkin.TEXT : EmiSkin.TEXT_DIM);
 	}
 
 	private static void tooltip(Screen screen, GuiGraphics g, Font font, SidebarLayout l,
@@ -557,7 +658,23 @@ public final class TreeSidebar {
 		if (!l.isOver(mouseX, mouseY)) {
 			return false;
 		}
+		if (!l.revealed) {
+			// The panel is on its way in. Swallow the click rather than hand it to whatever row
+			// happens to be sliding under the pointer.
+			return true;
+		}
 
+		if (button == 0 && l.resizeHandle().contains(mouseX, mouseY)) {
+			resizing = true;
+			resizePercent = TreeTabsConfig.sidebarWidthPercent;
+			resizeGrab = edgeX(l) - mouseX;
+			return true;
+		}
+		if (button == 0 && l.pinFits() && l.pinButton().contains(mouseX, mouseY)) {
+			click();
+			togglePinned();
+			return true;
+		}
 		if (button == 0 && l.craftAllButton().contains(mouseX, mouseY)) {
 			click();
 			TreeTabs.toggleAllCrafting();
@@ -568,18 +685,18 @@ public final class TreeSidebar {
 			ConfigScreenHook.open(screen);
 			return true;
 		}
-		if (button == 0 && TreeTabs.count() > 0 && l.footerFits(l.newGroupButton())
+		if (button == 0 && TreeTabs.count() > 0 && l.toolbarFits(l.newGroupButton())
 				&& l.newGroupButton().contains(mouseX, mouseY)) {
 			click();
 			newGroup(screen);
 			return true;
 		}
-		if (button == 0 && l.footerFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
+		if (button == 0 && l.toolbarFits(l.choicesButton()) && l.choicesButton().contains(mouseX, mouseY)) {
 			click();
 			openChoices(screen);
 			return true;
 		}
-		if (button == 0 && TreeTabs.hasClosedTabs() && l.footerFits(l.reopenButton())
+		if (button == 0 && TreeTabs.hasClosedTabs() && l.toolbarFits(l.reopenButton())
 				&& l.reopenButton().contains(mouseX, mouseY)) {
 			click();
 			TreeTabs.reopenClosed();
@@ -723,6 +840,11 @@ public final class TreeSidebar {
 	public static boolean mouseDragged(Screen screen, double mouseX, double mouseY, int button) {
 		mouseX = scale().toUnits(mouseX);
 		mouseY = scale().toUnits(mouseY);
+		if (resizing && button == 0 && active(screen)) {
+			SidebarLayout l = layout(screen, TreeTabs.sidebarRows());
+			resizePercent = SidebarLayout.widthPercentFor(mouseX + resizeGrab, l.screenWidth, l.onLeft);
+			return true;
+		}
 		if (!active(screen) || dragTab < 0 || button != 0) {
 			return false;
 		}
@@ -740,6 +862,19 @@ public final class TreeSidebar {
 	 * override {@code mouseReleased}, so there is nothing to inject into.
 	 */
 	public static void tickDrag(Screen screen) {
+		if (resizing) {
+			long window = Minecraft.getInstance().getWindow().getWindow();
+			if (!active(screen)
+					|| GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_RELEASE) {
+				// Saved once, on release: writing the file on every frame of a drag would be a
+				// disk write per frame for a value only the last frame decides.
+				resizing = false;
+				if (resizePercent != TreeTabsConfig.sidebarWidthPercent) {
+					TreeTabsConfig.sidebarWidthPercent = resizePercent;
+					TreeTabsConfig.save();
+				}
+			}
+		}
 		if (dragTab < 0) {
 			return;
 		}
@@ -790,7 +925,7 @@ public final class TreeSidebar {
 		}
 	}
 
-	/** Opens the recipe-choices screen, from the footer button or from the keybind. */
+	/** Opens the recipe-choices screen, from the toolbar button or from the keybind. */
 	public static void openChoices(Screen screen) {
 		Minecraft.getInstance().setScreen(new RecipeChoicesScreen(screen));
 	}
@@ -846,8 +981,8 @@ public final class TreeSidebar {
 		if (!l.isOver(mouseX, mouseY)) {
 			return false;
 		}
-		if (l.maxScroll <= 0) {
-			// Nothing to scroll, but swallow it so the tree does not zoom under the panel.
+		if (!l.revealed || l.maxScroll <= 0) {
+			// The grip and sliding panel capture the wheel without moving hidden rows.
 			return true;
 		}
 		scroll = l.clampScroll(scroll - amount * SidebarLayout.ROW_HEIGHT);
@@ -886,6 +1021,24 @@ public final class TreeSidebar {
 		scroll = 0;
 		dragTab = -1;
 		dragging = false;
+		resizing = false;
+		// Reopening the screen starts an unpinned panel tucked away, not sliding in.
+		reveal = -1;
+		lastOverAt = 0;
+	}
+
+	/** Pins the panel open, or lets it slide away. Also reachable from the settings screen. */
+	public static void togglePinned() {
+		TreeTabsConfig.sidebarPinned = !TreeTabsConfig.sidebarPinned;
+		// Just unpinned with the pointer on the button: stay open until it leaves, like a hover.
+		lastOverAt = System.currentTimeMillis();
+		reveal = 1;
+		TreeTabsConfig.save();
+	}
+
+	/** The panel's inner edge, the one the resize handle sits on. */
+	private static double edgeX(SidebarLayout l) {
+		return l.onLeft ? l.panel.x() + l.panel.width() : l.panel.x();
 	}
 
 	// ---------------------------------------------------------------- shared
