@@ -32,10 +32,6 @@ public final class BatchInput {
 	private static final int WIDTH = 116;
 	private static final int HEIGHT = 40;
 
-	private static final int COLOR_BG = 0xF0121218;
-	private static final int COLOR_BORDER = 0xFF5A8CFF;
-	private static final int COLOR_TEXT = 0xFFE6E6E6;
-	private static final int COLOR_DIM = 0xFF9A9AA2;
 	private static final int COLOR_GOOD = 0xFF5BD16A;
 	private static final int COLOR_BAD = 0xFFD05050;
 
@@ -109,14 +105,11 @@ public final class BatchInput {
 			return;
 		}
 		Font font = Minecraft.getInstance().font;
-		graphics.fill(x, y, x + WIDTH, y + HEIGHT, COLOR_BG);
-		graphics.fill(x, y, x + WIDTH, y + 1, COLOR_BORDER);
-		graphics.fill(x, y + HEIGHT - 1, x + WIDTH, y + HEIGHT, COLOR_BORDER);
-		graphics.fill(x, y, x + 1, y + HEIGHT, COLOR_BORDER);
-		graphics.fill(x + WIDTH - 1, y, x + WIDTH, y + HEIGHT, COLOR_BORDER);
+		// EMI's panel, like the strip and the sidebar, so a resource pack restyles the popup too.
+		EmiSkin.panel(graphics, x, y, WIDTH, HEIGHT);
 
 		graphics.drawString(font, Component.translatable("emi.tree_tabs.batch.title"),
-				x + 4, y + 4, COLOR_DIM, false);
+				x + 4, y + 4, EmiSkin.TEXT, true);
 		box.render(graphics, mouseX, mouseY, delta);
 
 		// The preview. Only shown for an actual expression: echoing "256 = 256" is noise.
@@ -125,10 +118,10 @@ public final class BatchInput {
 			Formula.Result r = Formula.evaluate(text);
 			String line = r.ok() ? "= " + r.value() : r.error();
 			graphics.drawString(font, line, x + 4, y + HEIGHT - 10,
-					r.ok() ? COLOR_GOOD : COLOR_BAD, false);
+					r.ok() ? COLOR_GOOD : COLOR_BAD, true);
 		} else {
 			graphics.drawString(font, Component.translatable("emi.tree_tabs.batch.hint"),
-					x + 4, y + HEIGHT - 10, COLOR_DIM, false);
+					x + 4, y + HEIGHT - 10, EmiSkin.TEXT_DIM, true);
 		}
 	}
 

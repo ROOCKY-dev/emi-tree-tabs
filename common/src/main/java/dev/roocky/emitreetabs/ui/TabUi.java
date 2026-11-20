@@ -24,11 +24,29 @@ public final class TabUi {
 		return TreeSidebar.active(screen);
 	}
 
+	/**
+	 * Depth the tab UI is drawn at.
+	 *
+	 * <p>Item icons are drawn at z 150 (models reach 158) and their counts at 200, so a strip drawn
+	 * at 0 lost the depth test to every tree node under it: icons and counts showed through the bar
+	 * while panning. 210 clears those, and keeps our own icons (210 + 158) under the tooltips EMI
+	 * draws at 400.
+	 */
+	private static final float ABOVE_ITEMS = 210f;
+
 	public static void render(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+		// Draw whatever EMI queued first. EMI's help tooltip leaves its text in the shared buffer;
+		// the next unmanaged draw flushes it, and in 6.0 that draw came after the sidebar had set its
+		// scissor, so the text was drawn clipped to the row list and the tooltip came up empty.
+		graphics.flush();
+		graphics.pose().pushPose();
+		graphics.pose().translate(0f, 0f, ABOVE_ITEMS);
 		renderTabs(screen, graphics, mouseX, mouseY, delta);
 		// Drawn last so they sit over both layouts.
 		RowName.render(graphics, mouseX, mouseY, delta);
 		BatchInput.render(screen, graphics, mouseX, mouseY, delta);
+		graphics.flush();
+		graphics.pose().popPose();
 	}
 
 	private static void renderTabs(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta) {
